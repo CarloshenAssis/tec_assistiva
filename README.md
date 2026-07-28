@@ -40,9 +40,9 @@ Ou via Docker Compose (`db` + `redis` + `web`):
 docker compose up
 ```
 
-> Banco de dados gerenciado (Supabase ou equivalente) fica para uma fase
-> posterior — decisão explícita para a Fase 0, que usa PostgreSQL "puro"
-> local/Docker.
+> O banco de produção já está provisionado no Supabase (projeto
+> `ciclartech`, schema aplicado via migration). Ver seção "Deploy na
+> Vercel" abaixo para as variáveis de ambiente necessárias.
 
 ### Rodando os testes
 
@@ -75,8 +75,74 @@ Ativo (`ativos/tests/test_state_machine.py`, `test_services.py`,
 - Timeline, movimentações, fotos (comparação entrega × devolução) na ficha do ativo.
 - Agenda (devoluções hoje / próximos 7 dias / atrasados), Relatórios básicos e notificações automáticas (WhatsApp/Email) no empréstimo e no job diário de vencimento/atraso.
 
+### Módulo: Mapa Operacional de Ativos
+
+Página `/app/ativos/mapa/` — não é geolocalização em tempo real, é "onde
+cada ativo está" a partir de dados já cadastrados: agrupamento por
+**Unidade** e por **Bairro do beneficiário** (só para ativos emprestados),
+com filtros (categoria, status, unidade, bairro) e busca por patrimônio.
+
+A mesma **cor operacional** (`ativos/domain/cores.py::cor_operacional`) é
+usada em toda a plataforma (dashboard, lista, ficha, painel de QR Code e
+mapa), não só no mapa:
+
+| Cor | Situação |
+|---|---|
+| 🔵 Azul | Disponível |
+| 🟢 Verde | Emprestado, dentro do prazo |
+| 🟢 Verde claro | Emprestado, vence em até 7 dias |
+| 🟡 Amarelo | Em manutenção |
+| 🔴 Vermelho (claro/médio/escuro) | Atrasado — intensidade cresce com os dias de atraso |
+| ⚫ Cinza | Baixado, extraviado, inativo (fora de operação) |
+
 ### Pendente para uma próxima fase
 
 - Integração real de envio (WhatsApp Business API / SMTP) — hoje o backend registra e "envia" via log estruturado, ponto de extensão isolado em `notificacoes/services.py::_despachar`.
 - Agendamento do job diário via Celery Beat (hoje é um management command, chamável por cron).
 - Edição de templates de notificação pela UI (hoje só via Django Admin).
+- Filtro de "cidade" no Mapa (não modelado — só há um campo de cidade no Tenant, não por ativo/unidade).
+
+## Deploy na Vercel
+
+O repositório já inclui `vercel.json` + `vercel_app.py` (adaptador WSGI
+para o runtime Python da Vercel) e WhiteNoise para servir os arquivos
+estáticos. **Importante**: Django não é o ambiente nativo da Vercel
+(pensada para serverless/Next.js) — funciona, mas com uma limitação séria:
+**a Vercel não tem disco persistente entre execuções**, então uploads de
+mídia (fotos de ativos/movimentações, documentos, foto do termo assinado)
+gravados localmente **não sobrevivem**. Para produção real, troque
+`MEDIA_ROOT` por um storage externo (Supabase Storage ou S3) antes de
+depender de upload de fotos — fora do escopo desta entrega.
+
+### Variáveis de ambiente a configurar no painel da Vercel
+
+| Variável | Valor |
+|---|---|
+| `DJANGO_SECRET_KEY` | uma chave longa e aleatória (ex.: `python -c "import secrets; print(secrets.token_urlsafe(50))"`) — **nunca** a chave de desenvolvimento do `.env.example` |
+| `DJANGO_DEBUG` | `False` |
+| `DJANGO_ALLOWED_HOSTS` | `ciclartech.vercel.app` |
+| `DATABASE_URL` | `postgres://postgres:<SENHA_DO_BANCO>@db.tuqecavtmbkriwhnqzfu.supabase.co:5432/postgres` — pegue `<SENHA_DO_BANCO>` em Supabase → projeto **ciclartech** → Project Settings → Database (se não souber a senha, tem a opção "Reset database password" na mesma tela) |
+
+O projeto Supabase **ciclartech** (`tuqecavtmbkriwhnqzfu`, região
+`sa-east-1`) já foi criado e o schema completo (todas as tabelas,
+constraints, índices e o histórico de migrations do Django) já foi
+aplicado — não é necessário rodar `migrate` antes do primeiro deploy.
+
+**Passo único pendente após o primeiro deploy funcionando**: rode
+`python manage.py migrate` uma vez apontando para essa mesma
+`DATABASE_URL` (da sua máquina, com a senha em mãos) — isso não altera
+nenhuma tabela (já existem), mas dispara a criação dos `ContentType`/
+`Permission` do Django (necessários para o Django Admin funcionar
+corretamente com usuários não-superusuário) e cria o primeiro
+superusuário com `python manage.py createsuperuser`.
+
+**Segurança do Supabase**: o Supabase reportou que Row Level Security
+(RLS) está desabilitado em todas as tabelas do projeto. Como o Django
+conecta diretamente via Postgres (não pela API REST/`anon key` do
+Supabase), isso não afeta o funcionamento do app — mas deixa os dados
+acessíveis via a API REST automática do Supabase para quem tiver a
+`anon key`. Se esse projeto Supabase for usado **apenas** como banco do
+Django (sem PostgREST/client-side Supabase), considere desabilitar a API
+REST do projeto nas configurações do Supabase, em vez de habilitar RLS
+sem políticas (o que bloquearia qualquer acesso via REST, inclusive o que
+você eventualmente queira usar).

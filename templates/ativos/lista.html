@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ativos_extras %}
 {% block title %}Ativos · Ciclartech{% endblock %}
 {% block page_title %}Ativos{% endblock %}
 {% block header_actions %}
@@ -39,7 +40,7 @@
           <div style="font-size:13.5px;font-weight:500;">{{ ativo.categoria.nome }}</div>
           <div class="muted" style="font-size:12px;">{{ ativo.fabricante }}</div>
         </div>
-        <div><span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span></div>
+        <div><span class="badge {{ ativo.cor_operacional|badge_cor }}">{{ ativo.get_status_display }}</span></div>
         <div style="font-size:13px;color:#3E4A47;">{{ ativo.unidade.nome|default:"—" }}</div>
         <div style="text-align:right;color:#8DA09C;font-size:13px;">Ver ficha →</div>
       </a>

@@ -23,6 +23,15 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-secret-key-troque-em
 DEBUG = env("DJANGO_DEBUG", default=True)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
 
+# Vercel expõe a URL de produção (e as de preview) nesta env var automaticamente.
+_vercel_url = env("VERCEL_URL", default=None)
+if _vercel_url and _vercel_url not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_vercel_url)
+
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+if _vercel_url:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{_vercel_url}")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -42,6 +51,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -96,14 +106,35 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    # Sem o sufixo "Manifest": evita depender de `collectstatic` já ter
+    # rodado (a Vercel não roda comandos de build do Django
+    # automaticamente) — ainda comprime (gzip/brotli) o que o WhiteNoise
+    # serve.
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# ATENÇÃO — Vercel (serverless) não tem disco persistente entre execuções:
+# uploads de mídia (fotos de ativos/movimentações, documentos, assinatura do
+# termo) gravados em MEDIA_ROOT NÃO sobrevivem entre invocações na Vercel.
+# Para produção real nesse ambiente, MEDIA_ROOT precisa ser trocado por um
+# storage externo (Supabase Storage/S3) antes de habilitar upload de fotos
+# de verdade — ver docs/README.md, seção "Deploy na Vercel".
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "app:dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

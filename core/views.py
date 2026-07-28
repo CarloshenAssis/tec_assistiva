@@ -2,9 +2,24 @@ from django.shortcuts import render
 
 from ativos.domain.enums import StatusAtivo
 from ativos.models import Ativo, DetalheEmprestimo, Movimentacao
+from ativos.selectors import resumo_cores
 from beneficiarios.models import Beneficiario
 from core.decorators import tenant_required
 from notificacoes.models import NotificacaoEnviada
+
+# Rótulos do "resumo colorido" do dashboard (docs — Módulo Mapa Operacional
+# de Ativos): a mesma cor identifica a situação em toda a plataforma, aqui
+# como um resumo de uma linha só, sem precisar ler texto de status.
+_ROTULOS_RESUMO_CORES = [
+    ("azul", "disponíveis"),
+    ("verde", "emprestados (ok)"),
+    ("verde_claro", "vencem em breve"),
+    ("amarelo", "manutenção"),
+    ("vermelho_claro", "atrasados"),
+    ("vermelho_medio", "atrasados"),
+    ("vermelho_escuro", "atrasados"),
+    ("cinza", "baixados/inativos"),
+]
 
 
 @tenant_required
@@ -23,6 +38,13 @@ def dashboard(request):
         Movimentacao.objects.select_related("ativo", "usuario").order_by("-data_hora")[:10]
     )
 
+    contagem_cores = resumo_cores(Ativo.objects.all())
+    resumo_colorido = [
+        {"cor": cor, "rotulo": rotulo, "total": contagem_cores.get(cor, 0)}
+        for cor, rotulo in _ROTULOS_RESUMO_CORES
+        if contagem_cores.get(cor, 0) > 0
+    ]
+
     return render(
         request,
         "core/dashboard.html",
@@ -35,6 +57,7 @@ def dashboard(request):
             "manutencao": manutencao,
             "taxa_utilizacao": taxa_utilizacao,
             "movimentacoes_recentes": movimentacoes_recentes,
+            "resumo_colorido": resumo_colorido,
         },
     )
 

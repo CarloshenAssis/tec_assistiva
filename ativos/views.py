@@ -29,8 +29,10 @@ from ativos.forms import (
     RenovarForm,
 )
 from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo, FotoAtivo, Movimentacao
+from ativos.selectors import cor_de, datas_previstas_por_ativo, mapa_operacional, resolver_busca_patrimonio
 from beneficiarios.models import Beneficiario
 from core.decorators import nivel_hierarquico, tenant_required
+from core.models import Unidade
 
 TABS_FICHA = [
     ("informacoes", "Informações"),
@@ -71,13 +73,18 @@ def lista(request):
             | Q(fabricante__icontains=busca)
         )
 
+    ativos = list(ativos_qs[:200])
+    contexto_emprestimo = datas_previstas_por_ativo([a.id for a in ativos])
+    for ativo in ativos:
+        ativo.cor_operacional = cor_de(ativo, contexto_emprestimo.get(ativo.id)).value
+
     return render(
         request,
         "ativos/lista.html",
         {
             "nav_atual": "ativos",
             "resumo_categorias": resumo_categorias,
-            "ativos": ativos_qs[:200],
+            "ativos": ativos,
             "categoria_filtro": int(categoria_filtro) if categoria_filtro else None,
             "busca": busca,
         },
@@ -146,6 +153,9 @@ def ficha(request, pk):
     ativo = get_object_or_404(
         Ativo.objects.select_related("categoria", "subcategoria", "unidade", "fornecedor"), pk=pk
     )
+    contexto_emprestimo = datas_previstas_por_ativo([ativo.id]).get(ativo.id)
+    ativo.cor_operacional = cor_de(ativo, contexto_emprestimo).value
+
     aba = request.GET.get("aba", "informacoes")
     acoes = acoes_disponiveis(ativo.status_enum, nivel_hierarquico=nivel_hierarquico(request))
     acoes = _preparar_acoes_para_template(ativo, acoes, origem="ficha")
@@ -206,6 +216,9 @@ def resolver_qr(request, token):
     ativo = Ativo.objects.select_related("categoria", "unidade").filter(qr_token=token).first()
     if ativo is None:
         return render(request, "ativos/quick_panel_nao_encontrado.html", {"nav_atual": "scan"}, status=404)
+
+    contexto_emprestimo = datas_previstas_por_ativo([ativo.id]).get(ativo.id)
+    ativo.cor_operacional = cor_de(ativo, contexto_emprestimo).value
 
     acoes = acoes_disponiveis(ativo.status_enum, nivel_hierarquico=nivel_hierarquico(request))
     acoes = _preparar_acoes_para_template(ativo, acoes, origem="quick_panel")
@@ -607,6 +620,58 @@ def agenda(request):
         request,
         "ativos/agenda.html",
         {"nav_atual": "agenda", "hoje_lista": hoje_lista, "proximos": proximos, "atrasados": atrasados},
+    )
+
+
+@tenant_required
+def mapa(request):
+    """
+    Mapa Operacional de Ativos: não é geolocalização em tempo real — é
+    "onde cada ativo está" a partir de dados já cadastrados (unidade
+    física, endereço/bairro do beneficiário quando emprestado, oficina de
+    manutenção). Ver docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md.
+    """
+    categoria_id = request.GET.get("categoria")
+    status_filtro = request.GET.get("status")
+    unidade_id = request.GET.get("unidade")
+    bairro = request.GET.get("bairro", "").strip()
+    busca = request.GET.get("q", "").strip()
+
+    ativos_qs = Ativo.objects.all()
+    if categoria_id:
+        ativos_qs = ativos_qs.filter(categoria_id=categoria_id)
+    if status_filtro:
+        ativos_qs = ativos_qs.filter(status=status_filtro)
+    if unidade_id:
+        ativos_qs = ativos_qs.filter(unidade_id=unidade_id)
+    if bairro:
+        ativos_qs = ativos_qs.filter(
+            status=StatusAtivo.EMPRESTADO.value,
+            movimentacoes__tipo=TipoMovimentacao.EMPRESTIMO.value,
+            movimentacoes__detalhe_emprestimo__beneficiario__bairro__iexact=bairro,
+        ).distinct()
+
+    dados = mapa_operacional(ativos_qs)
+
+    resultado_busca = resolver_busca_patrimonio(busca) if busca else None
+
+    return render(
+        request,
+        "ativos/mapa.html",
+        {
+            "nav_atual": "mapa",
+            "por_unidade": dados["por_unidade"],
+            "por_bairro": dados["por_bairro"],
+            "categorias": CategoriaAtivo.objects.all(),
+            "unidades": Unidade.objects.all(),
+            "status_opcoes": list(StatusAtivo),
+            "categoria_id": categoria_id,
+            "status_filtro": status_filtro,
+            "unidade_id": unidade_id,
+            "bairro": bairro,
+            "busca": busca,
+            "resultado_busca": resultado_busca,
+        },
     )
 
 

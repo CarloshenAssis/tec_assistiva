@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ativos_extras %}
 {% block title %}{{ ativo.patrimonio }} · Ciclartech{% endblock %}
 {% block page_title %}Ficha do Ativo{% endblock %}
 {% block content %}
@@ -13,7 +14,7 @@
         · {{ ativo.fabricante }} {{ ativo.modelo }}
       </div>
     </div>
-    <span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span>
+    <span class="badge {{ ativo.cor_operacional|badge_cor }}">{{ ativo.get_status_display }}</span>
   </div>
 
   {% include "ativos/_acoes.html" %}

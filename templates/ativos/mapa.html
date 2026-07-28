@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load ativos_extras %}
+{% block title %}Mapa Operacional · Ciclartech{% endblock %}
+{% block page_title %}Mapa Operacional de Ativos{% endblock %}
+{% block content %}
+<div class="flex-col gap-3">
+
+  <div class="card">
+    <form method="get" class="grid grid-4" style="align-items:end;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Categoria</label>
+        <select name="categoria">
+          <option value="">Todas</option>
+          {% for c in categorias %}
+            <option value="{{ c.id }}" {% if categoria_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Status</label>
+        <select name="status">
+          <option value="">Todos</option>
+          {% for s in status_opcoes %}
+            <option value="{{ s.value }}" {% if status_filtro == s.value %}selected{% endif %}>{{ s.rotulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Unidade</label>
+        <select name="unidade">
+          <option value="">Todas</option>
+          {% for u in unidades %}
+            <option value="{{ u.id }}" {% if unidade_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Bairro (do beneficiário)</label>
+        <input type="text" name="bairro" value="{{ bairro }}" placeholder="Ex: Jardim Satélite">
+      </div>
+      <div style="grid-column:1/-1;" class="flex gap-2">
+        <button class="btn btn-secondary" type="submit">Filtrar</button>
+        <a class="btn btn-ghost" href="{% url 'app:ativos:mapa' %}">Limpar filtros</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pesquisar por patrimônio</div>
+    <form method="get" class="flex gap-2">
+      {% if categoria_id %}<input type="hidden" name="categoria" value="{{ categoria_id }}">{% endif %}
+      {% if status_filtro %}<input type="hidden" name="status" value="{{ status_filtro }}">{% endif %}
+      {% if unidade_id %}<input type="hidden" name="unidade" value="{{ unidade_id }}">{% endif %}
+      {% if bairro %}<input type="hidden" name="bairro" value="{{ bairro }}">{% endif %}
+      <input type="text" name="q" value="{{ busca }}" placeholder="Ex: CAD-0001" style="max-width:280px;">
+      <button class="btn btn-secondary" type="submit">Buscar</button>
+    </form>
+
+    {% if busca %}
+      {% if resultado_busca %}
+        <div class="mt-2" style="padding:14px 16px;background:var(--card-alt-bg);border-radius:10px;">
+          <div class="flex justify-between items-center">
+            <div>
+              <div style="font-weight:700;">{{ resultado_busca.ativo.patrimonio }}</div>
+              <div class="muted" style="font-size:12.5px;">{{ resultado_busca.ativo.unidade.nome|default:"Sem unidade" }}</div>
+            </div>
+            <span class="badge {{ resultado_busca.cor.value|badge_cor }}">{{ resultado_busca.ativo.get_status_display }}</span>
+          </div>
+          {% if resultado_busca.beneficiario %}
+            <div class="mt-1" style="font-size:13px;">
+              Beneficiário: <strong>{{ resultado_busca.beneficiario.nome }}</strong>
+              ({{ resultado_busca.beneficiario.bairro|default:"bairro não informado" }})
+              {% if resultado_busca.data_prevista_devolucao %} · Previsão: {{ resultado_busca.data_prevista_devolucao|date:"d/m/Y" }}{% endif %}
+            </div>
+          {% endif %}
+          {% if resultado_busca.ultima_movimentacao %}
+            <div class="muted" style="font-size:12px;margin-top:2px;">
+              Última movimentação: {{ resultado_busca.ultima_movimentacao.get_tipo_display }} em {{ resultado_busca.ultima_movimentacao.data_hora|date:"d/m/Y" }}
+            </div>
+          {% endif %}
+          <a class="btn btn-secondary mt-2" href="{% url 'app:ativos:ficha' resultado_busca.ativo.pk %}">Ver ficha completa →</a>
+        </div>
+      {% else %}
+        <div class="faint mt-2">Nenhum ativo encontrado com o patrimônio "{{ busca }}".</div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title">Por unidade</div>
+      <div class="flex-col gap-2">
+        {% for item in por_unidade %}
+          <div style="padding:12px 14px;background:var(--card-alt-bg);border-radius:10px;">
+            <div class="flex justify-between items-center">
+              <div style="font-weight:700;font-size:13.5px;">📍 {{ item.nome }}</div>
+              <div class="muted" style="font-size:12px;">{{ item.total }} ativo{{ item.total|pluralize }}</div>
+            </div>
+            <div class="flex gap-2 mt-1" style="flex-wrap:wrap;">
+              {% for cor, total in item.cores.items %}
+                <span class="badge {{ cor|badge_cor }}">{{ total }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="faint">Nenhum ativo encontrado com os filtros atuais.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Por bairro (ativos emprestados)</div>
+      <div class="flex-col gap-2">
+        {% for item in por_bairro %}
+          <div style="padding:12px 14px;background:var(--card-alt-bg);border-radius:10px;">
+            <div class="flex justify-between items-center">
+              <div style="font-weight:700;font-size:13.5px;">📍 {{ item.nome }}</div>
+              <div class="muted" style="font-size:12px;">{{ item.total }} ativo{{ item.total|pluralize }}</div>
+            </div>
+            <div class="flex gap-2 mt-1" style="flex-wrap:wrap;">
+              {% for cor, total in item.cores.items %}
+                <span class="badge {{ cor|badge_cor }}">{{ total }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="faint">Nenhum ativo emprestado no momento.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

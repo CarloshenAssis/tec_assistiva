@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ativos_extras %}
 {% block title %}{{ ativo.patrimonio }} · QR Code{% endblock %}
 {% block page_title %}Operação por QR Code{% endblock %}
 {% block content %}
@@ -8,7 +9,7 @@
       <div style="font-size:18px;font-weight:800;">{{ ativo.patrimonio }}</div>
       <div class="muted" style="font-size:12.5px;">{{ ativo.categoria.nome }} · {{ ativo.unidade.nome|default:"Sem unidade" }}</div>
     </div>
-    <span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span>
+    <span class="badge {{ ativo.cor_operacional|badge_cor }}">{{ ativo.get_status_display }}</span>
   </div>
 
   {% if detalhe_emprestimo %}

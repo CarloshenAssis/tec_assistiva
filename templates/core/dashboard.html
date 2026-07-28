@@ -1,8 +1,21 @@
 {% extends "base.html" %}
+{% load ativos_extras %}
 {% block title %}Painel · Ciclartech{% endblock %}
 {% block page_title %}Painel{% endblock %}
 {% block content %}
 <div class="flex-col gap-3">
+  {% if resumo_colorido %}
+    <div class="card">
+      <div class="flex gap-3" style="flex-wrap:wrap;align-items:center;">
+        {% for item in resumo_colorido %}
+          <span class="flex items-center gap-1" style="font-size:13.5px;font-weight:600;">
+            <span class="{{ item.cor|dot_cor }}"></span> {{ item.total }} {{ item.rotulo }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <div class="grid grid-5">
     <div class="stat-card">
       <div class="label">Disponíveis</div>
