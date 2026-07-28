@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ciclartech
+          POSTGRES_PASSWORD: ciclartech
+          POSTGRES_DB: ciclartech
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ciclartech"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SECRET_KEY: ci-secret-key
+      DJANGO_DEBUG: "True"
+      DATABASE_URL: postgres://ciclartech:ciclartech@localhost:5432/ciclartech
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install -r requirements/dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Migrations pendentes?
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Rodar testes
+        run: python manage.py test
