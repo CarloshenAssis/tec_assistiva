@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Entrar · Ciclartech{% endblock %}
+{% block full_content %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--sidebar-bg);">
+  <div class="card" style="width:340px;max-width:90vw;">
+    <div style="font-size:20px;font-weight:800;color:var(--text-strong);margin-bottom:2px;">Ciclartech</div>
+    <div class="muted" style="font-size:12.5px;margin-bottom:20px;">Plataforma de Gestão de Ativos Assistivos</div>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.errors %}
+        <ul class="errorlist"><li>Usuário ou senha inválidos.</li></ul>
+      {% endif %}
+      <div class="field">
+        <label for="id_username">Usuário</label>
+        <input type="text" name="username" id="id_username" autofocus required>
+      </div>
+      <div class="field">
+        <label for="id_password">Senha</label>
+        <input type="password" name="password" id="id_password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

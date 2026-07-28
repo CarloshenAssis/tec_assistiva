@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ acao.rotulo }} · {{ ativo.patrimonio }}{% endblock %}
+{% block page_title %}{{ acao.rotulo }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <div class="muted" style="font-size:13px;margin-bottom:14px;">{{ ativo.patrimonio }} · {{ ativo.categoria.nome }}</div>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="origem" value="{{ origem }}">
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <div class="flex gap-2 mt-2">
+      <button class="btn btn-primary" type="submit">Confirmar</button>
+      <a class="btn btn-secondary" href="{% url 'app:ativos:ficha' ativo.pk %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

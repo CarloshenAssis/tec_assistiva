@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ativos · Ciclartech{% endblock %}
+{% block page_title %}Ativos{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-primary" href="{% url 'app:ativos:criar' %}">+ Novo Ativo</a>
+{% endblock %}
+{% block content %}
+<div class="flex-col gap-3">
+  <div class="grid grid-4">
+    {% for cat in resumo_categorias %}
+      <a href="?categoria={{ cat.id }}" style="cursor:pointer;background:#fff;border:1.5px solid {% if categoria_filtro == cat.id %}var(--accent){% else %}var(--card-border){% endif %};border-radius:12px;padding:14px 16px;display:block;">
+        <div style="font-size:12.5px;font-weight:700;color:#3E4A47;">{{ cat.nome }}</div>
+        <div class="flex gap-2" style="margin-top:8px;">
+          <div><div style="font-size:20px;font-weight:800;">{{ cat.total }}</div><div class="faint" style="font-size:10.5px;">total</div></div>
+          <div><div style="font-size:20px;font-weight:800;color:var(--ok-text);">{{ cat.disponiveis }}</div><div class="faint" style="font-size:10.5px;">disponíveis</div></div>
+          <div><div style="font-size:20px;font-weight:800;color:var(--accent);">{{ cat.emprestados }}</div><div class="faint" style="font-size:10.5px;">emprestados</div></div>
+        </div>
+      </a>
+    {% empty %}
+      <div class="faint">Nenhuma categoria cadastrada ainda.</div>
+    {% endfor %}
+  </div>
+
+  <form class="flex justify-between items-center gap-2" method="get">
+    {% if categoria_filtro %}<input type="hidden" name="categoria" value="{{ categoria_filtro }}">{% endif %}
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por patrimônio, série ou fabricante..." style="max-width:340px;">
+    <button class="btn btn-secondary" type="submit">Buscar</button>
+    {% if categoria_filtro or busca %}<a class="btn btn-ghost" href="{% url 'app:ativos:lista' %}">Limpar filtros</a>{% endif %}
+  </form>
+
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:110px 1.4fr 1fr 1fr 1fr;">
+      <div>Patrimônio</div><div>Categoria</div><div>Situação</div><div>Unidade</div><div></div>
+    </div>
+    {% for ativo in ativos %}
+      <a class="table-row clickable" style="grid-template-columns:110px 1.4fr 1fr 1fr 1fr;text-decoration:none;color:inherit;" href="{% url 'app:ativos:ficha' ativo.pk %}">
+        <div style="font-weight:700;font-size:13px;">{{ ativo.patrimonio }}</div>
+        <div>
+          <div style="font-size:13.5px;font-weight:500;">{{ ativo.categoria.nome }}</div>
+          <div class="muted" style="font-size:12px;">{{ ativo.fabricante }}</div>
+        </div>
+        <div><span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span></div>
+        <div style="font-size:13px;color:#3E4A47;">{{ ativo.unidade.nome|default:"—" }}</div>
+        <div style="text-align:right;color:#8DA09C;font-size:13px;">Ver ficha →</div>
+      </a>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum ativo encontrado.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

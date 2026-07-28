@@ -1,0 +1,6 @@
+<div class="flex-col gap-2" style="align-items:center;text-align:center;padding:20px 0;">
+  <img src="{% url 'app:ativos:qrcode_imagem' ativo.pk %}" alt="QR Code de {{ ativo.patrimonio }}" style="width:220px;height:220px;border:1px solid var(--card-border);border-radius:12px;padding:12px;background:#fff;">
+  <div style="font-size:13px;font-weight:600;margin-top:8px;">{{ ativo.patrimonio }}</div>
+  <div class="faint" style="font-size:11.5px;">{{ ativo.qr_token }}</div>
+  <a class="btn btn-secondary mt-2" href="{% url 'app:ativos:qrcode_imagem' ativo.pk %}" download="qrcode-{{ ativo.patrimonio }}.png">⭳ Baixar etiqueta (PNG)</a>
+</div>

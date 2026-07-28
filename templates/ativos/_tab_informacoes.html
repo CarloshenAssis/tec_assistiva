@@ -1,0 +1,12 @@
+<div class="grid" style="grid-template-columns:1fr 1fr;gap:14px;font-size:13px;">
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">Nº de Série</div>{{ ativo.numero_serie|default:"—" }}</div>
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">Data de aquisição</div>{{ ativo.data_aquisicao|date:"d/m/Y"|default:"—" }}</div>
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">Fornecedor</div>{{ ativo.fornecedor.nome|default:"—" }}</div>
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">Unidade</div>{{ ativo.unidade.nome|default:"—" }}</div>
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">Vida útil</div>{% if ativo.vida_util_meses %}{{ ativo.vida_util_meses }} meses{% else %}—{% endif %}</div>
+  <div><div class="faint" style="font-size:11.5px;margin-bottom:2px;">QR Code</div>{{ ativo.qr_token|slice:":12" }}…</div>
+</div>
+<div class="mt-2">
+  <div class="faint" style="font-size:11.5px;margin-bottom:4px;">Observações</div>
+  <div style="font-size:13px;">{{ ativo.observacoes|default:"—" }}</div>
+</div>

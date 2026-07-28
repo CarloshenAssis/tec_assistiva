@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ ativo.patrimonio }} · QR Code{% endblock %}
+{% block page_title %}Operação por QR Code{% endblock %}
+{% block content %}
+<div class="quick-panel quick-panel-standalone" style="box-shadow:none;border:1px solid var(--card-border);border-radius:12px;">
+  <div class="flex justify-between items-center">
+    <div>
+      <div style="font-size:18px;font-weight:800;">{{ ativo.patrimonio }}</div>
+      <div class="muted" style="font-size:12.5px;">{{ ativo.categoria.nome }} · {{ ativo.unidade.nome|default:"Sem unidade" }}</div>
+    </div>
+    <span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span>
+  </div>
+
+  {% if detalhe_emprestimo %}
+    <div class="context-box">
+      <div class="k">Beneficiário atual</div>
+      {{ detalhe_emprestimo.beneficiario.nome }}
+    </div>
+    <div class="context-box">
+      <div class="k">Retirada / Previsão de devolução</div>
+      {{ ultima_movimentacao.data_hora|date:"d/m/Y" }} → {{ detalhe_emprestimo.data_prevista_devolucao|date:"d/m/Y" }}
+    </div>
+  {% elif detalhe_manutencao %}
+    <div class="context-box">
+      <div class="k">Entrada em manutenção</div>
+      {{ ultima_movimentacao.data_hora|date:"d/m/Y" }}
+    </div>
+    <div class="context-box">
+      <div class="k">Motivo</div>
+      {{ detalhe_manutencao.motivo }}
+    </div>
+  {% else %}
+    <div class="context-box">
+      <div class="k">Última movimentação</div>
+      {% if ultima_movimentacao %}{{ ultima_movimentacao.get_tipo_display }} · {{ ultima_movimentacao.data_hora|date:"d/m/Y" }}{% else %}Sem eventos registrados{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="faint" style="font-size:12px;font-weight:700;margin-top:8px;">Ações disponíveis</div>
+  <div class="flex-col gap-2">
+    {% for acao in acoes %}
+      {% if acao.tipo == "link" %}
+        <a class="btn btn-primary btn-block" href="{{ acao.url }}">{{ acao.rotulo }}</a>
+      {% else %}
+        <form method="post" action="{{ acao.url }}">
+          {% csrf_token %}
+          <input type="hidden" name="origem" value="quick_panel">
+          <button class="btn btn-primary btn-block" type="submit">{{ acao.rotulo }}</button>
+        </form>
+      {% endif %}
+    {% empty %}
+      <span class="faint" style="font-size:13px;">Nenhuma ação disponível para o seu perfil neste estado.</span>
+    {% endfor %}
+    <a class="btn btn-secondary btn-block" href="{% url 'app:ativos:ficha' ativo.pk %}">Ver detalhes completos →</a>
+  </div>
+</div>
+{% endblock %}

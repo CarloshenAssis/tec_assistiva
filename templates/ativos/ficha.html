@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ ativo.patrimonio }} · Ciclartech{% endblock %}
+{% block page_title %}Ficha do Ativo{% endblock %}
+{% block content %}
+<a class="btn btn-ghost" href="{% url 'app:ativos:lista' %}">← Voltar para Ativos</a>
+
+<div class="card mt-2">
+  <div class="flex justify-between items-center" style="margin-bottom:16px;">
+    <div>
+      <div style="font-size:20px;font-weight:800;">{{ ativo.patrimonio }}</div>
+      <div class="muted" style="font-size:13.5px;">
+        {{ ativo.categoria.nome }}{% if ativo.subcategoria %} · {{ ativo.subcategoria.nome }}{% endif %}
+        · {{ ativo.fabricante }} {{ ativo.modelo }}
+      </div>
+    </div>
+    <span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span>
+  </div>
+
+  {% include "ativos/_acoes.html" %}
+
+  <div class="tabs">
+    {% for codigo, rotulo in tabs %}
+      <a class="tab {% if aba == codigo %}active{% endif %}" href="?aba={{ codigo }}">{{ rotulo }}</a>
+    {% endfor %}
+  </div>
+
+  {% if aba == "timeline" %}{% include "ativos/_tab_timeline.html" %}
+  {% elif aba == "movimentacoes" %}{% include "ativos/_tab_movimentacoes.html" %}
+  {% elif aba == "fotos" %}{% include "ativos/_tab_fotos.html" %}
+  {% elif aba == "manutencoes" %}{% include "ativos/_tab_manutencoes.html" %}
+  {% elif aba == "qrcode" %}{% include "ativos/_tab_qrcode.html" %}
+  {% elif aba == "documentos" %}{% include "ativos/_tab_documentos.html" %}
+  {% else %}{% include "ativos/_tab_informacoes.html" %}
+  {% endif %}
+</div>
+{% endblock %}

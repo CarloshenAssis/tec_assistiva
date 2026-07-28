@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Novo Empréstimo · Ciclartech{% endblock %}
+{% block page_title %}Novo Empréstimo{% endblock %}
+{% block content %}
+<div class="flex-col gap-3" style="max-width:820px;">
+
+  <div class="wizard-steps">
+    {% for n in "1234" %}
+      <div class="wizard-step">
+        <div class="flex-col items-center gap-1">
+          <div class="wizard-step-circle {% if n|add:'0' <= passo %}done{% endif %} {% if n|add:'0' == passo %}active{% endif %}">{{ n }}</div>
+          <div class="wizard-step-label">
+            {% if n == "1" %}Beneficiário{% elif n == "2" %}Equipamento{% elif n == "3" %}Prazo{% else %}Checklist{% endif %}
+          </div>
+        </div>
+        {% if n != "4" %}<div class="wizard-step-line"></div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    {% if passo == 1 %}
+      <div class="card-title">Passo 1 · Pesquisar beneficiário</div>
+      <form method="get" class="mt-1" style="margin-bottom:14px;">
+        <input type="text" name="q" value="{{ busca }}" placeholder="CPF, nome ou telefone..." autofocus>
+      </form>
+      <div class="flex-col gap-1" style="max-height:320px;overflow-y:auto;">
+        {% for p in resultados %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="wizard_acao" value="selecionar_beneficiario">
+            <input type="hidden" name="beneficiario_id" value="{{ p.id }}">
+            <button type="submit" class="flex justify-between" style="all:unset;cursor:pointer;width:100%;padding:12px 10px;border-radius:8px;">
+              <span>
+                <span style="font-size:13.5px;font-weight:600;display:block;">{{ p.nome }}</span>
+                <span class="muted" style="font-size:12px;">{{ p.cpf }} · {{ p.cidade }}</span>
+              </span>
+              <span style="color:var(--accent);font-size:12px;align-self:center;">Selecionar</span>
+            </button>
+          </form>
+        {% empty %}
+          {% if busca %}<div class="faint">Nenhum beneficiário encontrado.</div>
+          {% else %}<div class="faint">Digite para buscar um beneficiário.</div>{% endif %}
+        {% endfor %}
+      </div>
+      <div class="mt-2"><a class="btn btn-secondary" href="{% url 'app:beneficiarios:criar' %}">+ Cadastrar novo beneficiário</a></div>
+
+    {% elif passo == 2 %}
+      <div class="card-title">Passo 2 · Selecionar ativo</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:14px;">Para {{ beneficiario.nome }}</div>
+      <form method="get" style="margin-bottom:14px;">
+        <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por categoria ou patrimônio..." autofocus>
+      </form>
+      <div class="flex-col gap-1" style="max-height:320px;overflow-y:auto;">
+        {% for a in resultados %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="wizard_acao" value="selecionar_ativo">
+            <input type="hidden" name="ativo_id" value="{{ a.id }}">
+            <button type="submit" class="flex justify-between" style="all:unset;cursor:pointer;width:100%;padding:12px 10px;border-radius:8px;{% if a.id == ativo_sugerido_id %}background:var(--accent-soft-bg);{% endif %}">
+              <span>
+                <span style="font-size:13.5px;font-weight:600;display:block;">{{ a.patrimonio }} · {{ a.categoria.nome }}</span>
+                <span class="muted" style="font-size:12px;">{{ a.fabricante }} {{ a.modelo }}</span>
+              </span>
+              <span style="color:var(--accent);font-size:12px;align-self:center;">Selecionar</span>
+            </button>
+          </form>
+        {% empty %}
+          <div class="faint">Nenhum ativo disponível encontrado.</div>
+        {% endfor %}
+      </div>
+
+    {% elif passo == 3 %}
+      <div class="card-title">Passo 3 · Definir prazo</div>
+      <div class="flex gap-2">
+        <form method="post" style="flex:1;">
+          {% csrf_token %}<input type="hidden" name="wizard_acao" value="definir_prazo"><input type="hidden" name="prazo_dias" value="30">
+          <button class="btn btn-secondary btn-block" style="padding:16px 10px;font-size:14px;font-weight:700;" type="submit">30 dias</button>
+        </form>
+        <form method="post" style="flex:1;">
+          {% csrf_token %}<input type="hidden" name="wizard_acao" value="definir_prazo"><input type="hidden" name="prazo_dias" value="60">
+          <button class="btn btn-secondary btn-block" style="padding:16px 10px;font-size:14px;font-weight:700;" type="submit">60 dias</button>
+        </form>
+        <form method="post" style="flex:1;">
+          {% csrf_token %}<input type="hidden" name="wizard_acao" value="definir_prazo"><input type="hidden" name="prazo_dias" value="90">
+          <button class="btn btn-secondary btn-block" style="padding:16px 10px;font-size:14px;font-weight:700;" type="submit">90 dias</button>
+        </form>
+      </div>
+      <form method="post" class="flex gap-2 mt-2" style="align-items:flex-end;">
+        {% csrf_token %}<input type="hidden" name="wizard_acao" value="definir_prazo">
+        <div class="field" style="margin-bottom:0;flex:1;">
+          <label>Prazo personalizado (dias)</label>
+          <input type="number" name="prazo_dias" min="1" value="45">
+        </div>
+        <button class="btn btn-secondary" type="submit">Usar</button>
+      </form>
+
+    {% elif passo == 4 %}
+      <div class="card-title">Passo 4 · Checklist, foto e assinatura do termo</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:14px;">
+        {{ beneficiario.nome }} · {{ ativo.patrimonio }} ({{ ativo.categoria.nome }}) · {{ prazo_dias }} dias
+      </div>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="grid grid-2" style="margin-bottom:18px;">
+          {% for chave, rotulo in checklist_itens %}
+            <label class="flex items-center gap-1" style="cursor:pointer;padding:6px 2px;">
+              <input type="checkbox" name="checklist_{{ chave }}" checked style="width:auto;">
+              <span style="font-size:13.5px;">{{ rotulo }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="field">
+          <label>Foto do termo de responsabilidade assinado (assinatura física — padrão do sistema)</label>
+          <input type="file" name="assinatura_arquivo" accept="image/*,application/pdf">
+        </div>
+        <div class="flex justify-between mt-2">
+          <button class="btn btn-ghost" type="submit" name="wizard_acao" value="voltar">← Voltar</button>
+          <button class="btn btn-primary" type="submit" name="wizard_acao" value="confirmar">Confirmar empréstimo</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if passo != 4 %}
+    <div class="flex justify-between">
+      <form method="post">{% csrf_token %}<button class="btn btn-ghost" type="submit" name="wizard_acao" value="voltar" {% if passo == 1 %}disabled{% endif %}>← Voltar</button></form>
+      <form method="post"><button class="btn btn-ghost" type="submit" name="wizard_acao" value="reiniciar">Reiniciar</button></form>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

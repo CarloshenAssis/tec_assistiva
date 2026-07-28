@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Ler QR Code · Ciclartech{% endblock %}
+{% block page_title %}Ler QR Code{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;">
+  <div style="aspect-ratio:3/4;border-radius:16px;background:var(--sidebar-bg);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin-bottom:16px;">
+    <div style="width:150px;height:150px;border:2px solid var(--highlight);border-radius:14px;"></div>
+    <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:var(--sidebar-muted);padding:0 20px;">
+      Aponte a câmera para o QR Code do ativo (leitura por câmera é um incremento futuro sobre este mesmo fluxo)
+    </div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_codigo">Ou digite o patrimônio / código do QR</label>
+      <input type="text" name="codigo" id="id_codigo" autofocus required placeholder="Ex: CAD-0001">
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Buscar ativo</button>
+  </form>
+</div>
+{% endblock %}

@@ -30,3 +30,20 @@ class TransicaoInvalidaError(DominioAtivoError):
 
 class DestinoObrigatorioError(DominioAtivoError):
     """Levantada quando uma movimentação exige `destino` e ele não foi informado."""
+
+
+class AcaoAdministrativaInvalidaError(DominioAtivoError):
+    """
+    Levantada por `inativar`/`reativar` — ações administrativas que não
+    passam pela tabela de transições por `Movimentacao` (não há um
+    `TipoMovimentacao` operacional para elas, ver
+    docs/PLANO_DOMINIO_ATIVOS.md §5.2, nota sobre o estado `inativo`).
+    """
+
+    def __init__(self, status_atual: StatusAtivo, acao: str):
+        self.status_atual = status_atual
+        self.acao = acao
+        super().__init__(
+            f"Não é possível executar a ação '{acao}' com o ativo no estado "
+            f"'{status_atual.rotulo}'."
+        )

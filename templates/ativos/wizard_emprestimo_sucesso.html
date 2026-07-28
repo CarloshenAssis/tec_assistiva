@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Empréstimo registrado · Ciclartech{% endblock %}
+{% block page_title %}Novo Empréstimo{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;text-align:center;padding:30px 20px;">
+  <div style="width:52px;height:52px;border-radius:50%;background:var(--ok-bg);color:var(--ok-text);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px;">✓</div>
+  <div style="font-size:16px;font-weight:700;">Empréstimo registrado!</div>
+  <div class="muted mt-1" style="font-size:13px;">
+    {{ ativo.patrimonio }} agora está emprestado para {{ beneficiario.nome }}.
+  </div>
+  <div class="flex gap-2 mt-3" style="justify-content:center;">
+    <a class="btn btn-primary" href="{% url 'app:ativos:wizard_emprestimo' %}">Novo empréstimo</a>
+    <a class="btn btn-secondary" href="{% url 'app:ativos:ficha' ativo.pk %}">Ver ficha do ativo</a>
+  </div>
+</div>
+{% endblock %}

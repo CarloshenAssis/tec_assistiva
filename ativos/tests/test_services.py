@@ -129,6 +129,26 @@ class FluxoExtravioTest(BaseComTenant):
         self.assertEqual(self.ativo.status, StatusAtivo.DISPONIVEL.value)
 
 
+class InativacaoTest(BaseComTenant):
+    def test_inativar_e_reativar(self):
+        services.inativar(self.ativo, usuario=None, motivo="Pausa administrativa")
+        self.ativo.refresh_from_db()
+        self.assertEqual(self.ativo.status, StatusAtivo.INATIVO.value)
+
+        services.reativar(self.ativo, usuario=None)
+        self.ativo.refresh_from_db()
+        self.assertEqual(self.ativo.status, StatusAtivo.DISPONIVEL.value)
+
+    def test_nao_pode_inativar_ativo_emprestado(self):
+        from ativos.domain.exceptions import AcaoAdministrativaInvalidaError
+
+        services.emprestar(self.ativo, self.beneficiario, usuario=None, prazo_dias=30)
+        self.ativo.refresh_from_db()
+
+        with self.assertRaises(AcaoAdministrativaInvalidaError):
+            services.inativar(self.ativo, usuario=None)
+
+
 class IsolamentoMultiTenantDeAtivosTest(BaseComTenant):
     def test_ativo_de_outro_tenant_nao_aparece_na_queryset_padrao(self):
         categoria_b = CategoriaAtivo.objects.all_tenants().create(

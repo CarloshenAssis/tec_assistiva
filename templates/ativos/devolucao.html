@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Devolução · Ciclartech{% endblock %}
+{% block page_title %}Devolução{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px;">
+  <div class="card-title">Pesquisar empréstimo ativo</div>
+  <form method="get">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Patrimônio, nome ou CPF do beneficiário..." autofocus>
+  </form>
+
+  {% if busca and not ativo %}
+    <div class="faint mt-2">Nenhum empréstimo ativo encontrado para "{{ busca }}".</div>
+  {% endif %}
+
+  {% if ativo %}
+    <div class="mt-2" style="padding:14px 16px;background:var(--card-alt-bg);border-radius:10px;">
+      <div style="font-size:14px;font-weight:700;">{{ ativo.patrimonio }} · {{ ativo.categoria.nome }}</div>
+      <div class="muted" style="font-size:12.5px;">
+        Emprestado para {{ detalhe_emprestimo.beneficiario.nome }}
+        {% if dias_em_posse is not None %} há {{ dias_em_posse }} dias{% endif %}
+      </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="mt-2">
+      {% csrf_token %}
+      <input type="hidden" name="ativo_id" value="{{ ativo.id }}">
+      <input type="hidden" name="q" value="{{ busca }}">
+
+      <div class="faint" style="font-size:12.5px;font-weight:700;">Checklist de devolução</div>
+      <div class="flex-col gap-1 mt-1" style="margin-bottom:16px;">
+        {% for chave, rotulo in checklist_itens %}
+          <label class="flex items-center gap-1" style="cursor:pointer;">
+            <input type="checkbox" name="checklist_{{ chave }}" checked style="width:auto;">
+            <span style="font-size:13.5px;">{{ rotulo }}</span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <div class="field">
+        <label>Foto da devolução</label>
+        <input type="file" name="foto" accept="image/*">
+      </div>
+      <div class="field">
+        <label>Observações</label>
+        <textarea name="observacoes" rows="2" placeholder="Ex: pequeno risco na lateral, pneu furado..."></textarea>
+      </div>
+
+      <div class="flex gap-2 mt-2">
+        <button class="btn btn-primary" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='disponivel';">Concluir → Disponível</button>
+        <button class="btn btn-highlight" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='manutencao';">Concluir → Manutenção</button>
+        <button class="btn btn-secondary" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='higienizacao';">Concluir → Higienização</button>
+      </div>
+      <input type="hidden" name="destino" value="disponivel">
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

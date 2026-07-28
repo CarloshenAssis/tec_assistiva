@@ -18,8 +18,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
-from ativos.domain.state_machine import transicionar
-from ativos.models import Ativo, DetalheEmprestimo, DetalheManutencao, Movimentacao
+from ativos.domain.exceptions import AcaoAdministrativaInvalidaError
+from ativos.domain.state_machine import pode_inativar, transicionar
+from ativos.models import Ativo, DetalheEmprestimo, DetalheManutencao, FotoMovimentacao, Movimentacao
 
 
 def _registrar(
@@ -57,11 +58,30 @@ def _registrar(
 
 
 def emprestar(
-    ativo: Ativo, beneficiario, usuario, prazo_dias: int, unidade=None, observacoes: str = ""
+    ativo: Ativo,
+    beneficiario,
+    usuario,
+    prazo_dias: int,
+    unidade=None,
+    observacoes: str = "",
+    checklist: Optional[dict] = None,
+    assinatura_arquivo=None,
 ) -> Movimentacao:
+    """
+    Assinatura física é o padrão do sistema (docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md
+    §1): o checklist inclui os itens "termo impresso"/"termo assinado", e
+    `assinatura_arquivo` é a foto/scan do termo assinado — não uma
+    assinatura em tela. O módulo de assinatura digital (opcional, por
+    tenant) fica fora do escopo desta fase.
+    """
     data_prevista = timezone.now().date() + timedelta(days=prazo_dias)
     movimentacao = _registrar(
-        ativo, TipoMovimentacao.EMPRESTIMO, usuario, unidade=unidade, observacoes=observacoes
+        ativo,
+        TipoMovimentacao.EMPRESTIMO,
+        usuario,
+        unidade=unidade,
+        observacoes=observacoes,
+        dados_especificos={"checklist": checklist or {}},
     )
     DetalheEmprestimo.objects.create(
         tenant=ativo.tenant,
@@ -69,6 +89,8 @@ def emprestar(
         beneficiario=beneficiario,
         prazo_dias=prazo_dias,
         data_prevista_devolucao=data_prevista,
+        assinatura_tipo=DetalheEmprestimo.AssinaturaTipo.FISICA,
+        assinatura_arquivo=assinatura_arquivo,
     )
     return movimentacao
 
@@ -95,10 +117,31 @@ def renovar(ativo: Ativo, usuario, novo_prazo_dias: int, observacoes: str = "") 
 
 
 def devolver(
-    ativo: Ativo, usuario, destino: StatusAtivo, unidade=None, observacoes: str = ""
+    ativo: Ativo,
+    usuario,
+    destino: StatusAtivo,
+    unidade=None,
+    observacoes: str = "",
+    checklist: Optional[dict] = None,
 ) -> Movimentacao:
     return _registrar(
-        ativo, TipoMovimentacao.DEVOLUCAO, usuario, destino=destino, unidade=unidade, observacoes=observacoes
+        ativo,
+        TipoMovimentacao.DEVOLUCAO,
+        usuario,
+        destino=destino,
+        unidade=unidade,
+        observacoes=observacoes,
+        dados_especificos={"checklist": checklist or {}},
+    )
+
+
+def anexar_foto(movimentacao: Movimentacao, arquivo, tipo: str = "frontal") -> FotoMovimentacao:
+    """
+    Fotos da entrega/devolução/manutenção, usadas na comparação
+    antes/depois (docs/PLANO_DOMINIO_ATIVOS.md §9).
+    """
+    return FotoMovimentacao.objects.create(
+        tenant=movimentacao.tenant, movimentacao=movimentacao, tipo=tipo, arquivo=arquivo
     )
 
 
@@ -162,3 +205,22 @@ def dar_baixa(ativo: Ativo, usuario, motivo: str, observacoes: str = "") -> Movi
         observacoes=observacoes,
         dados_especificos={"motivo": motivo},
     )
+
+
+def inativar(ativo: Ativo, usuario, motivo: str = "") -> None:
+    """
+    Ação administrativa (não operacional) — não passa pela tabela de
+    transições por `Movimentacao` (docs/PLANO_DOMINIO_ATIVOS.md §5.2).
+    Só o Admin do tenant pode chamar isto (RBAC verificado na view).
+    """
+    if not pode_inativar(ativo.status_enum):
+        raise AcaoAdministrativaInvalidaError(ativo.status_enum, "inativar")
+    ativo.status = StatusAtivo.INATIVO.value
+    ativo.save(update_fields=["status", "atualizado_em"])
+
+
+def reativar(ativo: Ativo, usuario) -> None:
+    if ativo.status_enum != StatusAtivo.INATIVO:
+        raise AcaoAdministrativaInvalidaError(ativo.status_enum, "reativar")
+    ativo.status = StatusAtivo.DISPONIVEL.value
+    ativo.save(update_fields=["status", "atualizado_em"])

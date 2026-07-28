@@ -1,0 +1,15 @@
+<div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:20px;">
+  {% for acao in acoes %}
+    {% if acao.tipo == "link" %}
+      <a class="btn btn-secondary" href="{{ acao.url }}">{{ acao.rotulo }}</a>
+    {% else %}
+      <form method="post" action="{{ acao.url }}" style="display:inline;">
+        {% csrf_token %}
+        <input type="hidden" name="origem" value="{{ origem|default:'ficha' }}">
+        <button class="btn btn-secondary" type="submit">{{ acao.rotulo }}</button>
+      </form>
+    {% endif %}
+  {% empty %}
+    <span class="faint" style="font-size:13px;">Nenhuma ação disponível para o seu perfil neste estado.</span>
+  {% endfor %}
+</div>

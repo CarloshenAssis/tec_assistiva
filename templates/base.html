@@ -1,0 +1,104 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ciclartech{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/ciclartech.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+{% if user.is_authenticated and not user.is_platform_staff %}
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="name">Ciclartech</div>
+      <div class="sub">{{ user.tenant.nome }}</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-items">
+        <a class="nav-item {% if nav_atual == 'dashboard' %}active{% endif %}" href="{% url 'app:dashboard' %}">
+          <span class="dot"></span> Painel
+        </a>
+      </div>
+      <div>
+        <div class="nav-group-title">Operações</div>
+        <div class="nav-items">
+          <a class="nav-item {% if nav_atual == 'emprestimo' %}active{% endif %}" href="{% url 'app:ativos:wizard_emprestimo' %}">
+            <span class="dot"></span> Emprestar
+          </a>
+          <a class="nav-item {% if nav_atual == 'devolucao' %}active{% endif %}" href="{% url 'app:ativos:devolucao' %}">
+            <span class="dot"></span> Devolver
+          </a>
+          <a class="nav-item {% if nav_atual == 'manutencao' %}active{% endif %}" href="{% url 'app:ativos:manutencao_lista' %}">
+            <span class="dot"></span> Manutenção
+          </a>
+          <a class="nav-item {% if nav_atual == 'scan' %}active{% endif %}" href="{% url 'app:ativos:scan' %}">
+            <span class="dot"></span> Ler QR Code
+          </a>
+        </div>
+      </div>
+      <div>
+        <div class="nav-group-title">Cadastros</div>
+        <div class="nav-items">
+          <a class="nav-item {% if nav_atual == 'ativos' %}active{% endif %}" href="{% url 'app:ativos:lista' %}">
+            <span class="dot"></span> Ativos
+          </a>
+          <a class="nav-item {% if nav_atual == 'beneficiarios' %}active{% endif %}" href="{% url 'app:beneficiarios:lista' %}">
+            <span class="dot"></span> Beneficiários
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      {{ user.get_username }} · {{ user.papel.nome|default:"—" }}<br>
+      <form method="post" action="{% url 'logout' %}" style="margin-top:6px;">
+        {% csrf_token %}
+        <button class="btn-ghost" style="all:unset;cursor:pointer;color:#C7D6D2;font-size:12px;" type="submit">Sair</button>
+      </form>
+    </div>
+  </nav>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="title">{% block page_title %}{% endblock %}</div>
+      <div class="topbar-actions">
+        {% block header_actions %}{% endblock %}
+        <div class="avatar">{{ user.get_username|slice:":2"|upper }}</div>
+      </div>
+    </header>
+
+    <main class="content">
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <nav class="bottom-nav">
+      <a class="{% if nav_atual == 'dashboard' %}active{% endif %}" href="{% url 'app:dashboard' %}">
+        <span class="icon">⌂</span> Painel
+      </a>
+      <a class="{% if nav_atual == 'ativos' %}active{% endif %}" href="{% url 'app:ativos:lista' %}">
+        <span class="icon">▣</span> Ativos
+      </a>
+      <a class="{% if nav_atual == 'devolucao' %}active{% endif %}" href="{% url 'app:ativos:devolucao' %}">
+        <span class="icon">⟲</span> Devolver
+      </a>
+      <a class="{% if nav_atual == 'scan' %}active{% endif %}" href="{% url 'app:ativos:scan' %}">
+        <span class="icon">▦</span> QR Code
+      </a>
+    </nav>
+    <a class="fab" href="{% url 'app:ativos:wizard_emprestimo' %}">+</a>
+  </div>
+</div>
+{% else %}
+  {% block full_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

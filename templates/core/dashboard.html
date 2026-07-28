@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Painel · Ciclartech{% endblock %}
+{% block page_title %}Painel{% endblock %}
+{% block content %}
+<div class="flex-col gap-3">
+  <div class="grid grid-5">
+    <div class="stat-card">
+      <div class="label">Disponíveis</div>
+      <div class="value" style="color:var(--ok-text);">{{ disponiveis }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Emprestados</div>
+      <div class="value" style="color:var(--accent);">{{ emprestados }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Em manutenção</div>
+      <div class="value" style="color:var(--warn-text);">{{ manutencao }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total de ativos</div>
+      <div class="value">{{ total_ativos }}</div>
+    </div>
+    <div class="stat-card" style="background:var(--sidebar-bg);border-color:var(--sidebar-bg);">
+      <div class="label" style="color:var(--sidebar-muted);">Taxa de utilização</div>
+      <div class="value" style="color:var(--highlight);">{{ taxa_utilizacao }}%</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ativos por status</div>
+    <div class="grid grid-4">
+      {% for c in contagem_por_status %}
+        <div style="text-align:center;padding:12px 6px;background:var(--card-alt-bg);border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;">{{ c.total }}</div>
+          <div class="faint" style="font-size:11.5px;margin-top:2px;">{{ c.rotulo }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Movimentações recentes</div>
+    {% for m in movimentacoes_recentes %}
+      <div class="flex justify-between items-center" style="padding:10px 4px;border-bottom:1px solid #F0EDE5;">
+        <span>
+          <strong>{{ m.ativo.patrimonio }}</strong>
+          <span class="muted">· {{ m.get_tipo_display }}</span>
+        </span>
+        <span class="faint" style="font-size:12px;">{{ m.data_hora|date:"d/m/Y H:i" }}</span>
+      </div>
+    {% empty %}
+      <div class="faint">Nenhuma movimentação registrada ainda.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

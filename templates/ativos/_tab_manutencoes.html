@@ -1,0 +1,15 @@
+<div class="flex-col">
+  {% for m in manutencoes %}
+    <div class="flex justify-between" style="padding:12px 0;border-top:1px solid #F0EDE5;">
+      <div>
+        <div style="font-size:13.5px;font-weight:600;">{{ m.detalhe_manutencao.motivo|default:"—" }}</div>
+        <div class="muted" style="font-size:12px;">{{ m.data_hora|date:"d/m/Y" }} · {{ m.detalhe_manutencao.fornecedor|default:"—" }}</div>
+      </div>
+      <span class="badge {% if m.detalhe_manutencao.data_conclusao %}badge-disponivel{% else %}badge-manutencao{% endif %}" style="align-self:center;">
+        {% if m.detalhe_manutencao.data_conclusao %}Concluído{% else %}Aguardando{% endif %}
+      </span>
+    </div>
+  {% empty %}
+    <div class="faint" style="font-size:13px;padding:14px 0;">Nenhum registro de manutenção para este ativo.</div>
+  {% endfor %}
+</div>

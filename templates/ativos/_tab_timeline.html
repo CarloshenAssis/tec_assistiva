@@ -1,0 +1,18 @@
+<div class="flex-col">
+  {% for m in movimentacoes %}
+    <div class="timeline-item">
+      <div class="timeline-dot-col">
+        <div class="timeline-dot"></div>
+        {% if not forloop.last %}<div class="timeline-line"></div>{% endif %}
+      </div>
+      <div>
+        <div class="timeline-date">{{ m.data_hora|date:"d/m/Y H:i" }}</div>
+        <div class="timeline-action">{{ m.get_tipo_display }} — {{ m.get_status_anterior_display }} → {{ m.get_status_novo_display }}</div>
+        {% if m.observacoes %}<div class="timeline-detail">{{ m.observacoes }}</div>{% endif %}
+        <div class="timeline-detail faint">{{ m.usuario|default:"—" }}</div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="faint">Nenhum evento registrado ainda.</div>
+  {% endfor %}
+</div>

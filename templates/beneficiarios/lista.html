@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Beneficiários · Ciclartech{% endblock %}
+{% block page_title %}Beneficiários{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-primary" href="{% url 'app:beneficiarios:criar' %}">+ Novo Beneficiário</a>
+{% endblock %}
+{% block content %}
+<div class="flex-col gap-3">
+  <form method="get">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por nome, CPF ou telefone..." style="max-width:340px;">
+  </form>
+
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:1.4fr 1fr 1fr 1fr;">
+      <div>Nome</div><div>CPF</div><div>Cidade / Bairro</div><div>Situação</div>
+    </div>
+    {% for p in beneficiarios %}
+      <a class="table-row clickable" style="grid-template-columns:1.4fr 1fr 1fr 1fr;text-decoration:none;color:inherit;" href="{% url 'app:beneficiarios:ficha' p.pk %}">
+        <div style="font-size:13.5px;font-weight:600;">{{ p.nome }}</div>
+        <div style="font-size:13px;">{{ p.cpf }}</div>
+        <div style="font-size:13px;">{{ p.cidade }}{% if p.bairro %} · {{ p.bairro }}{% endif %}</div>
+        <div><span class="badge badge-disponivel">{{ p.get_tipo_relacao_display }}</span></div>
+      </a>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum beneficiário encontrado.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

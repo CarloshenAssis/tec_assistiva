@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Manutenção · Ciclartech{% endblock %}
+{% block page_title %}Manutenção{% endblock %}
+{% block content %}
+<div class="table">
+  <div class="table-head" style="grid-template-columns:110px 1fr 1fr 1fr 120px;">
+    <div>Patrimônio</div><div>Motivo</div><div>Fornecedor</div><div>Entrada</div><div></div>
+  </div>
+  {% for item in itens %}
+    <div class="table-row" style="grid-template-columns:110px 1fr 1fr 1fr 120px;">
+      <div style="font-weight:700;font-size:13px;">
+        <a href="{% url 'app:ativos:ficha' item.ativo.pk %}">{{ item.ativo.patrimonio }}</a>
+      </div>
+      <div style="font-size:13px;">{{ item.detalhe.motivo|default:"—" }}</div>
+      <div style="font-size:13px;" class="muted">{{ item.detalhe.fornecedor|default:"—" }}</div>
+      <div style="font-size:13px;" class="muted">{{ item.movimentacao.data_hora|date:"d/m/Y" }}</div>
+      <div>
+        <form method="post" action="{% url 'app:ativos:executar_acao' item.ativo.pk 'finalizar_manutencao' %}">
+          {% csrf_token %}
+          <input type="hidden" name="origem" value="manutencao">
+          <button class="btn btn-secondary" type="submit">Finalizar</button>
+        </form>
+      </div>
+    </div>
+  {% empty %}
+    <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum ativo em manutenção no momento.</div>
+  {% endfor %}
+</div>
+{% endblock %}

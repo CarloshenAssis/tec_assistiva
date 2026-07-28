@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ beneficiario.nome }} · Ciclartech{% endblock %}
+{% block page_title %}Ficha do Beneficiário{% endblock %}
+{% block content %}
+<a class="btn btn-ghost" href="{% url 'app:beneficiarios:lista' %}">← Voltar para Beneficiários</a>
+
+<div class="grid" style="grid-template-columns:1.3fr 1fr;gap:16px;align-items:start;margin-top:12px;">
+  <div class="card">
+    <div style="font-size:20px;font-weight:800;">{{ beneficiario.nome }}</div>
+    <div class="muted" style="font-size:13px;">CPF {{ beneficiario.cpf }} · Nascimento {{ beneficiario.data_nascimento|date:"d/m/Y"|default:"—" }}</div>
+
+    <div class="grid grid-2 mt-3" style="font-size:13px;">
+      <div><div class="faint" style="font-size:11.5px;">Telefone</div>{{ beneficiario.telefone|default:"—" }}</div>
+      <div><div class="faint" style="font-size:11.5px;">WhatsApp</div>{{ beneficiario.whatsapp|default:"—" }}</div>
+      <div><div class="faint" style="font-size:11.5px;">Email</div>{{ beneficiario.email|default:"—" }}</div>
+      <div><div class="faint" style="font-size:11.5px;">Endereço</div>{{ beneficiario.endereco|default:"—" }}</div>
+      <div><div class="faint" style="font-size:11.5px;">Cidade / Bairro</div>{{ beneficiario.cidade }} · {{ beneficiario.bairro }}</div>
+      <div><div class="faint" style="font-size:11.5px;">CEP</div>{{ beneficiario.cep|default:"—" }}</div>
+    </div>
+
+    <div class="mt-3" style="border-top:1px solid #F0EDE5;padding-top:14px;">
+      <div class="faint" style="font-size:12.5px;font-weight:700;margin-bottom:8px;">Contato de emergência</div>
+      <div style="font-size:13px;">
+        {{ beneficiario.contato_emergencia_nome|default:"—" }} · {{ beneficiario.contato_emergencia_parentesco }} · {{ beneficiario.contato_emergencia_telefone }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Histórico de empréstimos</div>
+    <div class="flex-col">
+      {% for e in emprestimos %}
+        <div style="padding:12px 0;border-top:1px solid #F0EDE5;">
+          <div class="flex justify-between">
+            <span style="font-size:13.5px;font-weight:600;">{{ e.movimentacao.ativo.categoria.nome }} · {{ e.movimentacao.ativo.patrimonio }}</span>
+            <span class="badge badge-{{ e.movimentacao.ativo.status }}">{{ e.movimentacao.ativo.get_status_display }}</span>
+          </div>
+          <div class="muted" style="font-size:12.5px;margin-top:2px;">
+            Retirada {{ e.movimentacao.data_hora|date:"d/m/Y" }} · Previsão {{ e.data_prevista_devolucao|date:"d/m/Y" }}
+          </div>
+        </div>
+      {% empty %}
+        <div class="faint">Nenhum empréstimo registrado ainda.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Não encontrado · Ciclartech{% endblock %}
+{% block page_title %}Leitura de QR Code{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;text-align:center;">
+  <div style="font-size:32px;">🔍</div>
+  <div style="font-weight:700;margin-top:8px;">Ativo não encontrado</div>
+  <div class="muted" style="font-size:13px;margin-top:6px;">
+    Nenhum ativo corresponde a esse código nesta conta.
+  </div>
+  <a class="btn btn-secondary mt-3" href="{% url 'app:ativos:scan' %}">Tentar novamente</a>
+</div>
+{% endblock %}
