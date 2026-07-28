@@ -129,6 +129,31 @@ class FluxoExtravioTest(BaseComTenant):
         self.assertEqual(self.ativo.status, StatusAtivo.DISPONIVEL.value)
 
 
+class NotificacaoAutomaticaTest(BaseComTenant):
+    def test_emprestar_dispara_notificacao_de_confirmacao_quando_ha_template(self):
+        from notificacoes.models import NotificacaoEnviada, NotificacaoTemplate
+
+        NotificacaoTemplate.objects.all_tenants().create(
+            tenant=self.tenant_a,
+            tipo=NotificacaoTemplate.Tipo.CONFIRMACAO_EMPRESTIMO,
+            titulo="Empréstimo realizado",
+            corpo_texto="Olá {beneficiario}, {ativo} ({codigo}) até {data_prevista}.",
+        )
+        self.beneficiario.whatsapp = "(12) 99999-0000"
+        self.beneficiario.save(update_fields=["whatsapp"])
+
+        services.emprestar(self.ativo, self.beneficiario, usuario=None, prazo_dias=30)
+
+        notificacoes = NotificacaoEnviada.objects.filter(beneficiario=self.beneficiario)
+        self.assertEqual(notificacoes.count(), 1)
+        self.assertIn(self.ativo.patrimonio, notificacoes.first().corpo_renderizado)
+
+    def test_emprestar_nao_falha_sem_template_cadastrado(self):
+        # Sem NotificacaoTemplate — criar_e_enviar deve simplesmente não fazer nada.
+        movimentacao = services.emprestar(self.ativo, self.beneficiario, usuario=None, prazo_dias=30)
+        self.assertIsNotNone(movimentacao.pk)
+
+
 class InativacaoTest(BaseComTenant):
     def test_inativar_e_reativar(self):
         services.inativar(self.ativo, usuario=None, motivo="Pausa administrativa")

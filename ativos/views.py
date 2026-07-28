@@ -28,7 +28,7 @@ from ativos.forms import (
     ObservacaoForm,
     RenovarForm,
 )
-from ativos.models import Ativo, CategoriaAtivo, Movimentacao
+from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo, FotoAtivo, Movimentacao
 from beneficiarios.models import Beneficiario
 from core.decorators import nivel_hierarquico, tenant_required
 
@@ -84,6 +84,21 @@ def lista(request):
     )
 
 
+_FOTO_CAMPOS = [
+    ("foto_principal", FotoAtivo.Tipo.PRINCIPAL),
+    ("foto_lateral", FotoAtivo.Tipo.LATERAL),
+    ("foto_traseira", FotoAtivo.Tipo.TRASEIRA),
+    ("foto_etiqueta", FotoAtivo.Tipo.ETIQUETA),
+]
+
+
+def _salvar_fotos_cadastro(ativo, arquivos):
+    for campo, tipo in _FOTO_CAMPOS:
+        arquivo = arquivos.get(campo)
+        if arquivo:
+            FotoAtivo.objects.create(tenant=ativo.tenant, ativo=ativo, tipo=tipo, arquivo=arquivo)
+
+
 @tenant_required
 def criar(request):
     if nivel_hierarquico(request) < NIVEL_GESTOR:
@@ -94,11 +109,16 @@ def criar(request):
             ativo = form.save(commit=False)
             ativo.tenant = request.tenant
             ativo.save()
+            _salvar_fotos_cadastro(ativo, request.FILES)
             messages.success(request, f"Ativo {ativo.patrimonio} cadastrado com sucesso.")
             return redirect("app:ativos:ficha", pk=ativo.pk)
     else:
         form = AtivoForm()
-    return render(request, "ativos/form.html", {"nav_atual": "ativos", "form": form, "titulo": "Novo Ativo"})
+    return render(
+        request,
+        "ativos/form.html",
+        {"nav_atual": "ativos", "form": form, "titulo": "Novo Ativo", "mostrar_upload_fotos": True},
+    )
 
 
 @tenant_required
@@ -557,6 +577,37 @@ def qrcode_imagem(request, pk):
     buffer = io.BytesIO()
     imagem.save(buffer, format="PNG")
     return HttpResponse(buffer.getvalue(), content_type="image/png")
+
+
+@tenant_required
+def agenda(request):
+    """
+    Devoluções hoje, próximos vencimentos (7 dias) e atrasados — mesma
+    consulta usada pelo job diário de notificações
+    (notificacoes/management/commands/enviar_notificacoes_diarias.py),
+    aqui só para exibição.
+    """
+    hoje = timezone.now().date()
+    detalhes = DetalheEmprestimo.objects.filter(
+        movimentacao__ativo__status=StatusAtivo.EMPRESTADO.value
+    ).select_related("movimentacao__ativo", "movimentacao__ativo__categoria", "beneficiario")
+
+    hoje_lista, proximos, atrasados = [], [], []
+    for detalhe in detalhes:
+        dias = (detalhe.data_prevista_devolucao - hoje).days
+        item = {"beneficiario": detalhe.beneficiario, "ativo": detalhe.movimentacao.ativo, "dias": dias}
+        if dias == 0:
+            hoje_lista.append(item)
+        elif 0 < dias <= 7:
+            proximos.append(item)
+        elif dias < 0:
+            atrasados.append({**item, "dias": abs(dias)})
+
+    return render(
+        request,
+        "ativos/agenda.html",
+        {"nav_atual": "agenda", "hoje_lista": hoje_lista, "proximos": proximos, "atrasados": atrasados},
+    )
 
 
 @tenant_required

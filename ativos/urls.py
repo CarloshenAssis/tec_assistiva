@@ -12,6 +12,7 @@ urlpatterns = [
     path("emprestimo/", views.wizard_emprestimo, name="wizard_emprestimo"),
     path("devolucao/", views.devolucao, name="devolucao"),
     path("manutencao/", views.manutencao_lista, name="manutencao_lista"),
+    path("agenda/", views.agenda, name="agenda"),
     path("<int:pk>/", views.ficha, name="ficha"),
     path("<int:pk>/editar/", views.editar, name="editar"),
     path("<int:pk>/qrcode.png", views.qrcode_imagem, name="qrcode_imagem"),

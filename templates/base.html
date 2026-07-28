@@ -50,6 +50,25 @@
           </a>
         </div>
       </div>
+      <div>
+        <div class="nav-group-title">Agenda</div>
+        <div class="nav-items">
+          <a class="nav-item {% if nav_atual == 'agenda' %}active{% endif %}" href="{% url 'app:ativos:agenda' %}">
+            <span class="dot"></span> Devoluções e atrasos
+          </a>
+        </div>
+      </div>
+      <div>
+        <div class="nav-group-title">Relatórios</div>
+        <div class="nav-items">
+          <a class="nav-item {% if nav_atual == 'relatorios' %}active{% endif %}" href="{% url 'app:relatorios' %}">
+            <span class="dot"></span> Relatórios
+          </a>
+          <a class="nav-item {% if nav_atual == 'notificacoes' %}active{% endif %}" href="{% url 'app:notificacoes:lista' %}">
+            <span class="dot"></span> Notificações
+          </a>
+        </div>
+      </div>
     </div>
     <div class="sidebar-footer">
       {{ user.get_username }} · {{ user.papel.nome|default:"—" }}<br>

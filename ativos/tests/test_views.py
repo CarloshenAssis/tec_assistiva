@@ -161,3 +161,21 @@ class WizardEmprestimoTest(BaseViewTest):
         self.client.post(url, {"wizard_acao": "voltar"})
         resposta = self.client.get(url)
         self.assertContains(resposta, "Passo 2")
+
+
+class TelasComplementaresTest(BaseViewTest):
+    def test_agenda_acessivel(self):
+        self.client.login(username="gestor_a", password="senha-teste-123")
+        response = self.client.get(reverse("app:ativos:agenda"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_relatorios_acessivel(self):
+        self.client.login(username="gestor_a", password="senha-teste-123")
+        response = self.client.get(reverse("app:relatorios"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Total de ativos")
+
+    def test_notificacoes_acessivel(self):
+        self.client.login(username="gestor_a", password="senha-teste-123")
+        response = self.client.get(reverse("app:notificacoes:lista"))
+        self.assertEqual(response.status_code, 200)

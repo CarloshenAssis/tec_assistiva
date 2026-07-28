@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Relatórios · Ciclartech{% endblock %}
+{% block page_title %}Relatórios{% endblock %}
+{% block content %}
+<div class="flex-col gap-3">
+  <div class="grid grid-4">
+    <div class="stat-card"><div class="label">Total de ativos</div><div class="value">{{ total_ativos }}</div></div>
+    <div class="stat-card"><div class="label">Total de beneficiários</div><div class="value">{{ total_beneficiarios }}</div></div>
+    <div class="stat-card"><div class="label">Com empréstimo ativo</div><div class="value" style="color:var(--accent);">{{ beneficiarios_com_emprestimo }}</div></div>
+    <div class="stat-card"><div class="label">Notificações enviadas</div><div class="value">{{ total_notificacoes }}</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ativos por status</div>
+    <div class="grid grid-4">
+      {% for c in contagem_por_status %}
+        <div style="text-align:center;padding:12px 6px;background:var(--card-alt-bg);border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;">{{ c.total }}</div>
+          <div class="faint" style="font-size:11.5px;margin-top:2px;">{{ c.rotulo }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

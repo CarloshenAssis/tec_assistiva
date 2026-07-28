@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Agenda · Ciclartech{% endblock %}
+{% block page_title %}Agenda{% endblock %}
+{% block content %}
+<div class="grid grid-3">
+  <div class="card">
+    <div class="card-title">Devoluções hoje</div>
+    {% for item in hoje_lista %}
+      <div style="padding:10px 0;border-top:1px solid #F0EDE5;font-size:13px;">
+        <div style="font-weight:600;">{{ item.beneficiario.nome }}</div>
+        <div class="muted" style="font-size:12px;">{{ item.ativo.patrimonio }}</div>
+      </div>
+    {% empty %}
+      <div class="faint">Nenhuma devolução prevista para hoje.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Próximos vencimentos (7 dias)</div>
+    {% for item in proximos %}
+      <div style="padding:10px 0;border-top:1px solid #F0EDE5;font-size:13px;">
+        <div style="font-weight:600;">{{ item.beneficiario.nome }}</div>
+        <div class="muted" style="font-size:12px;">{{ item.ativo.patrimonio }} · vence em {{ item.dias }} dias</div>
+      </div>
+    {% empty %}
+      <div class="faint">Nenhum vencimento nos próximos 7 dias.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Em atraso</div>
+    {% for item in atrasados %}
+      <div class="flex justify-between items-center" style="padding:10px 0;border-top:1px solid #F0EDE5;font-size:13px;">
+        <div>
+          <div style="font-weight:600;">{{ item.beneficiario.nome }}</div>
+          <div class="muted" style="font-size:12px;">{{ item.ativo.patrimonio }}</div>
+        </div>
+        <span class="badge badge-baixado">{{ item.dias }}d</span>
+      </div>
+    {% empty %}
+      <div class="faint">Nenhum ativo em atraso.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

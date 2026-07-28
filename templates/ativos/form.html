@@ -3,7 +3,7 @@
 {% block page_title %}{{ titulo }}{% endblock %}
 {% block content %}
 <div class="card" style="max-width:640px;">
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {% for field in form %}
       <div class="field">
@@ -13,6 +13,15 @@
         {{ field.errors }}
       </div>
     {% endfor %}
+    {% if mostrar_upload_fotos %}
+      <div class="faint" style="font-size:11.5px;font-weight:700;margin:14px 0 8px;">Fotos do ativo (opcional)</div>
+      <div class="grid grid-2">
+        <div class="field"><label>Principal</label><input type="file" name="foto_principal" accept="image/*"></div>
+        <div class="field"><label>Lateral</label><input type="file" name="foto_lateral" accept="image/*"></div>
+        <div class="field"><label>Traseira</label><input type="file" name="foto_traseira" accept="image/*"></div>
+        <div class="field"><label>Etiqueta de patrimônio</label><input type="file" name="foto_etiqueta" accept="image/*"></div>
+      </div>
+    {% endif %}
     <div class="flex gap-2 mt-2">
       <button class="btn btn-primary" type="submit">Salvar</button>
       {% if ativo %}<a class="btn btn-secondary" href="{% url 'app:ativos:ficha' ativo.pk %}">Cancelar</a>{% else %}<a class="btn btn-secondary" href="{% url 'app:ativos:lista' %}">Cancelar</a>{% endif %}

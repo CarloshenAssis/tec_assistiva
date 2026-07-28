@@ -11,6 +11,7 @@ o registro de `Movimentacao` correspondente (violando o invariante
 "nenhuma mudança de status sem rastro" — docs/PLANO_DOMINIO_ATIVOS.md §2.2).
 """
 
+import logging
 from datetime import timedelta
 from typing import Optional
 
@@ -92,7 +93,37 @@ def emprestar(
         assinatura_tipo=DetalheEmprestimo.AssinaturaTipo.FISICA,
         assinatura_arquivo=assinatura_arquivo,
     )
+    _notificar_confirmacao_emprestimo(ativo, beneficiario, data_prevista, movimentacao)
     return movimentacao
+
+
+def _notificar_confirmacao_emprestimo(ativo, beneficiario, data_prevista, movimentacao):
+    """
+    Disparo automático da confirmação de empréstimo (RF016). Uma falha na
+    notificação nunca deve derrubar o empréstimo em si (RNF016) — daí o
+    `try/except` amplo aqui, isolado do restante da transação (a
+    `Movimentacao`/`DetalheEmprestimo` já foram gravadas com sucesso).
+    """
+    try:
+        from notificacoes.services import criar_e_enviar
+
+        criar_e_enviar(
+            tenant=ativo.tenant,
+            beneficiario=beneficiario,
+            tipo="confirmacao_emprestimo",
+            contexto={
+                "beneficiario": beneficiario.nome,
+                "ativo": ativo.categoria.nome,
+                "codigo": ativo.patrimonio,
+                "data_prevista": data_prevista.strftime("%d/%m/%Y"),
+                "dias": (data_prevista - timezone.now().date()).days,
+            },
+            movimentacao=movimentacao,
+        )
+    except Exception:  # noqa: BLE001 — notificação nunca pode derrubar o empréstimo
+        logging.getLogger("notificacoes").exception(
+            "Falha ao notificar confirmação de empréstimo do ativo %s", ativo.pk
+        )
 
 
 def renovar(ativo: Ativo, usuario, novo_prazo_dias: int, observacoes: str = "") -> Movimentacao:

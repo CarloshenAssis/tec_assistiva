@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Notificações · Ciclartech{% endblock %}
+{% block page_title %}Notificações{% endblock %}
+{% block content %}
+<div class="table">
+  <div class="table-head" style="grid-template-columns:140px 1fr 1fr 90px 100px;">
+    <div>Data</div><div>Beneficiário</div><div>Tipo</div><div>Canal</div><div>Status</div>
+  </div>
+  {% for n in notificacoes %}
+    <div class="table-row" style="grid-template-columns:140px 1fr 1fr 90px 100px;">
+      <div style="font-size:12.5px;">{{ n.criado_em|date:"d/m/Y H:i" }}</div>
+      <div style="font-size:13px;font-weight:600;">{{ n.beneficiario.nome }}</div>
+      <div style="font-size:12.5px;">{{ n.template.get_tipo_display }}</div>
+      <div style="font-size:12.5px;">{{ n.get_canal_display }}</div>
+      <div>
+        <span class="badge {% if n.status == 'enviado' %}badge-disponivel{% elif n.status == 'falhou' %}badge-baixado{% else %}badge-inativo{% endif %}">
+          {{ n.get_status_display }}
+        </span>
+      </div>
+    </div>
+  {% empty %}
+    <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhuma notificação enviada ainda.</div>
+  {% endfor %}
+</div>
+{% endblock %}

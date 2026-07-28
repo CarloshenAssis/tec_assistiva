@@ -13,6 +13,34 @@ from beneficiarios.models import Beneficiario
 from contas.models import Papel, Usuario
 from core.models import Tenant, Unidade
 from core.tenancy import reset_current_tenant_id, set_current_tenant_id
+from notificacoes.models import NotificacaoTemplate
+
+TEMPLATES_PADRAO = [
+    (
+        NotificacaoTemplate.Tipo.CONFIRMACAO_EMPRESTIMO,
+        "Empréstimo realizado",
+        "Olá {beneficiario}!\n\nSeu empréstimo foi registrado.\n\nAtivo: {ativo}\nCódigo: {codigo}\n\n"
+        "Devolução prevista: {data_prevista}",
+    ),
+    (
+        NotificacaoTemplate.Tipo.AVISO_7_DIAS,
+        "7 dias antes do vencimento",
+        "Olá {beneficiario}!\n\nFaltam 7 dias para o vencimento do empréstimo de {ativo} ({codigo}).\n\n"
+        "Se ainda precisar do item, entre em contato para solicitar renovação.",
+    ),
+    (
+        NotificacaoTemplate.Tipo.VENCIMENTO,
+        "No vencimento",
+        "Olá {beneficiario}!\n\nHoje vence o empréstimo de {ativo} ({codigo}).\n\n"
+        "Se já devolveu, desconsidere esta mensagem.",
+    ),
+    (
+        NotificacaoTemplate.Tipo.ATRASO,
+        "Em atraso",
+        "Olá {beneficiario}!\n\nSeu empréstimo de {ativo} ({codigo}) está em atraso há {dias} dia(s).\n\n"
+        "Entre em contato para regularização.",
+    ),
+]
 
 
 class Command(BaseCommand):
@@ -66,12 +94,19 @@ class Command(BaseCommand):
                 )
 
             beneficiarios_seed = [
-                ("Maria Silva", "123.456.789-00", "São José dos Campos", "Jardim Satélite"),
-                ("João Pedro", "234.567.891-00", "São José dos Campos", "Jardim Aquarius"),
+                ("Maria Silva", "123.456.789-00", "São José dos Campos", "Jardim Satélite", "(12) 99811-2233"),
+                ("João Pedro", "234.567.891-00", "São José dos Campos", "Jardim Aquarius", "(12) 99722-3344"),
             ]
-            for nome, cpf, cidade, bairro in beneficiarios_seed:
+            for nome, cpf, cidade, bairro, whatsapp in beneficiarios_seed:
                 Beneficiario.objects.get_or_create(
-                    tenant=tenant, cpf=cpf, defaults={"nome": nome, "cidade": cidade, "bairro": bairro}
+                    tenant=tenant,
+                    cpf=cpf,
+                    defaults={"nome": nome, "cidade": cidade, "bairro": bairro, "whatsapp": whatsapp},
+                )
+
+            for tipo, titulo, corpo in TEMPLATES_PADRAO:
+                NotificacaoTemplate.objects.get_or_create(
+                    tenant=tenant, tipo=tipo, defaults={"titulo": titulo, "corpo_texto": corpo}
                 )
         finally:
             reset_current_tenant_id(token)
