@@ -5,7 +5,9 @@ __pycache__/
 .venv/
 venv/
 db.sqlite3
-staticfiles/
+# staticfiles/ é comitado de propósito: o build da Vercel (@vercel/python)
+# não roda `collectstatic`, então o output pré-gerado precisa estar no repo
+# para o WhiteNoise servir os arquivos em produção.
 media/
 .pytest_cache/
 .ruff_cache/
