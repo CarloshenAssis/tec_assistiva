@@ -1,10 +1,12 @@
 # Especificação Técnica e Arquitetural
 ## Sistema de Gestão de Empréstimo de Equipamentos Ortopédicos (Tec Assistiva)
 
-**Versão:** 1.0
+**Versão:** 1.1
 **Data:** 28/07/2026
 **Autor:** Engenharia de Software
 **Status:** Draft para aprovação
+
+**Changelog v1.1:** assinatura do termo passa a ser **física por padrão** (checklist de confirmação + foto do termo assinado), com assinatura digital em tela tratada como **módulo opcional** configurável por tenant no painel admin (RF007, RF025, RF026); sistema redesenhado como **multi-tenant** (RF027, RF028, RNF017, RNF018, seção 3.3).
 
 ---
 
@@ -25,14 +27,15 @@ O sistema resolve os seguintes problemas hoje geridos manualmente (planilhas, pa
 
 **Escopo desta versão (MVP):**
 - Cadastro de equipamentos e beneficiários.
-- Processo de empréstimo (wizard guiado) e devolução, com checklist e fotos.
+- Processo de empréstimo (wizard guiado) e devolução, com checklist e assinatura física do termo (foto/upload).
 - Gestão de manutenção.
 - Dashboard operacional e relatórios/indicadores.
 - Notificações automáticas (WhatsApp) de eventos do empréstimo.
 - Controle de acesso por perfil (Administrador, Atendente, Gestor, Manutenção).
 - Leitura de QR Code para identificação rápida do equipamento.
+- **Multi-tenant**: um único sistema atende múltiplas instituições (secretarias/prefeituras) de forma isolada entre si.
 
-**Fora de escopo (versões futuras):** integração com sistemas de prontuário eletrônico de saúde, emissão de nota fiscal/compra, app mobile nativo (será PWA/responsivo via web), assinatura eletrônica com certificado ICP-Brasil (v1 usa assinatura digital simplificada em tela ou foto do termo assinado).
+**Fora de escopo (versões futuras):** integração com sistemas de prontuário eletrônico de saúde, emissão de nota fiscal/compra, app mobile nativo (será PWA/responsivo via web). A **assinatura digital em tela (canvas)** não faz parte do fluxo padrão — é tratada como **módulo adicional opcional**, ativável por tenant (ver RF007 e RF025).
 
 ### 1.2 Público-alvo
 
@@ -58,7 +61,9 @@ O sistema resolve os seguintes problemas hoje geridos manualmente (planilhas, pa
 | RF004 | Busca e Filtro de Equipamentos | Busca por código/tipo/marca e filtro por categoria e status | Alta |
 | RF005 | Busca de Beneficiários | Busca por nome, CPF ou telefone | Alta |
 | RF006 | Wizard de Novo Empréstimo | Fluxo guiado: seleção do beneficiário → seleção do equipamento disponível → definição de prazo → checklist de estado + fotos → assinatura do termo → confirmação | Alta |
-| RF007 | Assinatura do Termo de Responsabilidade | Suporte a assinatura digital em tela (canvas) ou upload de foto do termo assinado em papel | Alta |
+| RF007 | Assinatura do Termo de Responsabilidade (Física) | Padrão do sistema: termo impresso, assinado fisicamente pelo beneficiário e registrado via checklist de confirmação ("termo impresso", "termo assinado", "termo anexado/digitalizado") + upload de foto/scan do termo assinado. Não depende de assinatura em tela | Alta |
+| RF025 | Módulo Opcional de Assinatura Digital | Módulo adicional (desativado por padrão) que habilita assinatura em tela (canvas) como alternativa à assinatura física, para tenants que optarem por essa modalidade | Baixa |
+| RF026 | Configuração do Método de Assinatura | Painel administrativo permite, por tenant, escolher o método de assinatura vigente (Física/checklist — padrão, ou Digital — se módulo habilitado) | Alta |
 | RF008 | Registro de Devolução | Busca do empréstimo ativo, checklist de conferência, foto de devolução, marcação de avarias, decisão de destino (disponível/manutenção) | Alta |
 | RF009 | Renovação de Empréstimo | Estender prazo de um empréstimo ativo, com aprovação de gestor quando aplicável | Média |
 | RF010 | Gestão de Manutenção | Registrar entrada de equipamento em manutenção (problema, fornecedor, valor, responsável), acompanhar status e concluir | Alta |
@@ -72,10 +77,12 @@ O sistema resolve os seguintes problemas hoje geridos manualmente (planilhas, pa
 | RF018 | Leitura de QR Code | Escaneamento do QR Code do equipamento (via câmera do navegador) para abrir ficha ou iniciar devolução rapidamente | Média |
 | RF019 | Controle de Acesso por Perfil (RBAC) | Perfis com permissões distintas (matriz de permissões) sobre cadastro, operação, manutenção, relatórios e configurações | Alta |
 | RF020 | Gestão de Usuários | CRUD de usuários do sistema e atribuição de perfil | Alta |
-| RF021 | Configurações da Instituição | Cadastro de dados da secretaria e credenciais de integração (ex: WhatsApp Business) | Média |
+| RF021 | Configurações da Instituição (Tenant) | Cadastro de dados da secretaria/prefeitura (tenant), credenciais de integração (ex: WhatsApp Business) e parametrizações específicas (ex.: método de assinatura — RF026) | Média |
 | RF022 | Baixa de Equipamento | Marcar equipamento como baixado (inservível) com justificativa, removendo-o da disponibilidade | Média |
 | RF023 | Auditoria de Ações | Registro de quem realizou cada ação crítica (empréstimo, devolução, edição de cadastro) e quando | Média |
 | RF024 | Exportação de Relatórios | Exportar relatórios em CSV/PDF | Baixa |
+| RF027 | Gestão Multi-tenant (Provisionamento) | Um superadministrador da plataforma cadastra/ativa/desativa tenants (instituições clientes), cada um com seus próprios usuários, equipamentos, beneficiários e configurações, totalmente isolados dos demais | Alta |
+| RF028 | Isolamento de Dados entre Tenants | Nenhum usuário de um tenant pode visualizar, buscar ou referenciar dados (equipamentos, beneficiários, empréstimos, relatórios) de outro tenant, em nenhuma tela ou endpoint | Alta |
 
 ### 2.2 Requisitos Não Funcionais (RNF)
 
@@ -97,6 +104,8 @@ O sistema resolve os seguintes problemas hoje geridos manualmente (planilhas, pa
 | RNF014 | Compatibilidade | Suporte aos navegadores Chrome, Edge e Safari nas duas últimas versões principais |
 | RNF015 | Portabilidade de dados | Exportação de dados em formato aberto (CSV) disponível a qualquer momento para os módulos principais |
 | RNF016 | Resiliência de integrações | Falhas na API de WhatsApp não devem bloquear a operação principal (empréstimo/devolução); reprocessamento assíncrono com retry e backoff |
+| RNF017 | Isolamento Multi-tenant | Toda query de leitura/escrita deve ser automaticamente restrita ao tenant do usuário autenticado; falha de isolamento é tratada como incidente de segurança crítico (P0) |
+| RNF018 | Escalabilidade Multi-tenant | Onboarding de um novo tenant não deve exigir deploy de nova infraestrutura nem alteração de código — apenas criação de registro de tenant e usuário administrador inicial |
 
 ---
 
@@ -132,6 +141,28 @@ Justificativa:
 - Essa organização evita "fat models"/"fat views" e mantém a lógica de negócio testável de forma isolada do framework web, sem pagar o custo de uma Clean Architecture completa (múltiplas camadas de interfaces/adapters), que seria desproporcional ao tamanho do projeto.
 - **Serverless não se aplica** bem aqui devido à necessidade de conexões persistentes ao banco, jobs agendados (Celery Beat) e ao perfil de carga constante (uso interno em horário comercial), onde o custo de cold start e a complexidade de configuração superariam os benefícios.
 
+### 3.3 Estratégia Multi-tenant
+
+**Escolha: Multi-tenancy em banco/schema compartilhado, com discriminação por `tenant_id` (shared database, shared schema, row-level isolation).**
+
+Como funciona:
+
+- Existe uma entidade `Tenant` (a instituição/secretaria/prefeitura cliente). Todo model de domínio (`Equipamento`, `Beneficiario`, `Emprestimo`, `Manutencao`, `NotificacaoTemplate`, `EventoHistorico`, etc.) possui uma FK obrigatória `tenant`.
+- Um `TenantMiddleware` resolve o tenant do usuário autenticado (1 usuário pertence a exatamente 1 tenant, exceto o superadministrador da plataforma) e injeta esse contexto na *request*.
+- Um `Manager`/`QuerySet` customizado (`TenantManager`) filtra **automaticamente** por `tenant_id` em toda consulta ORM, evitando que um desenvolvedor esqueça o filtro em uma view específica — o isolamento é a regra, não a exceção (atende RF028/RNF017).
+- Constraints de unicidade (ex.: `codigo` do equipamento, `cpf` do beneficiário) são compostas com `tenant_id` (`unique_together`), permitindo que dois tenants tenham, por exemplo, o mesmo código de equipamento sem conflito.
+- Django Admin usa um `TenantAdminMixin` que restringe listagens/edições ao tenant do usuário logado (exceto para o superadministrador da plataforma, que enxerga todos para fins de suporte/provisionamento — RF027).
+
+Justificativa da escolha (vs. alternativas):
+
+| Estratégia | Isolamento | Custo operacional | Onboarding de tenant | Escolha |
+|---|---|---|---|---|
+| **Banco/schema compartilhado + `tenant_id`** (escolhida) | Bom (aplicado por middleware/manager, reforçado por testes automatizados) | Baixo — uma única infraestrutura, um único deploy | Instantâneo (RNF018) — criar registro de `Tenant` | ✅ |
+| Schema-per-tenant (ex. `django-tenants`) | Muito forte (isolamento físico por schema PostgreSQL) | Alto — migrations rodam por schema, backups/restore mais complexos, dificulta queries agregadas entre tenants para o time da plataforma | Requer criação de schema + migração por tenant | Alternativa para o futuro, se exigências contratuais de isolamento físico (ex. cliente que exige banco dedicado) surgirem |
+| Banco dedicado por tenant | Máximo | Muito alto — 1 banco por prefeitura, escala mal para dezenas/centenas de municípios pequenos | Requer provisionamento de infraestrutura | Descartada para o MVP; viável apenas para grandes clientes que paguem por isolamento dedicado |
+
+Dado o perfil esperado (múltiplas secretarias/prefeituras de porte pequeno/médio, orçamento público limitado, volume de dados modesto por tenant), a opção de **schema compartilhado com `tenant_id`** oferece o melhor equilíbrio entre isolamento adequado, custo de operação e velocidade de onboarding. A arquitetura em camadas (services/selectors) já isola o acesso a dados, o que facilita migrar para `django-tenants` (schema-per-tenant) no futuro caso um cliente específico exija isolamento físico, sem redesenhar o domínio.
+
 ---
 
 ## 4. Modelagem e Fluxos
@@ -147,8 +178,11 @@ flowchart TD
     B -->|Selecionado| C[Passo 2: Buscar/Selecionar Equipamento Disponível]
     C --> D[Passo 3: Definir Prazo - 30/60/90/Personalizado]
     D --> E[Passo 4: Checklist de Estado + Fotos do Equipamento]
-    E --> F[Passo 4: Assinatura do Termo - Digital ou Foto]
-    F --> G[Passo 5: Revisar dados do empréstimo]
+    E --> F{Método de assinatura do tenant}
+    F -->|Padrão: Física| F1[Checklist: termo impresso/assinado + upload de foto do termo]
+    F -->|Módulo opcional habilitado: Digital| F2[Assinatura em tela - canvas]
+    F1 --> G[Passo 5: Revisar dados do empréstimo]
+    F2 --> G
     G --> H{Confirmar?}
     H -->|Não| D
     H -->|Sim| I[Sistema cria registro de Empréstimo]
@@ -210,58 +244,62 @@ flowchart TD
 
 ### 4.2 Modelagem de Dados
 
+> **Nota sobre multi-tenancy:** todas as entidades de domínio abaixo (exceto `Tenant` em si) possuem uma FK obrigatória `tenant` (omitida individualmente por brevidade, indicada uma única vez aqui). Campos que hoje são `único` (ex. `codigo` do equipamento, `cpf` do beneficiário) passam a ser únicos **por tenant** (`unique_together = ('tenant', 'campo')`).
+
 #### Entidades principais e atributos
 
+- **Tenant** (instituição cliente da plataforma — ex. Secretaria de Assistência Social de um município)
+  - id, nome, slug (identificador único usado em URL/subdomínio), whatsapp_business_numero, credenciais_api (armazenamento seguro), assinatura_metodo (`fisica` [padrão] / `digital`), modulo_assinatura_digital_habilitado (bool), ativo, criado_em
+
 - **Usuario** (extensão do `auth.User` do Django, ou model `Perfil` 1:1)
-  - id, username, email, senha (hash), nome_completo, perfil (FK Papel), ativo, data_criacao
+  - id, tenant (FK, nulo apenas para superadministrador da plataforma), username, email, senha (hash), nome_completo, perfil (FK Papel), ativo, data_criacao
 
 - **Papel/Perfil** (RBAC — Administrador, Atendente, Gestor, Manutenção)
   - id, nome, permissões (via `django.contrib.auth.Group` + `Permission`)
 
-- **Beneficiario**
-  - id, nome, cpf (único), rg, data_nascimento, telefone, whatsapp, email, endereco, cidade, bairro, cep, contato_emergencia_nome, contato_emergencia_telefone, contato_emergencia_parentesco, status (ativo/com_emprestimo/em_atraso), criado_em, atualizado_em
+- **Beneficiario** — *(tenant)*
+  - id, nome, cpf (único por tenant), rg, data_nascimento, telefone, whatsapp, email, endereco, cidade, bairro, cep, contato_emergencia_nome, contato_emergencia_telefone, contato_emergencia_parentesco, status (ativo/com_emprestimo/em_atraso), criado_em, atualizado_em
 
-- **DocumentoBeneficiario**
+- **DocumentoBeneficiario** — *(tenant)*
   - id, beneficiario (FK), tipo (RG/CPF/Comprovante/Receita/Laudo), arquivo, enviado_em
 
-- **CategoriaEquipamento**
+- **CategoriaEquipamento** — *(tenant)*
   - id, nome (Cadeira de Rodas, Muletas, Andador, Cadeira de Banho, ...)
 
-- **Equipamento**
-  - id, codigo (único, gerado por categoria), categoria (FK), marca, modelo, patrimonio, numero_serie, data_aquisicao, origem (compra/doação), tamanho, peso_suportado, observacoes, status (disponivel/emprestado/manutencao/baixado), qr_code_token (único), criado_em
+- **Equipamento** — *(tenant)*
+  - id, codigo (único por tenant, gerado por categoria), categoria (FK), marca, modelo, patrimonio, numero_serie, data_aquisicao, origem (compra/doação), tamanho, peso_suportado, observacoes, status (disponivel/emprestado/manutencao/baixado), qr_code_token (único), criado_em
 
-- **FotoEquipamento**
+- **FotoEquipamento** — *(tenant)*
   - id, equipamento (FK), tipo (principal/lateral/traseira/etiqueta), arquivo, enviado_em
 
-- **Emprestimo**
-  - id, equipamento (FK), beneficiario (FK), atendente (FK Usuario), data_retirada, prazo_dias, data_prevista_devolucao, data_devolucao_real (nullable), status (ativo/devolvido/atrasado/renovado), assinatura_tipo (digital/foto), assinatura_arquivo, checklist_retirada (JSONField), criado_em
+- **Emprestimo** — *(tenant)*
+  - id, equipamento (FK), beneficiario (FK), atendente (FK Usuario), data_retirada, prazo_dias, data_prevista_devolucao, data_devolucao_real (nullable), status (ativo/devolvido/atrasado/renovado), assinatura_tipo (`fisica` [padrão] / `digital`, definido pela configuração do tenant no momento do empréstimo), assinatura_arquivo (foto/scan do termo assinado — obrigatório no modo físico), assinatura_canvas_dados (nullable, usado somente quando o módulo digital está habilitado), checklist_retirada (JSONField, inclui itens de confirmação do termo físico: "termo impresso", "termo assinado", "termo anexado"), criado_em
 
-- **FotoEmprestimo**
+- **FotoEmprestimo** — *(tenant)*
   - id, emprestimo (FK), momento (retirada/devolucao), tipo (frontal/lateral/detalhe), arquivo
 
-- **Renovacao**
+- **Renovacao** — *(tenant)*
   - id, emprestimo (FK), nova_data_devolucao, aprovado_por (FK Usuario, nullable), solicitado_em, status (pendente/aprovado/negado)
 
-- **Devolucao**
+- **Devolucao** — *(tenant)*
   - id, emprestimo (FK, 1:1), atendente (FK Usuario), checklist_devolucao (JSONField), avarias (JSONField ou M2M com `TipoAvaria`), destino (disponivel/manutencao), foto, criado_em
 
-- **Manutencao**
+- **Manutencao** — *(tenant)*
   - id, equipamento (FK), problema, fornecedor, responsavel (FK Usuario), valor, data_entrada, data_conclusao (nullable), status (aguardando/concluido)
 
-- **EventoHistorico** (log de auditoria / timeline por equipamento — RF011/RF023)
+- **EventoHistorico** — *(tenant)* (log de auditoria / timeline por equipamento — RF011/RF023)
   - id, equipamento (FK, nullable), beneficiario (FK, nullable), tipo_evento, descricao, usuario (FK), criado_em
 
-- **NotificacaoTemplate**
+- **NotificacaoTemplate** — *(tenant)*
   - id, tipo (confirmacao/aviso_7dias/vencimento/atraso), titulo, corpo_texto
 
-- **NotificacaoEnviada**
+- **NotificacaoEnviada** — *(tenant)*
   - id, emprestimo (FK), template (FK), destinatario_telefone, status_envio (pendente/enviado/falhou), tentativas, enviado_em
-
-- **Instituicao** (configuração singleton)
-  - id, nome, whatsapp_business_numero, credenciais_api (armazenamento seguro)
 
 #### Relacionamentos
 
+- `Tenant` **1:N** de praticamente todas as entidades de domínio abaixo (isolamento multi-tenant)
+- `Tenant` **1:N** `Usuario`
 - `CategoriaEquipamento` **1:N** `Equipamento`
 - `Equipamento` **1:N** `FotoEquipamento`
 - `Equipamento` **1:N** `Emprestimo` (histórico); porém **regra de negócio**: no máximo 1 `Emprestimo` com `status=ativo` por equipamento (constraint de aplicação + índice único parcial)
@@ -293,13 +331,20 @@ flowchart TD
 - RBAC via `django.contrib.auth.Group`/`Permission`, mapeando exatamente a matriz de permissões do protótipo (Administrador, Atendente, Gestor, Manutenção) por app/model (`add_`, `change_`, `view_`, `delete_`).
 - Regras adicionais de objeto (ex.: Manutenção só edita registros de manutenção do próprio equipamento) via checagem em `services.py`, não apenas no nível de framework.
 
-### 5.3 Proteção de dados (LGPD)
+### 5.3 Isolamento Multi-tenant
+
+- Todo usuário autenticado (exceto o superadministrador da plataforma) está vinculado a exatamente um `Tenant`; o `TenantMiddleware` resolve esse vínculo a cada requisição e o expõe via `request.tenant`.
+- Isolamento aplicado em três camadas redundantes (defesa em profundidade): (1) `TenantManager` filtrando automaticamente toda `QuerySet` por `tenant_id`; (2) validação explícita em `services.py` ao criar/editar registros, rejeitando referências cruzadas entre tenants (ex.: criar empréstimo apontando para equipamento de outro tenant); (3) testes automatizados dedicados de isolamento (um teste por endpoint/tela crítica garantindo 404/403 ao tentar acessar recurso de outro tenant).
+- Painel administrativo (Django Admin) segrega dados por tenant via `TenantAdminMixin`; apenas o superadministrador da plataforma tem visão cross-tenant, usada exclusivamente para suporte e provisionamento (RF027).
+- Qualquer incidente de vazamento de dados entre tenants é tratado como severidade máxima (P0), com log de auditoria (`EventoHistorico`) permitindo reconstruir o acesso indevido.
+
+### 5.4 Proteção de dados (LGPD)
 
 - Dados sensíveis de beneficiários criptografados em repouso quando aplicável (ex. CPF com campo indexado por hash + valor cifrado, se exigido pela política interna).
 - Log de acesso a dados pessoais (quem visualizou a ficha de qual beneficiário).
 - Rotina de anonimização/expurgo mediante solicitação de titular.
 
-### 5.4 Observabilidade
+### 5.5 Observabilidade
 
 | Camada | Ferramenta | Finalidade |
 |---|---|---|
