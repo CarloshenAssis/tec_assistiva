@@ -5,6 +5,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from contas.forms import FormularioLoginSeguro
+from contas.views import AlterarSenhaView
 from core.views_saude import saude
 
 urlpatterns = [
@@ -59,6 +60,27 @@ urlpatterns = [
             template_name="registration/password_reset_complete.html"
         ),
         name="password_reset_complete",
+    ),
+    # Troca de senha para quem já está autenticado — antes disso, a única
+    # forma de trocar a própria senha era pedir para alguém alterar o hash
+    # direto no banco, ou passar pelo fluxo de "esqueci minha senha" por
+    # e-mail. `PasswordChangeView` já exige a senha atual, o que a
+    # `PasswordResetConfirmView` (via link de e-mail) não faz — mais forte
+    # para quem só quer trocar por rotina, sem ter esquecido nada.
+    path(
+        "accounts/senha/alterar/",
+        AlterarSenhaView.as_view(
+            template_name="registration/password_change_form.html",
+            success_url="/accounts/senha/alterar/concluido/",
+        ),
+        name="password_change",
+    ),
+    path(
+        "accounts/senha/alterar/concluido/",
+        auth_views.PasswordChangeDoneView.as_view(
+            template_name="registration/password_change_done.html"
+        ),
+        name="password_change_done",
     ),
     path("app/", include("core.urls")),
 ]

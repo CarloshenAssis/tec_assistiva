@@ -75,7 +75,9 @@
     </div>
     <div class="sidebar-footer">
       {{ user.get_username }} · {{ user.papel.nome|default:"—" }}<br>
-      <form method="post" action="{% url 'logout' %}" style="margin-top:6px;">
+      <a href="{% url 'password_change' %}" style="color:#C7D6D2;font-size:12px;">Alterar senha</a>
+      ·
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
         {% csrf_token %}
         <button class="btn-ghost" style="all:unset;cursor:pointer;color:#C7D6D2;font-size:12px;" type="submit">Sair</button>
       </form>
