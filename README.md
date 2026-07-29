@@ -156,11 +156,8 @@ coletada e retida fora do nosso controle, sem prazo nem controle de acesso.
 Itens conhecidos e deliberadamente **não** resolvidos nesta entrega, em
 ordem de risco:
 
-1. **Storage externo para mídia.** `MEDIA_ROOT` continua em disco local, que
-   na Vercel não persiste entre invocações — na prática, hoje um documento
-   enviado se perde. Trocar por Supabase Storage ou S3 exige credenciais.
-   A view de download (`core/arquivos.py`) já está pronta para a troca: ela
-   entrega pelo `FileField`, não por caminho, então só muda o backend.
+1. ~~**Storage externo para mídia.**~~ Resolvido — ver seção "Storage de
+   mídia (Supabase Storage / S3)" logo abaixo.
 2. **Monitoramento de erro** (Sentry ou equivalente). Hoje a única forma de
    descobrir uma exceção em produção é abrir o painel da Vercel manualmente.
    Requer conta e DSN.
@@ -183,11 +180,46 @@ O repositório já inclui `vercel.json` + `vercel_app.py` (adaptador WSGI
 para o runtime Python da Vercel) e WhiteNoise para servir os arquivos
 estáticos. **Importante**: Django não é o ambiente nativo da Vercel
 (pensada para serverless/Next.js) — funciona, mas com uma limitação séria:
-**a Vercel não tem disco persistente entre execuções**, então uploads de
-mídia (fotos de ativos/movimentações, documentos, foto do termo assinado)
-gravados localmente **não sobrevivem**. Para produção real, troque
-`MEDIA_ROOT` por um storage externo (Supabase Storage ou S3) antes de
-depender de upload de fotos — fora do escopo desta entrega.
+**a Vercel não tem disco persistente entre execuções**, então um upload
+gravado em disco local não sobrevive de uma invocação para a próxima. Por
+isso a mídia (fotos de ativos, documentos de beneficiário, assinatura do
+termo) usa o Supabase Storage — ver a seção logo abaixo.
+
+### Storage de mídia (Supabase Storage / S3)
+
+`STORAGES["default"]` (`ciclartech/settings.py`) troca automaticamente de
+backend conforme as variáveis de ambiente presentes:
+
+- **Sem** `DJANGO_STORAGE_S3_ACCESS_KEY_ID`/`DJANGO_STORAGE_S3_SECRET_ACCESS_KEY`
+  → disco local (`FileSystemStorage`) — o padrão em desenvolvimento.
+- **Com** as duas → Supabase Storage via protocolo S3-compatível
+  (`storages.backends.s3.S3Storage`).
+
+O bucket `ciclartech-media` já foi criado no projeto Supabase, **privado**
+(`public=false`): documento de beneficiário (RG, laudo, receita médica) e
+assinatura do termo não são expostos por URL direta — a única saída
+continua sendo `core.arquivos.resposta_de_download` (autenticada, com
+verificação de tenant). Foto de equipamento (`FotoAtivo`/`FotoMovimentacao`)
+não é dado pessoal e usa a URL assinada do storage direto no `<img src>` —
+por isso o host do storage é liberado dinamicamente na CSP
+(`core/middleware.py::_diretiva_img_src`, via `settings.MEDIA_STORAGE_HOST`).
+
+**Variáveis de ambiente para ativar** (gere as chaves em Supabase → projeto
+**ciclartech** → **Project Settings** → **Storage** → aba **S3 Connection**
+→ *New access key* — o valor só é mostrado uma vez):
+
+| Variável | Valor |
+|---|---|
+| `DJANGO_STORAGE_S3_ACCESS_KEY_ID` | Access Key ID gerado no painel |
+| `DJANGO_STORAGE_S3_SECRET_ACCESS_KEY` | Secret Access Key gerado no painel |
+| `DJANGO_STORAGE_S3_BUCKET_NAME` | opcional, padrão `ciclartech-media` |
+| `DJANGO_STORAGE_S3_ENDPOINT_URL` | opcional, padrão `https://tuqecavtmbkriwhnqzfu.storage.supabase.co/storage/v1/s3` |
+| `DJANGO_STORAGE_S3_REGION_NAME` | opcional, padrão `sa-east-1` |
+
+As chaves são S3 access keys (não a `anon`/`service_role` key da API) —
+elas **ignoram RLS por completo** e são feitas exclusivamente para uso de
+servidor confiável (documentado pelo próprio Supabase); nunca devem ir para
+código versionado ou para o navegador.
 
 ### Variáveis de ambiente a configurar no painel da Vercel
 

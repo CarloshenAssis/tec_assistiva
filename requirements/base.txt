@@ -8,3 +8,6 @@ qrcode[pil]>=7.4,<8.0
 whitenoise>=6.6,<7.0
 # Hash de senha memory-hard (Argon2id) — ver PASSWORD_HASHERS em settings.py.
 argon2-cffi>=23.1,<24.0
+# Mídia em Supabase Storage (protocolo S3) — disco local não persiste na
+# Vercel. Ver STORAGES em settings.py.
+django-storages[s3]>=1.14,<2.0

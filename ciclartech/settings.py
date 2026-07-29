@@ -8,6 +8,7 @@ por decisão explícita — ver docs).
 
 import warnings
 from pathlib import Path
+from urllib.parse import urlparse
 
 import environ
 from django.core.exceptions import ImproperlyConfigured
@@ -165,31 +166,79 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STORAGES = {
-    # ATENÇÃO: definir STORAGES substitui o dicionário inteiro do Django —
-    # não há mesclagem com o padrão. Omitir "default" aqui faz qualquer
-    # gravação de FileField/ImageField (foto de ativo, documento do
-    # beneficiário, assinatura do termo) estourar InvalidStorageError.
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    # Sem o sufixo "Manifest": evita depender de `collectstatic` já ter
-    # rodado (a Vercel não roda comandos de build do Django
-    # automaticamente) — ainda comprime (gzip/brotli) o que o WhiteNoise
-    # serve.
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
+
+# --- Mídia (uploads de usuário) ------------------------------------
+# Vercel (serverless) não tem disco persistente entre execuções: um arquivo
+# gravado em FileSystemStorage some na próxima invocação. Por isso o
+# backend de mídia é o Supabase Storage (protocolo S3) quando as
+# credenciais estão configuradas, e cai para disco local só em
+# desenvolvimento (sem as env vars, comportamento de sempre).
+#
+# O bucket é privado ("public=false" no Supabase) — documento de
+# beneficiário (RG, laudo, receita médica) e assinatura do termo nunca são
+# expostos por URL direta; a única saída é `core.arquivos.resposta_de_download`,
+# que autentica e verifica o tenant antes de servir o conteúdo (ver
+# beneficiarios/views.py::baixar_documento). Foto de equipamento
+# (FotoAtivo/FotoMovimentacao) não é dado pessoal e usa `.url` (link
+# assinado, expira sozinho) direto no `<img src>` dos templates — não passa
+# por essa view.
+_S3_ACCESS_KEY = env("DJANGO_STORAGE_S3_ACCESS_KEY_ID", default="")
+_S3_SECRET_KEY = env("DJANGO_STORAGE_S3_SECRET_ACCESS_KEY", default="")
+
+#: Host do storage externo, para liberar no `img-src` da CSP
+#: (core/middleware.py) — sem isso, a foto de equipamento (que usa `.url`
+#: direto no `<img>`) seria bloqueada pelo navegador por vir de outra
+#: origem. `None` quando não há S3 configurado (CSP permanece só 'self').
+MEDIA_STORAGE_HOST = None
+
+if _S3_ACCESS_KEY and _S3_SECRET_KEY:
+    _s3_endpoint_url = env(
+        "DJANGO_STORAGE_S3_ENDPOINT_URL",
+        default="https://tuqecavtmbkriwhnqzfu.storage.supabase.co/storage/v1/s3",
+    )
+    MEDIA_STORAGE_HOST = urlparse(_s3_endpoint_url).netloc
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "access_key": _S3_ACCESS_KEY,
+                "secret_key": _S3_SECRET_KEY,
+                "bucket_name": env("DJANGO_STORAGE_S3_BUCKET_NAME", default="ciclartech-media"),
+                "endpoint_url": _s3_endpoint_url,
+                "region_name": env("DJANGO_STORAGE_S3_REGION_NAME", default="sa-east-1"),
+                # Já é a política do bucket (privado); reforça no lado do
+                # cliente que nenhum objeto novo nasce com ACL pública.
+                "default_acl": "private",
+                # Assinatura V4 é obrigatória para o protocolo S3 do Supabase.
+                "addressing_style": "path",
+            },
+        },
+        # Sem o sufixo "Manifest": evita depender de `collectstatic` já ter
+        # rodado (a Vercel não roda comandos de build do Django
+        # automaticamente) — ainda comprime (gzip/brotli) o que o WhiteNoise
+        # serve. Estáticos continuam no WhiteNoise mesmo com mídia no S3 —
+        # são coisas diferentes (código versionado vs. upload de usuário).
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        # ATENÇÃO: definir STORAGES substitui o dicionário inteiro do
+        # Django — não há mesclagem com o padrão. Omitir "default" aqui faz
+        # qualquer gravação de FileField/ImageField estourar
+        # InvalidStorageError.
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-# ATENÇÃO — Vercel (serverless) não tem disco persistente entre execuções:
-# uploads de mídia (fotos de ativos/movimentações, documentos, assinatura do
-# termo) gravados em MEDIA_ROOT NÃO sobrevivem entre invocações na Vercel.
-# Para produção real nesse ambiente, MEDIA_ROOT precisa ser trocado por um
-# storage externo (Supabase Storage/S3) antes de habilitar upload de fotos
-# de verdade — ver docs/README.md, seção "Deploy na Vercel".
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

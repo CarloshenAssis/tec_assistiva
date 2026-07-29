@@ -23,25 +23,38 @@ from django.conf import settings
 #: elemento `<style>` aceita). É uma concessão consciente e de impacto menor —
 #: CSS injetado pode fazer exfiltração por seletor, mas não executa código.
 #: Eliminá-la exige migrar os estilos inline para classes no CSS.
-POLITICA_CSP = (
-    "default-src 'self'; "
-    "script-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
-    "font-src 'self'; "
-    "connect-src 'self'; "
-    # Impede que a aplicação seja embutida em iframe de terceiro
-    # (clickjacking). Redundante com X-Frame-Options de propósito: navegador
-    # antigo respeita um, navegador atual respeita o outro.
-    "frame-ancestors 'none'; "
-    # Bloqueia o roubo de formulário: um POST de dados de paciente não pode
-    # ser redirecionado para um domínio externo por HTML injetado.
-    "form-action 'self'; "
-    # Sem isso, um `<base href="//atacante">` injetado reescreveria todos os
-    # caminhos relativos da página, inclusive o do JavaScript.
-    "base-uri 'self'; "
-    "object-src 'none'"
-)
+#:
+#: `img-src` é montado dinamicamente por `_diretiva_img_src()` — precisa
+#: liberar o host do storage externo (Supabase) quando configurado, senão a
+#: foto de equipamento (que usa `.url` direto no `<img src>`, ver
+#: ativos/models.py::FotoAtivo) vem de outra origem e o navegador a bloqueia.
+def _diretiva_img_src() -> str:
+    host = getattr(settings, "MEDIA_STORAGE_HOST", None)
+    if host:
+        return f"img-src 'self' data: https://{host}; "
+    return "img-src 'self' data:; "
+
+
+def _politica_csp() -> str:
+    return (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        + _diretiva_img_src()
+        + "font-src 'self'; "
+        "connect-src 'self'; "
+        # Impede que a aplicação seja embutida em iframe de terceiro
+        # (clickjacking). Redundante com X-Frame-Options de propósito:
+        # navegador antigo respeita um, navegador atual respeita o outro.
+        "frame-ancestors 'none'; "
+        # Bloqueia o roubo de formulário: um POST de dados de paciente não
+        # pode ser redirecionado para um domínio externo por HTML injetado.
+        "form-action 'self'; "
+        # Sem isso, um `<base href="//atacante">` injetado reescreveria
+        # todos os caminhos relativos da página, inclusive o do JavaScript.
+        "base-uri 'self'; "
+        "object-src 'none'"
+    )
 
 #: Desliga APIs de dispositivo que a aplicação não usa. `camera=(self)` fica
 #: liberado só para a própria origem porque a leitura de QR Code por câmera
@@ -73,7 +86,7 @@ class CabecalhosDeSegurancaMiddleware:
         return resposta
 
     def _csp(self) -> str:
-        csp = POLITICA_CSP
+        csp = _politica_csp()
         if not settings.DEBUG:
             # Em produção, força o navegador a promover para HTTPS qualquer
             # sub-recurso que tenha escapado como http://.
