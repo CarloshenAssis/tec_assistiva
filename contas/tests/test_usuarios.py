@@ -259,3 +259,56 @@ class AuditoriaTenantTest(TestCase):
         registros = list(resposta.context["pagina"])
         self.assertTrue(all(r.tenant_id == self.tenant_a.pk for r in registros))
         self.assertTrue(len(registros) >= 1)
+
+    def test_filtro_por_usuario_isola_o_que_uma_pessoa_fez(self):
+        """
+        O caso concreto do pedido: o Admin precisa ver o que um Gestor ou
+        Funcionário específico fez, não o log inteiro do tenant misturado.
+        """
+        funcionario = Usuario.objects.create_user(
+            username="func_sob_supervisao",
+            password=SENHA,
+            tenant=self.tenant_a,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        gestor = Usuario.objects.create_user(
+            username="gestor_sob_supervisao",
+            password=SENHA,
+            tenant=self.tenant_a,
+            papel=Papel.objects.get(codigo="gestor"),
+        )
+        RegistroAuditoria.objects.create(
+            acao=AcaoAuditada.LOGIN_SUCESSO,
+            tenant=self.tenant_a,
+            usuario=funcionario,
+            usuario_identificacao="func_sob_supervisao",
+        )
+        RegistroAuditoria.objects.create(
+            acao=AcaoAuditada.LOGIN_SUCESSO,
+            tenant=self.tenant_a,
+            usuario=gestor,
+            usuario_identificacao="gestor_sob_supervisao",
+        )
+
+        self.client.login(username="admin_audit_a", password=SENHA)
+        resposta = self.client.get(
+            reverse("app:usuarios:auditoria"), {"usuario": "func_sob_supervisao"}
+        )
+        registros = list(resposta.context["pagina"])
+        self.assertEqual(1, len(registros))
+        self.assertEqual("func_sob_supervisao", registros[0].usuario_identificacao)
+
+    def test_lista_de_usuarios_tem_link_direto_para_o_log_de_cada_um(self):
+        """A tela de Usuários precisa levar direto ao log filtrado, sem caçar na lista geral."""
+        Usuario.objects.create_user(
+            username="func_com_link_de_log",
+            password=SENHA,
+            tenant=self.tenant_a,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.client.login(username="admin_audit_a", password=SENHA)
+        resposta = self.client.get(reverse("app:usuarios:lista"))
+        self.assertContains(
+            resposta,
+            f"{reverse('app:usuarios:auditoria')}?usuario=func_com_link_de_log",
+        )
