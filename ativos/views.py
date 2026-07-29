@@ -29,7 +29,13 @@ from ativos.forms import (
     RenovarForm,
 )
 from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo, FotoAtivo, Movimentacao
-from ativos.selectors import cor_de, datas_previstas_por_ativo, mapa_operacional, resolver_busca_patrimonio
+from ativos.selectors import (
+    checklist_detalhado,
+    cor_de,
+    datas_previstas_por_ativo,
+    mapa_operacional,
+    resolver_busca_patrimonio,
+)
 from beneficiarios.models import Beneficiario
 from core.decorators import nivel_hierarquico, tenant_required
 from core.models import Unidade
@@ -163,7 +169,13 @@ def ficha(request, pk):
     contexto = {"nav_atual": "ativos", "ativo": ativo, "aba": aba, "tabs": TABS_FICHA, "acoes": acoes}
 
     if aba in ("timeline", "movimentacoes"):
-        contexto["movimentacoes"] = ativo.movimentacoes.select_related("usuario").all()
+        movimentacoes = list(ativo.movimentacoes.select_related("usuario").all())
+        for movimentacao in movimentacoes:
+            # Traduz o checklist bruto (dados_especificos) para algo legível
+            # na tela — é o que responde "quem marcou o quê" num check-in ou
+            # devolução, ver ativos/selectors.py::checklist_detalhado.
+            movimentacao.checklist = checklist_detalhado(movimentacao)
+        contexto["movimentacoes"] = movimentacoes
     if aba == "fotos":
         contexto["fotos_cadastro"] = ativo.fotos.all()
         ultimo_emprestimo = Movimentacao.objects.mais_recente_do_tipo(ativo, TipoMovimentacao.EMPRESTIMO)

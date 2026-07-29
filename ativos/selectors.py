@@ -9,8 +9,9 @@ from typing import Dict, Optional
 from django.utils import timezone
 
 from ativos.domain.cores import CorOperacional, cor_operacional
-from ativos.domain.enums import StatusAtivo
-from ativos.models import Ativo, DetalheEmprestimo
+from ativos.domain.enums import StatusAtivo, TipoMovimentacao
+from ativos.forms import CHECKLIST_ITENS_DEVOLUCAO, CHECKLIST_ITENS_EMPRESTIMO
+from ativos.models import Ativo, DetalheEmprestimo, Movimentacao
 
 
 def datas_previstas_por_ativo(ativos_ids=None) -> Dict[int, dict]:
@@ -102,6 +103,43 @@ def mapa_operacional(ativos_qs):
         "por_unidade": _finalizar(por_unidade),
         "por_bairro": _finalizar(por_bairro),
     }
+
+
+#: Rótulos de checklist, por tipo de movimentação — é o mesmo catálogo que
+#: os formulários de empréstimo/devolução usam para desenhar as caixinhas
+#: (ativos/forms.py), reaproveitado aqui para traduzir a chave técnica
+#: salva em `Movimentacao.dados_especificos` no rótulo que um humano lê.
+_ROTULOS_CHECKLIST_POR_TIPO = {
+    TipoMovimentacao.EMPRESTIMO.value: dict(CHECKLIST_ITENS_EMPRESTIMO),
+    TipoMovimentacao.DEVOLUCAO.value: dict(CHECKLIST_ITENS_DEVOLUCAO),
+}
+
+
+def checklist_detalhado(movimentacao: Movimentacao) -> list[dict]:
+    """
+    Traduz o checklist bruto salvo em `dados_especificos` para uma lista de
+    `{"rotulo": ..., "marcado": bool}`, na ordem em que os itens aparecem no
+    formulário.
+
+    Existe para responder exatamente o cenário que motivou o pedido: um
+    funcionário confirma no check-in/devolução que o ativo "está em boas
+    condições", mas na prática não estava — e depois é preciso ver, ativo a
+    ativo, *quem* marcou *o quê* e *quando* (`movimentacao.usuario` e
+    `movimentacao.data_hora` já existem no model; isto só decodifica o
+    conteúdo do checklist em si, que sem isso fica ilegível como JSON cru).
+
+    Devolve lista vazia para tipos de movimentação sem checklist (retorna
+    de manutenção, renovação etc.) — nada a mostrar, não é erro.
+    """
+    rotulos = _ROTULOS_CHECKLIST_POR_TIPO.get(movimentacao.tipo)
+    if not rotulos:
+        return []
+
+    checklist = movimentacao.dados_especificos.get("checklist") or {}
+    return [
+        {"rotulo": rotulo, "marcado": bool(checklist.get(chave, False))}
+        for chave, rotulo in rotulos.items()
+    ]
 
 
 def resolver_busca_patrimonio(termo: str):
