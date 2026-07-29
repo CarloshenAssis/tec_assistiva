@@ -24,6 +24,32 @@ CHAVE_INSEGURA_PADRAO = "dev-insecure-secret-key-troque-em-producao"
 TAMANHO_MINIMO_SECRET_KEY = 32
 
 
+def avisos_de_configuracao(*, secret_key: str, debug: bool) -> list[str]:
+    """
+    Problemas reais, mas que não justificam derrubar a aplicação.
+
+    A distinção entre isto e `problemas_de_configuracao` é de consequência,
+    não de gravidade percebida: uma chave curta *aleatória* enfraquece a
+    margem de segurança, enquanto a chave de desenvolvimento a elimina por
+    completo. Tirar do ar um sistema de atendimento por causa da primeira
+    seria trocar um risco pequeno por um dano certo.
+    """
+    if debug:
+        return []
+
+    if (
+        secret_key
+        and secret_key != CHAVE_INSEGURA_PADRAO
+        and len(secret_key) < TAMANHO_MINIMO_SECRET_KEY
+    ):
+        return [
+            f"DJANGO_SECRET_KEY tem apenas {len(secret_key)} caracteres; "
+            f"o recomendado é ao menos {TAMANHO_MINIMO_SECRET_KEY}. "
+            "Gere uma nova com `get_random_secret_key()`."
+        ]
+    return []
+
+
 def sanear_allowed_hosts(allowed_hosts: list[str], *, debug: bool) -> tuple[list[str], list[str]]:
     """
     Remove o curinga `*` de ALLOWED_HOSTS em produção.
@@ -72,17 +98,16 @@ def problemas_de_configuracao(
         # proteger o ambiente de produção, não atrapalhar quem roda local.
         return problemas
 
+    # Fatal: a chave de desenvolvimento está no repositório, então é pública.
+    # Qualquer pessoa com acesso ao código forja sessão e token de
+    # recuperação de senha. Não existe "versão saneada" disso — ou troca, ou
+    # não sobe.
     if not secret_key or secret_key == CHAVE_INSEGURA_PADRAO:
         problemas.append(
             "DJANGO_SECRET_KEY não foi definida (ou está usando o valor de "
             "desenvolvimento, que é público no repositório). Gere uma nova com "
             "`python -c \"from django.core.management.utils import "
             'get_random_secret_key; print(get_random_secret_key())"`.'
-        )
-    elif len(secret_key) < TAMANHO_MINIMO_SECRET_KEY:
-        problemas.append(
-            f"DJANGO_SECRET_KEY tem apenas {len(secret_key)} caracteres; "
-            f"o mínimo aceitável é {TAMANHO_MINIMO_SECRET_KEY}."
         )
 
     if "*" in allowed_hosts:

@@ -12,6 +12,7 @@ from django.test import SimpleTestCase
 
 from ciclartech.seguranca import (
     CHAVE_INSEGURA_PADRAO,
+    avisos_de_configuracao,
     problemas_de_configuracao,
     sanear_allowed_hosts,
 )
@@ -38,11 +39,19 @@ class ValidacaoDeConfiguracaoTest(SimpleTestCase):
         )
         self.assertTrue(any("DJANGO_SECRET_KEY" in p for p in problemas))
 
-    def test_chave_curta_e_recusada(self):
+    def test_chave_curta_avisa_mas_nao_derruba(self):
+        # Chave curta porém aleatória enfraquece a margem; a de
+        # desenvolvimento a elimina. Só a segunda impede o sistema de subir.
         problemas = problemas_de_configuracao(
             secret_key="curta-demais", allowed_hosts=["app.exemplo.br"], debug=False
         )
-        self.assertTrue(any("caracteres" in p for p in problemas))
+        self.assertEqual([], problemas)
+
+        avisos = avisos_de_configuracao(secret_key="curta-demais", debug=False)
+        self.assertTrue(any("caracteres" in a for a in avisos))
+
+    def test_chave_forte_nao_gera_aviso(self):
+        self.assertEqual([], avisos_de_configuracao(secret_key=CHAVE_FORTE, debug=False))
 
     def test_allowed_hosts_curinga_e_recusado(self):
         problemas = problemas_de_configuracao(

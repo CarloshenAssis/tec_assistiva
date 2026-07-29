@@ -14,6 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from ciclartech.seguranca import (
     CHAVE_INSEGURA_PADRAO,
+    avisos_de_configuracao,
     problemas_de_configuracao,
     sanear_allowed_hosts,
 )
@@ -314,6 +315,9 @@ if _problemas:
     raise ImproperlyConfigured(
         "Configuração de produção insegura:\n  - " + "\n  - ".join(_problemas)
     )
+
+for _aviso in avisos_de_configuracao(secret_key=SECRET_KEY, debug=DEBUG):
+    warnings.warn(_aviso, stacklevel=2)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
