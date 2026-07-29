@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Auditoria · Ciclartech{% endblock %}
+{% block owner_page_title %}Auditoria geral (todos os contratos){% endblock %}
+{% block owner_content %}
+<div class="card">
+  <form method="get" class="grid grid-4 gap-2" style="align-items:end;">
+    <div class="field" style="margin-bottom:0;">
+      <label>Contrato</label>
+      <select name="tenant">
+        <option value="">Todos</option>
+        {% for t in tenants %}
+          <option value="{{ t.pk }}" {% if tenant_filtro == t.pk %}selected{% endif %}>{{ t.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Ação</label>
+      <select name="acao">
+        <option value="">Todas</option>
+        {% for valor, rotulo in acoes %}
+          <option value="{{ valor }}" {% if acao_filtro == valor %}selected{% endif %}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Usuário</label>
+      <input type="text" name="usuario" value="{{ usuario_filtro }}" placeholder="login">
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" name="sensivel" value="1" style="width:auto;" {% if somente_sensivel %}checked{% endif %}>
+        Só dado sensível
+      </label>
+    </div>
+    <button class="btn btn-primary" type="submit" style="grid-column:1/-1;justify-self:start;">Filtrar</button>
+  </form>
+</div>
+
+<div class="card mt-2">
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:130px 1fr 1fr 1fr 1.4fr 90px;">
+      <div>Quando</div><div>Contrato</div><div>Usuário</div><div>Ação</div><div>Objeto</div><div>IP</div>
+    </div>
+    {% for registro in pagina %}
+      <div class="table-row" style="grid-template-columns:130px 1fr 1fr 1fr 1.4fr 90px;">
+        <div style="font-size:12px;">{{ registro.criado_em|date:"d/m/Y H:i" }}</div>
+        <div style="font-size:12.5px;">{{ registro.tenant.nome|default:"—" }}</div>
+        <div style="font-size:12.5px;">{{ registro.usuario_identificacao|default:"—" }}</div>
+        <div>
+          <span class="badge {% if registro.envolve_dado_sensivel %}badge-cor-vermelho_medio{% else %}badge-cor-azul{% endif %}">
+            {{ registro.get_acao_display }}
+          </span>
+        </div>
+        <div style="font-size:12px;" class="faint">
+          {{ registro.objeto_tipo }}{% if registro.objeto_id %} #{{ registro.objeto_id }}{% endif %}
+          {% if registro.descricao %}<br>{{ registro.descricao }}{% endif %}
+        </div>
+        <div style="font-size:11.5px;" class="faint">{{ registro.ip|default:"—" }}</div>
+      </div>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum registro encontrado para este filtro.</div>
+    {% endfor %}
+  </div>
+
+  {% if pagina.has_other_pages %}
+    <div class="flex gap-2 mt-2">
+      {% if pagina.has_previous %}
+        <a class="btn btn-ghost" href="?pagina={{ pagina.previous_page_number }}&tenant={{ tenant_filtro|default:'' }}&acao={{ acao_filtro }}&usuario={{ usuario_filtro }}">← Anterior</a>
+      {% endif %}
+      <span class="faint" style="align-self:center;font-size:12px;">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}
+        <a class="btn btn-ghost" href="?pagina={{ pagina.next_page_number }}&tenant={{ tenant_filtro|default:'' }}&acao={{ acao_filtro }}&usuario={{ usuario_filtro }}">Próxima →</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

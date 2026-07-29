@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} · Ciclartech{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <div class="muted" style="font-size:12.5px;margin-bottom:16px;">
+    A senha é gerada automaticamente e mostrada uma única vez na próxima tela.
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_username">Usuário (login)</label>
+      {{ form.username }}
+    </div>
+    <div class="field">
+      <label for="id_email">E-mail</label>
+      {{ form.email }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_first_name">Nome</label>
+        {{ form.first_name }}
+      </div>
+      <div class="field">
+        <label for="id_last_name">Sobrenome</label>
+        {{ form.last_name }}
+      </div>
+    </div>
+    <div class="field">
+      <label for="id_papel">Papel</label>
+      {{ form.papel }}
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Criar usuário</button>
+  </form>
+</div>
+{% endblock %}

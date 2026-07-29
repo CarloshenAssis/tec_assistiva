@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Acesso gerado · {{ tenant.nome }}{% endblock %}
+{% block owner_page_title %}Acesso gerado{% endblock %}
+{% block owner_content %}
+<div class="card" style="max-width:480px;">
+  <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Administrador criado com sucesso.</div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:16px;">
+    Copie a senha abaixo e envie ao responsável por <strong>{{ tenant.nome }}</strong> por um canal seguro.
+    <strong>Ela não será exibida novamente.</strong>
+  </div>
+
+  <div style="background:var(--card-alt-bg);border-radius:10px;padding:14px;margin-bottom:16px;">
+    <div class="faint" style="font-size:11px;">Usuário</div>
+    <div style="font-family:monospace;font-size:14px;font-weight:700;margin-bottom:10px;">{{ usuario.get_username }}</div>
+    <div class="faint" style="font-size:11px;">Senha temporária</div>
+    <div style="font-family:monospace;font-size:14px;font-weight:700;">{{ senha }}</div>
+  </div>
+
+  <div class="faint" style="font-size:11px;margin-bottom:16px;">
+    O administrador deve trocar essa senha assim que entrar, em "Alterar senha".
+  </div>
+
+  <a class="btn btn-primary btn-block" href="{% url 'owner:tenant_detalhe' tenant.pk %}">Voltar para {{ tenant.nome }}</a>
+</div>
+{% endblock %}

@@ -9,6 +9,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from auditoria.services import ip_do_cliente
 from contas.bloqueio import esta_bloqueado
+from contas.models import Papel, Usuario
 
 #: Mensagem deliberadamente genérica e idêntica para todos os casos de
 #: bloqueio. Dizer "restam N tentativas" ou "esta conta está bloqueada"
@@ -47,3 +48,43 @@ class FormularioLoginSeguro(AuthenticationForm):
             raise forms.ValidationError(MENSAGEM_BLOQUEIO, code="bloqueado_por_tentativas")
 
         return super().clean()
+
+
+class CriarUsuarioForm(forms.Form):
+    """
+    Cria Gestor/Funcionário dentro do próprio tenant de quem está criando.
+
+    Sem campo de senha — mesmo motivo do Owner ao gerar o primeiro acesso do
+    Admin (ver `owner.forms.CriarAdministradorForm` e `contas.senhas`):
+    ninguém escolhe a senha de outra pessoa.
+
+    As opções de papel oferecidas dependem de `nivel_criador`, estritamente
+    ABAIXO do nível de quem cria (Admin=30 oferece Gestor/Funcionário;
+    Gestor=20 oferece só Funcionário). Isso é mais restritivo que
+    `Usuario.pode_gerenciar` (que usa `>=` e permite gerenciar um par de
+    mesmo nível já existente) de propósito: criar uma conta nova do mesmo
+    nível hierárquico do criador não é o fluxo que este formulário atende —
+    contas de Admin nascem só pelo Owner (ver owner/views.py::criar_administrador).
+    """
+
+    username = forms.CharField(max_length=150, label="Usuário (login)")
+    email = forms.EmailField(label="E-mail")
+    first_name = forms.CharField(max_length=150, required=False, label="Nome")
+    last_name = forms.CharField(max_length=150, required=False, label="Sobrenome")
+    papel = forms.ModelChoiceField(queryset=Papel.objects.none(), label="Papel")
+
+    def __init__(self, *args, nivel_criador: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["papel"].queryset = Papel.objects.filter(
+            nivel_hierarquico__lt=nivel_criador
+        ).order_by("-nivel_hierarquico")
+
+    def clean_username(self):
+        # `Usuario.objects` já é cross-tenant por padrão (herda o
+        # `UserManager` do Django, não o `TenantManager` fail-closed dos
+        # demais models — ver contas/models.py). O username é único na
+        # plataforma inteira, não só no tenant.
+        username = self.cleaned_data["username"].strip()
+        if Usuario.objects.filter(username=username).exists():
+            raise forms.ValidationError("Já existe um usuário com este nome de login.")
+        return username

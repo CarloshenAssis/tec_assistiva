@@ -89,6 +89,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # Precisa vir depois do AuthenticationMiddleware: depende de request.user
     "contas.middleware.TenantMiddleware",
+    # Expõe a requisição corrente para os sinais de auditoria (quem fez a
+    # alteração) — precisa vir depois de Auth/Tenant, que é de onde vêm
+    # request.user e request.tenant. Ver auditoria/rastreamento.py.
+    "auditoria.middleware.CapturaRequisicaoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Por último: enxerga a resposta pronta de todos os anteriores e só
@@ -109,6 +113,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "contas.context_processors.hierarquia",
             ],
         },
     },

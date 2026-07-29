@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Contratos · Ciclartech{% endblock %}
+{% block owner_page_title %}Contratos{% endblock %}
+{% block owner_content %}
+<div class="flex-col gap-3">
+  <div class="grid grid-4">
+    <div class="stat-card"><div class="label">Total de contratos</div><div class="value">{{ total_tenants }}</div></div>
+    <div class="stat-card"><div class="label">Ativos</div><div class="value" style="color:var(--accent);">{{ total_ativos }}</div></div>
+  </div>
+
+  <div class="card">
+    <div class="flex justify-between items-center">
+      <div class="card-title">Contratos (B2G / B2B)</div>
+      <a class="btn btn-primary" href="{% url 'owner:criar_tenant' %}">Novo contrato</a>
+    </div>
+    <div class="table mt-2">
+      <div class="table-head" style="grid-template-columns:1.5fr 1fr 1fr 1fr 100px;">
+        <div>Nome</div><div>Segmento</div><div>Cidade/UF</div><div>Criado em</div><div>Status</div>
+      </div>
+      {% for tenant in tenants %}
+        <a class="table-row" style="grid-template-columns:1.5fr 1fr 1fr 1fr 100px;text-decoration:none;color:inherit;" href="{% url 'owner:tenant_detalhe' tenant.pk %}">
+          <div style="font-weight:600;">{{ tenant.nome }}</div>
+          <div style="font-size:12.5px;">{{ tenant.get_segmento_display }}</div>
+          <div style="font-size:12.5px;">{{ tenant.cidade }}{% if tenant.uf %} / {{ tenant.uf }}{% endif %}</div>
+          <div style="font-size:12.5px;">{{ tenant.criado_em|date:"d/m/Y" }}</div>
+          <div>
+            <span class="badge {% if tenant.ativo %}badge-cor-verde{% else %}badge-cor-cinza{% endif %}">
+              {% if tenant.ativo %}Ativo{% else %}Suspenso{% endif %}
+            </span>
+          </div>
+        </a>
+      {% empty %}
+        <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum contrato cadastrado ainda.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

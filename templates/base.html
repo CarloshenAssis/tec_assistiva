@@ -9,7 +9,55 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-{% if user.is_authenticated and not user.is_platform_staff %}
+{% if user.is_authenticated and user.is_platform_staff %}
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="name">Ciclartech</div>
+      <div class="sub">Plataforma</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-items">
+        <a class="nav-item {% if nav_atual == 'owner_dashboard' %}active{% endif %}" href="{% url 'owner:dashboard' %}">
+          <span class="dot"></span> Contratos
+        </a>
+        <a class="nav-item {% if nav_atual == 'owner_auditoria' %}active{% endif %}" href="{% url 'owner:auditoria' %}">
+          <span class="dot"></span> Auditoria geral
+        </a>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      {{ user.get_username }} · Equipe Ciclartech<br>
+      <a href="{% url 'password_change' %}" style="color:#C7D6D2;font-size:12px;">Alterar senha</a>
+      ·
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button class="btn-ghost" style="all:unset;cursor:pointer;color:#C7D6D2;font-size:12px;" type="submit">Sair</button>
+      </form>
+    </div>
+  </nav>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="title">{% block owner_page_title %}{% endblock %}</div>
+      <div class="topbar-actions">
+        <div class="avatar">{{ user.get_username|slice:":2"|upper }}</div>
+      </div>
+    </header>
+
+    <main class="content">
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% block owner_content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% elif user.is_authenticated %}
 <div class="shell">
   <nav class="sidebar">
     <div class="brand">
@@ -72,6 +120,19 @@
           </a>
         </div>
       </div>
+      {% if pode_gerenciar_usuarios %}
+      <div>
+        <div class="nav-group-title">Administração</div>
+        <div class="nav-items">
+          <a class="nav-item {% if nav_atual == 'usuarios' %}active{% endif %}" href="{% url 'app:usuarios:lista' %}">
+            <span class="dot"></span> Usuários
+          </a>
+          <a class="nav-item {% if nav_atual == 'auditoria' %}active{% endif %}" href="{% url 'app:usuarios:auditoria' %}">
+            <span class="dot"></span> Auditoria
+          </a>
+        </div>
+      </div>
+      {% endif %}
     </div>
     <div class="sidebar-footer">
       {{ user.get_username }} · {{ user.papel.nome|default:"—" }}<br>

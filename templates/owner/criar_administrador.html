@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Gerar acesso · {{ tenant.nome }}{% endblock %}
+{% block owner_page_title %}Gerar acesso de administrador{% endblock %}
+{% block owner_content %}
+<a class="btn btn-ghost" href="{% url 'owner:tenant_detalhe' tenant.pk %}">← Voltar para {{ tenant.nome }}</a>
+
+<div class="card mt-2" style="max-width:480px;">
+  <div class="muted" style="font-size:12.5px;margin-bottom:16px;">
+    Isso cria o primeiro usuário Administrador de <strong>{{ tenant.nome }}</strong>.
+    A senha é gerada automaticamente e exibida uma única vez na próxima tela —
+    o próprio administrador cria os demais usuários (Gestor/Funcionário) depois de entrar.
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_username">Usuário (login)</label>
+      {{ form.username }}
+    </div>
+    <div class="field">
+      <label for="id_email">E-mail</label>
+      {{ form.email }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_first_name">Nome</label>
+        {{ form.first_name }}
+      </div>
+      <div class="field">
+        <label for="id_last_name">Sobrenome</label>
+        {{ form.last_name }}
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Gerar acesso</button>
+  </form>
+</div>
+{% endblock %}
