@@ -59,6 +59,25 @@ class Usuario(AbstractUser):
     papel = models.ForeignKey(
         Papel, null=True, blank=True, on_delete=models.PROTECT, related_name="usuarios"
     )
+    unidades = models.ManyToManyField(
+        "core.Unidade",
+        blank=True,
+        related_name="usuarios_permitidos",
+        help_text=(
+            "Unidades que este usuário pode operar/visualizar. Só tem efeito para "
+            "Gestor/Funcionário — Admin sempre enxerga todas as unidades do tenant, "
+            "independentemente do que estiver marcado aqui (docs/features/"
+            "identificacao-patrimonial-e-unidades.md)."
+        ),
+    )
+    # ATENÇÃO: `usuario.unidades.all()` resolve pelo manager padrão de
+    # `Unidade` (`TenantManager`, fail-closed pelo ContextVar de tenant
+    # corrente — ver core/tenancy.py). Fora de uma view protegida por
+    # `tenant_required` (teste, shell, management command), isso devolve
+    # vazio mesmo com a atribuição existindo no banco. Para ler a atribuição
+    # fora de request context, use `core.unidades.unidades_do_usuario()`; para
+    # decidir "o que este usuário pode ver" (regra "Admin vê tudo" incluída),
+    # use `core.unidades.unidades_visiveis()`.
 
     class Meta:
         constraints = [

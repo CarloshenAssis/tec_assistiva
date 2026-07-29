@@ -11,4 +11,5 @@ urlpatterns = [
     path("beneficiarios/", include("beneficiarios.urls")),
     path("notificacoes/", include("notificacoes.urls")),
     path("usuarios/", include("contas.urls")),
+    path("unidades/", include("core.urls_unidades")),
 ]

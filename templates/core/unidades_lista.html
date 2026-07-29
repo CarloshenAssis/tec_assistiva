@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Unidades · Ciclartech{% endblock %}
+{% block page_title %}Unidades{% endblock %}
+{% block header_actions %}
+<a class="btn btn-primary" href="{% url 'app:unidades:criar' %}">Nova unidade</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:1.2fr 1fr 1fr 1fr 90px 90px;">
+      <div>Nome</div><div>Tipo</div><div>Responsável</div><div>Cidade/UF</div><div>Status</div><div></div>
+    </div>
+    {% for unidade in unidades %}
+      <div class="table-row" style="grid-template-columns:1.2fr 1fr 1fr 1fr 90px 90px;">
+        <div style="font-size:13px;font-weight:600;">{{ unidade.nome }}</div>
+        <div style="font-size:12.5px;">{{ unidade.tipo|default:"—" }}</div>
+        <div style="font-size:12.5px;">{{ unidade.responsavel|default:"—" }}</div>
+        <div style="font-size:12.5px;">{{ unidade.cidade }}{% if unidade.uf %} / {{ unidade.uf }}{% endif %}</div>
+        <div>
+          <span class="badge {% if unidade.ativo %}badge-cor-verde{% else %}badge-cor-cinza{% endif %}">
+            {% if unidade.ativo %}Ativa{% else %}Inativa{% endif %}
+          </span>
+        </div>
+        <div class="flex gap-1">
+          <a href="{% url 'app:unidades:editar' unidade.pk %}" style="font-size:12px;">Editar</a>
+          <form method="post" action="{% url 'app:unidades:alternar_ativo' unidade.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-ghost" style="font-size:12px;" type="submit">
+              {% if unidade.ativo %}Desativar{% else %}Reativar{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhuma unidade cadastrada ainda.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

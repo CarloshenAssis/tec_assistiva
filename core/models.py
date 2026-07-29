@@ -106,10 +106,25 @@ class TenantModel(models.Model):
 
 
 class Unidade(TenantModel):
-    """Unidade física de um tenant (ex.: um posto/CRAS de uma prefeitura)."""
+    """
+    Unidade física de um tenant (ex.: um posto/CRAS de uma prefeitura, uma
+    filial de home care, uma loja de locadora — docs/features/
+    identificacao-patrimonial-e-unidades.md).
+    """
 
     nome = models.CharField(max_length=150)
+    tipo = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ex.: Matriz, Filial, Loja, Fundo Social — texto livre, varia por segmento.",
+    )
+    responsavel = models.CharField(max_length=150, blank=True)
+    telefone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
     endereco = models.CharField(max_length=255, blank=True)
+    cidade = models.CharField(max_length=120, blank=True)
+    uf = models.CharField(max_length=2, blank=True)
+    observacoes = models.TextField(blank=True)
     ativo = models.BooleanField(default=True)
 
     class Meta:

@@ -10,6 +10,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from auditoria.services import ip_do_cliente
 from contas.bloqueio import esta_bloqueado
 from contas.models import Papel, Usuario
+from core.models import Unidade
 
 #: Mensagem deliberadamente genérica e idêntica para todos os casos de
 #: bloqueio. Dizer "restam N tentativas" ou "esta conta está bloqueada"
@@ -72,12 +73,27 @@ class CriarUsuarioForm(forms.Form):
     first_name = forms.CharField(max_length=150, required=False, label="Nome")
     last_name = forms.CharField(max_length=150, required=False, label="Sobrenome")
     papel = forms.ModelChoiceField(queryset=Papel.objects.none(), label="Papel")
+    #: Unidades que a pessoa poderá operar (docs/features/identificacao-
+    #: patrimonial-e-unidades.md — unidade é permissão, não atributo fixo).
+    #: Sem efeito para Admin (ele sempre enxerga todas, ver
+    #: core.unidades.unidades_visiveis), mas o campo continua disponível
+    #: mesmo nesse caso — atribuir não faz mal, só não muda nada.
+    unidades = forms.ModelMultipleChoiceField(
+        queryset=Unidade.objects.none(),
+        required=False,
+        label="Unidades",
+        widget=forms.CheckboxSelectMultiple,
+    )
 
     def __init__(self, *args, nivel_criador: int, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["papel"].queryset = Papel.objects.filter(
             nivel_hierarquico__lt=nivel_criador
         ).order_by("-nivel_hierarquico")
+        # `Unidade.objects` (TenantManager) já vem escopado ao tenant
+        # corrente — o form só é instanciado dentro de uma view protegida
+        # por `tenant_required`, então o ContextVar já está setado.
+        self.fields["unidades"].queryset = Unidade.objects.filter(ativo=True).order_by("nome")
 
     def clean_username(self):
         # `Usuario.objects` já é cross-tenant por padrão (herda o

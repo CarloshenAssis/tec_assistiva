@@ -82,6 +82,7 @@ def usuarios_criar(request):
                 papel=form.cleaned_data["papel"],
                 is_active=True,
             )
+            usuario.unidades.set(form.cleaned_data["unidades"])
             registrar(
                 AcaoAuditada.CRIACAO,
                 request=request,

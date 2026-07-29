@@ -34,6 +34,16 @@ def gerar_qr_token() -> str:
 
 class CategoriaAtivo(TenantModel):
     nome = models.CharField(max_length=100)
+    #: Prefixo do código patrimonial gerado automaticamente para ativos
+    #: desta categoria (ex.: "CAD" → CAD-000001) — docs/features/
+    #: identificacao-patrimonial-e-unidades.md. Em branco, é derivado do
+    #: nome na hora (3 primeiras letras maiúsculas) — ver
+    #: ativos.services.gerar_codigo_patrimonial.
+    prefixo = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Ex.: CAD para Cadeira de Rodas. Em branco, é derivado do nome da categoria.",
+    )
 
     class Meta:
         verbose_name = "Categoria de Ativo"

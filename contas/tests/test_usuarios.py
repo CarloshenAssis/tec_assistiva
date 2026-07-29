@@ -12,7 +12,8 @@ from django.urls import reverse
 
 from auditoria.models import AcaoAuditada, RegistroAuditoria
 from contas.models import Papel, Usuario
-from core.models import Tenant
+from core.models import Tenant, Unidade
+from core.unidades import unidades_do_usuario
 
 SENHA = "senha-bem-longa-2026"
 
@@ -188,6 +189,41 @@ class CriarUsuarioTest(TestCase):
                 tenant=self.tenant,
             ).exists()
         )
+
+    def test_atribui_unidades_ao_criar_funcionario(self):
+        """A decisão de arquitetura: unidade é permissão atribuída no cadastro, não campo fixo."""
+        centro = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Centro")
+        sul = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sul")
+        self.client.login(username="admin_cria_usr", password=SENHA)
+        self.client.post(
+            reverse("app:usuarios:criar"),
+            {
+                "username": "func_com_unidades",
+                "email": "func_unid@x.com",
+                "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [centro.pk, sul.pk],
+            },
+        )
+        usuario = Usuario.objects.get(username="func_com_unidades")
+        # `usuario.unidades.all()` direto falharia aqui: fora da requisição
+        # (o teste já terminou o client.post), o ContextVar de tenant foi
+        # resetado pelo TenantMiddleware — ver core/unidades.py.
+        self.assertEqual({centro, sul}, set(unidades_do_usuario(usuario)))
+
+    def test_criar_usuario_sem_marcar_unidade_nenhuma_e_permitido(self):
+        """Unidade continua opcional no formulário — nada obriga a marcar uma no ato da criação."""
+        self.client.login(username="admin_cria_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:criar"),
+            {
+                "username": "func_sem_unidade_nenhuma",
+                "email": "sem_unid@x.com",
+                "papel": Papel.objects.get(codigo="funcionario").pk,
+            },
+        )
+        self.assertEqual(200, resposta.status_code)
+        usuario = Usuario.objects.get(username="func_sem_unidade_nenhuma")
+        self.assertEqual(0, unidades_do_usuario(usuario).count())
 
 
 class AlternarAtivoTest(TestCase):

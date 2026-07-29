@@ -22,6 +22,15 @@ CHECKLIST_ITENS_DEVOLUCAO = [
 
 
 class AtivoForm(forms.ModelForm):
+    """
+    `patrimonio` fica opcional no formulário (o model exige, mas o form
+    relaxa): em branco, a view gera o código automaticamente
+    (`ativos.patrimonio.gerar_codigo_patrimonial`) — o usuário só digita
+    quando já tem um patrimônio próprio (docs/features/identificacao-
+    patrimonial-e-unidades.md). A validação de unicidade do código digitado
+    manualmente é feita aqui, não deixada para o `IntegrityError` do banco.
+    """
+
     class Meta:
         model = Ativo
         fields = [
@@ -53,6 +62,19 @@ class AtivoForm(forms.ModelForm):
         self.fields["subcategoria"].required = False
         self.fields["unidade"].required = False
         self.fields["fornecedor"].required = False
+        self.fields["patrimonio"].required = False
+        self.fields["patrimonio"].help_text = "Deixe em branco para gerar automaticamente."
+
+    def clean_patrimonio(self):
+        patrimonio = self.cleaned_data.get("patrimonio", "").strip()
+        if not patrimonio:
+            return patrimonio
+        conflito = Ativo.objects.filter(patrimonio__iexact=patrimonio)
+        if self.instance.pk:
+            conflito = conflito.exclude(pk=self.instance.pk)
+        if conflito.exists():
+            raise forms.ValidationError("Já existe um ativo com este código patrimonial.")
+        return patrimonio
 
 
 class FotoAtivoForm(forms.ModelForm):

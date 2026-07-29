@@ -29,6 +29,7 @@ from ativos.forms import (
     RenovarForm,
 )
 from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo, FotoAtivo, Movimentacao
+from ativos.patrimonio import gerar_codigo_patrimonial
 from ativos.selectors import (
     checklist_detalhado,
     cor_de,
@@ -121,6 +122,10 @@ def criar(request):
         if form.is_valid():
             ativo = form.save(commit=False)
             ativo.tenant = request.tenant
+            if not ativo.patrimonio:
+                # Usuário não digitou um patrimônio próprio — gera o código
+                # sequencial da categoria (ver ativos/patrimonio.py).
+                ativo.patrimonio = gerar_codigo_patrimonial(ativo.categoria)
             ativo.save()
             _salvar_fotos_cadastro(ativo, request.FILES)
             messages.success(request, f"Ativo {ativo.patrimonio} cadastrado com sucesso.")

@@ -130,6 +130,11 @@
           <a class="nav-item {% if nav_atual == 'auditoria' %}active{% endif %}" href="{% url 'app:usuarios:auditoria' %}">
             <span class="dot"></span> Auditoria
           </a>
+          {% if eh_admin %}
+          <a class="nav-item {% if nav_atual == 'unidades' %}active{% endif %}" href="{% url 'app:unidades:lista' %}">
+            <span class="dot"></span> Unidades
+          </a>
+          {% endif %}
         </div>
       </div>
       {% endif %}

@@ -23,6 +23,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 #   cross-tenant por definição.
 ARQUIVOS_PERMITIDOS = {
     BASE_DIR / "core" / "admin.py",
+    # unidades_visiveis(usuario) recebe o usuário como argumento explícito e
+    # precisa funcionar independente de ContextVar de tenant corrente estar
+    # setado (chamada tanto de view quanto de teste/script) — filtra
+    # explicitamente por usuario.tenant_id, nunca cross-tenant de verdade.
+    BASE_DIR / "core" / "unidades.py",
+    # gerar_codigo_patrimonial(categoria) recebe a categoria (já presa a um
+    # tenant específico) como argumento explícito — mesmo raciocínio acima:
+    # precisa funcionar fora de request context (script de importação em
+    # lote, testes), filtra só pela própria categoria, nunca cross-tenant.
+    BASE_DIR / "ativos" / "patrimonio.py",
     # Apenas menciona o método em docstring/comentário explicativo, não o chama.
     BASE_DIR / "core" / "tenancy.py",
     BASE_DIR / "core" / "models.py",

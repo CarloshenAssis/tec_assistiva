@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} · Ciclartech{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:520px;">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_nome">Nome</label>
+      {{ form.nome }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_tipo">Tipo</label>
+        {{ form.tipo }}
+      </div>
+      <div class="field">
+        <label for="id_responsavel">Responsável</label>
+        {{ form.responsavel }}
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_telefone">Telefone</label>
+        {{ form.telefone }}
+      </div>
+      <div class="field">
+        <label for="id_email">E-mail</label>
+        {{ form.email }}
+      </div>
+    </div>
+    <div class="field">
+      <label for="id_endereco">Endereço</label>
+      {{ form.endereco }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_cidade">Cidade</label>
+        {{ form.cidade }}
+      </div>
+      <div class="field">
+        <label for="id_uf">UF</label>
+        {{ form.uf }}
+      </div>
+    </div>
+    <div class="field">
+      <label for="id_observacoes">Observações</label>
+      {{ form.observacoes }}
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        {{ form.ativo }} Unidade ativa
+      </label>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Salvar</button>
+  </form>
+</div>
+{% endblock %}

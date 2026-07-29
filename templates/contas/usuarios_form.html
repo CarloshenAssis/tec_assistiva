@@ -35,6 +35,21 @@
       <label for="id_papel">Papel</label>
       {{ form.papel }}
     </div>
+    <div class="field">
+      <label>Unidades</label>
+      <div class="faint" style="font-size:11px;margin-bottom:6px;">
+        Só tem efeito para Gestor/Funcionário — Admin sempre enxerga todas as unidades.
+      </div>
+      <div class="flex-col gap-1">
+        {% for checkbox in form.unidades %}
+          <label class="flex items-center gap-1" style="cursor:pointer;font-weight:400;">
+            {{ checkbox.tag }} <span style="font-size:13px;">{{ checkbox.choice_label }}</span>
+          </label>
+        {% empty %}
+          <div class="faint" style="font-size:12px;">Nenhuma unidade cadastrada ainda.</div>
+        {% endfor %}
+      </div>
+    </div>
     <button class="btn btn-primary btn-block" type="submit">Criar usuário</button>
   </form>
 </div>
