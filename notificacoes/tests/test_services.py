@@ -20,7 +20,7 @@ class NotificacoesServicesTest(TestCase):
             corpo_texto="Olá {beneficiario}, seu {ativo} ({codigo}) vence em {data_prevista}.",
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-00", whatsapp="(12) 99999-0000"
+            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09", whatsapp="(12) 99999-0000"
         )
 
     def test_criar_e_enviar_gera_notificacao_por_canal_disponivel(self):

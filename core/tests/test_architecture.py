@@ -31,7 +31,15 @@ DIRETORIOS_PERMITIDOS = {
     BASE_DIR / "owner",
 }
 
-APPS_DE_DOMINIO = ["core", "contas", "ativos", "beneficiarios", "notificacoes", "owner"]
+APPS_DE_DOMINIO = [
+    "core",
+    "contas",
+    "ativos",
+    "beneficiarios",
+    "notificacoes",
+    "auditoria",
+    "owner",
+]
 
 
 class UsoDeAllTenantsRestritoTest(SimpleTestCase):

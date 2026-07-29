@@ -45,12 +45,14 @@
         <textarea name="observacoes" rows="2" placeholder="Ex: pequeno risco na lateral, pneu furado..."></textarea>
       </div>
 
+      {% comment %} O próprio botão carrega o destino em name/value: dispensa o handler
+         inline que antes escrevia num campo oculto, e com isso a CSP pode
+         proibir script inline por completo (ver core/middleware.py). {% endcomment %}
       <div class="flex gap-2 mt-2">
-        <button class="btn btn-primary" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='disponivel';">Concluir → Disponível</button>
-        <button class="btn btn-highlight" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='manutencao';">Concluir → Manutenção</button>
-        <button class="btn btn-secondary" type="submit" name="confirmar" value="1" onclick="this.form.destino.value='higienizacao';">Concluir → Higienização</button>
+        <button class="btn btn-primary" type="submit" name="destino" value="disponivel">Concluir → Disponível</button>
+        <button class="btn btn-highlight" type="submit" name="destino" value="manutencao">Concluir → Manutenção</button>
+        <button class="btn btn-secondary" type="submit" name="destino" value="higienizacao">Concluir → Higienização</button>
       </div>
-      <input type="hidden" name="destino" value="disponivel">
     </form>
   {% endif %}
 </div>

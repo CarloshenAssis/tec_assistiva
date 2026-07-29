@@ -541,9 +541,16 @@ def devolucao(request):
                 detalhe_emprestimo = mov.detalhe_emprestimo
                 dias_em_posse = (timezone.now().date() - mov.data_hora.date()).days
 
-    if request.method == "POST" and request.POST.get("confirmar"):
+    if request.method == "POST" and request.POST.get("destino"):
         ativo_confirmado = get_object_or_404(Ativo, pk=request.POST.get("ativo_id"))
-        destino = StatusAtivo(request.POST.get("destino"))
+        try:
+            destino = StatusAtivo(request.POST["destino"])
+        except ValueError:
+            # `destino` vem do name/value do botão, portanto é entrada do
+            # cliente como qualquer outra: um valor forjado vira erro de
+            # formulário, não 500.
+            messages.error(request, "Destino de devolução inválido.")
+            return redirect("app:ativos:devolucao")
         checklist = {
             chave: (f"checklist_{chave}" in request.POST) for chave, _ in CHECKLIST_ITENS_DEVOLUCAO
         }

@@ -95,12 +95,87 @@ mapa), não só no mapa:
 | 🔴 Vermelho (claro/médio/escuro) | Atrasado — intensidade cresce com os dias de atraso |
 | ⚫ Cinza | Baixado, extraviado, inativo (fora de operação) |
 
+## Segurança e LGPD
+
+A plataforma armazena **dados pessoais sensíveis**: laudos e receitas
+médicas são dados sobre saúde (LGPD Art. 5º, II), categoria em que um
+vazamento não tem correção possível depois do fato. As decisões abaixo
+partem daí.
+
+### Controles implementados
+
+| Camada | Controle |
+|---|---|
+| Configuração | A aplicação recusa subir em produção com `SECRET_KEY` de desenvolvimento, curta ou ausente (`ciclartech/seguranca.py`). `check --deploy` roda no CI com `--fail-level WARNING` |
+| Transporte | HSTS (1 ano), redirecionamento HTTPS, `SECURE_PROXY_SSL_HEADER` para a borda da Vercel, cookies `Secure`/`HttpOnly`/`SameSite=Lax` |
+| Navegador | CSP sem `unsafe-inline` em `script-src`, `frame-ancestors 'none'`, `form-action 'self'`, `base-uri 'self'`, `Permissions-Policy` restritiva (`core/middleware.py`) |
+| Autenticação | Argon2id como hasher primário, senha mínima de 12 caracteres, bloqueio por tentativas (5 por identificação / 20 por IP, janela de 15 min), mensagens que não permitem enumerar contas |
+| Sessão | Expira em 8 h de inatividade e ao fechar o navegador; páginas autenticadas com `Cache-Control: no-store` (cenário de terminal compartilhado) |
+| Arquivos | Allowlist de extensão + limite de tamanho + conferência de *magic number* (bloqueia SVG com script renomeado para `.png`); entrega sempre como anexo com tipo neutro |
+| Banco | RLS ativo nas 26 tabelas e `anon`/`authenticated` sem privilégio algum (ver seção do Supabase adiante) |
+| Multi-tenant | Isolamento *fail-closed* no manager, já existente, agora coberto também nos novos caminhos (download de documento, exportação) |
+
+### Direitos do titular (Art. 18)
+
+- **Base legal obrigatória** no cadastro (`Beneficiario.base_legal`) — sem
+  hipótese declarada não há tratamento lícito.
+- **Acesso e portabilidade** (Art. 18, II e V): exportação em JSON pela
+  ficha do titular, restrita a Admin.
+- **Eliminação** (Art. 18, VI): anonimização que remove nome, CPF, contatos
+  e **apaga os documentos do storage**, preservando o histórico patrimonial.
+  Não é `DELETE` de propósito — o registro de movimentação de equipamento
+  responde a outra finalidade e o Art. 16, I autoriza a conservação; o que
+  a lei protege é a identificabilidade, e ela é removida.
+- **Revogação de consentimento** (Art. 8º, §5º) registrada com data.
+
+### Trilha de auditoria (Art. 37)
+
+`auditoria.RegistroAuditoria` é *append-only* — `save()` de registro
+existente e `delete()` são bloqueados no model, e o Django Admin é
+somente-leitura. Uma trilha que o próprio sistema auditado pode editar não
+serve como evidência.
+
+Registra login (sucesso/falha/bloqueio), acesso a dado pessoal — marcando
+separadamente o acesso a **dado sensível** —, exportação e anonimização.
+O expurgo por retenção (padrão 24 meses) é comando deliberado:
+`python manage.py expurgar_auditoria` (simula por padrão; `--confirmar` executa).
+
+O log de aplicação **não** recebe dado pessoal: nome, telefone e conteúdo
+de notificação foram removidos dele, porque a saída padrão na Vercel é
+coletada e retida fora do nosso controle, sem prazo nem controle de acesso.
+
 ### Pendente para uma próxima fase
 
 - Integração real de envio (WhatsApp Business API / SMTP) — hoje o backend registra e "envia" via log estruturado, ponto de extensão isolado em `notificacoes/services.py::_despachar`.
-- Agendamento do job diário via Celery Beat (hoje é um management command, chamável por cron).
+- Agendamento do job diário via cron (hoje é um management command; a Vercel oferece Vercel Cron).
 - Edição de templates de notificação pela UI (hoje só via Django Admin).
 - Filtro de "cidade" no Mapa (não modelado — só há um campo de cidade no Tenant, não por ativo/unidade).
+
+### Pendências de segurança que dependem de decisão ou serviço externo
+
+Itens conhecidos e deliberadamente **não** resolvidos nesta entrega, em
+ordem de risco:
+
+1. **Storage externo para mídia.** `MEDIA_ROOT` continua em disco local, que
+   na Vercel não persiste entre invocações — na prática, hoje um documento
+   enviado se perde. Trocar por Supabase Storage ou S3 exige credenciais.
+   A view de download (`core/arquivos.py`) já está pronta para a troca: ela
+   entrega pelo `FileField`, não por caminho, então só muda o backend.
+2. **Monitoramento de erro** (Sentry ou equivalente). Hoje a única forma de
+   descobrir uma exceção em produção é abrir o painel da Vercel manualmente.
+   Requer conta e DSN.
+3. **Envio de e-mail.** A recuperação de senha está implementada e testada,
+   mas sem SMTP configurado o link só vai para o log. Requer provedor.
+4. **Segundo fator (2FA)** para contas Admin — dado sensível justifica, mas
+   muda o fluxo de acesso de todos os administradores e é decisão de produto.
+5. **`style-src 'unsafe-inline'` na CSP.** Necessário porque há ~215
+   atributos `style="..."` nos templates, e atributo de estilo não aceita
+   nonce nem hash. Risco baixo (CSS injetado não executa código, mas permite
+   exfiltração por seletor). Eliminar exige migrar os estilos inline para
+   classes no CSS.
+6. **Encarregado (DPO) e política de privacidade.** O Art. 41 exige indicar
+   um encarregado e o Art. 9º, transparência ao titular. São itens
+   institucionais, não de código.
 
 ## Deploy na Vercel
 
@@ -116,12 +191,33 @@ depender de upload de fotos — fora do escopo desta entrega.
 
 ### Variáveis de ambiente a configurar no painel da Vercel
 
+**Obrigatórias** — a aplicação **se recusa a subir** em produção sem elas
+(ver `ciclartech/seguranca.py`); é deliberado: melhor não subir do que
+servir dado de paciente com chave pública de desenvolvimento.
+
 | Variável | Valor |
 |---|---|
-| `DJANGO_SECRET_KEY` | uma chave longa e aleatória (ex.: `python -c "import secrets; print(secrets.token_urlsafe(50))"`) — **nunca** a chave de desenvolvimento do `.env.example` |
+| `DJANGO_SECRET_KEY` | chave longa e aleatória: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`. Mínimo de 32 caracteres, **nunca** a do `.env.example` |
 | `DJANGO_DEBUG` | `False` |
-| `DJANGO_ALLOWED_HOSTS` | `ciclartech.vercel.app` |
-| `DATABASE_URL` | `postgres://postgres:<SENHA_DO_BANCO>@db.tuqecavtmbkriwhnqzfu.supabase.co:5432/postgres` — pegue `<SENHA_DO_BANCO>` em Supabase → projeto **ciclartech** → Project Settings → Database (se não souber a senha, tem a opção "Reset database password" na mesma tela) |
+| `DATABASE_URL` | `postgresql://postgres.tuqecavtmbkriwhnqzfu:<SENHA>@aws-0-sa-east-1.pooler.supabase.com:5432/postgres` — use o **pooler**, não a conexão direta: `db.<ref>.supabase.co` só resolve em IPv6, que a Vercel não tem na saída |
+
+**Recomendadas**:
+
+| Variável | Valor | Por quê |
+|---|---|---|
+| `DJANGO_ALLOWED_HOSTS` | `ciclartech.vercel.app` | Se ausente, os domínios vêm de `VERCEL_URL`/`VERCEL_PROJECT_PRODUCTION_URL`. Um `*` aqui é descartado automaticamente com aviso — `Host` arbitrário permite envenenar o link de recuperação de senha |
+| `DJANGO_PROXIES_CONFIAVEIS` | `1` | Número de proxies reversos à frente da app. Sem isso o IP registrado na auditoria é o da borda da Vercel, não o do cliente, e o bloqueio por tentativas perde precisão |
+| `DJANGO_ADMIN_URL` | algo não óbvio, ex. `gestao-interna/` | Reduz o ruído de varredura automatizada em `/admin/`, que consome o limite de bloqueio de contas legítimas |
+
+**Para a recuperação de senha funcionar** (sem elas o link é apenas
+registrado no log, não enviado):
+
+| Variável | Valor |
+|---|---|
+| `DJANGO_EMAIL_BACKEND` | `django.core.mail.backends.smtp.EmailBackend` |
+| `DJANGO_EMAIL_HOST` / `DJANGO_EMAIL_PORT` | do provedor SMTP (Resend, SendGrid, Amazon SES…) |
+| `DJANGO_EMAIL_HOST_USER` / `DJANGO_EMAIL_HOST_PASSWORD` | credenciais do provedor |
+| `DJANGO_DEFAULT_FROM_EMAIL` | remetente, ex. `nao-responda@seudominio.com.br` |
 
 O projeto Supabase **ciclartech** (`tuqecavtmbkriwhnqzfu`, região
 `sa-east-1`) já foi criado e o schema completo (todas as tabelas,
@@ -136,13 +232,39 @@ nenhuma tabela (já existem), mas dispara a criação dos `ContentType`/
 corretamente com usuários não-superusuário) e cria o primeiro
 superusuário com `python manage.py createsuperuser`.
 
-**Segurança do Supabase**: o Supabase reportou que Row Level Security
-(RLS) está desabilitado em todas as tabelas do projeto. Como o Django
-conecta diretamente via Postgres (não pela API REST/`anon key` do
-Supabase), isso não afeta o funcionamento do app — mas deixa os dados
-acessíveis via a API REST automática do Supabase para quem tiver a
-`anon key`. Se esse projeto Supabase for usado **apenas** como banco do
-Django (sem PostgREST/client-side Supabase), considere desabilitar a API
-REST do projeto nas configurações do Supabase, em vez de habilitar RLS
-sem políticas (o que bloquearia qualquer acesso via REST, inclusive o que
-você eventualmente queira usar).
+### Segurança do Supabase — exposição corrigida
+
+Uma versão anterior deste README classificava o RLS desabilitado como
+"inofensivo, porque o Django conecta direto no Postgres". **Essa avaliação
+estava errada** e foi corrigida.
+
+O que a análise anterior não considerou: o Supabase expõe automaticamente
+todo o schema `public` por uma API REST (PostgREST), e concede privilégios
+padrão aos papéis `anon` e `authenticated`. A chave `anon` é **pública por
+design** — ela é feita para ser embutida em código de front-end. Com RLS
+desligado e os grants padrão, qualquer pessoa de posse dessa chave (que é
+recuperável pelo painel/API do projeto) conseguia ler as tabelas do Django
+pela internet, sem autenticar no sistema.
+
+Isso foi verificado na prática: uma requisição REST com a chave `anon`
+retornou o hash de senha do usuário `admin` da tabela `contas_usuario`.
+Com pacientes cadastrados, `beneficiarios_beneficiario` (nome, CPF,
+endereço, telefone) estaria igualmente exposta.
+
+Correção aplicada no banco:
+
+1. `REVOKE` de todos os privilégios de `anon` e `authenticated` sobre
+   tabelas, sequences e funções do schema `public`, além do `USAGE` do
+   próprio schema.
+2. `ALTER DEFAULT PRIVILEGES` para que a **próxima migration do Django não
+   recrie o problema** — sem isso, cada tabela nova nasceria exposta de novo.
+3. `ENABLE ROW LEVEL SECURITY` nas 26 tabelas, sem nenhuma policy. RLS sem
+   policy nega tudo para quem não é dono da tabela; é a segunda barreira,
+   caso um `GRANT` seja reconcedido por engano no futuro.
+
+O Django não é afetado: ele conecta como `postgres`, que é dono das tabelas
+e tem `BYPASSRLS`. Isso foi confirmado com login real na aplicação em
+produção depois da mudança.
+
+> Ao criar tabelas novas fora das migrations do Django (SQL direto, painel
+> do Supabase), confira se nasceram com RLS ligado e sem grants para `anon`.

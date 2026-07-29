@@ -13,6 +13,7 @@ from django.db import models
 
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
 from core.models import Fornecedor, TenantManager, TenantModel, TenantQuerySet, Unidade
+from core.validadores import validar_upload, validar_upload_imagem
 
 
 def _choices(enum_cls):
@@ -118,7 +119,9 @@ class FotoAtivo(TenantModel):
 
     ativo = models.ForeignKey(Ativo, on_delete=models.CASCADE, related_name="fotos")
     tipo = models.CharField(max_length=20, choices=Tipo.choices)
-    arquivo = models.ImageField(upload_to="ativos/fotos/%Y/%m/")
+    arquivo = models.ImageField(
+        upload_to="ativos/fotos/%Y/%m/", validators=[validar_upload_imagem]
+    )
     enviado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -192,7 +195,9 @@ class FotoMovimentacao(TenantModel):
 
     movimentacao = models.ForeignKey(Movimentacao, on_delete=models.CASCADE, related_name="fotos")
     tipo = models.CharField(max_length=20, choices=Tipo.choices)
-    arquivo = models.ImageField(upload_to="movimentacoes/fotos/%Y/%m/")
+    arquivo = models.ImageField(
+        upload_to="movimentacoes/fotos/%Y/%m/", validators=[validar_upload_imagem]
+    )
 
     class Meta:
         verbose_name = "Foto da Movimentação"
@@ -217,7 +222,9 @@ class DetalheEmprestimo(TenantModel):
     assinatura_tipo = models.CharField(
         max_length=10, choices=AssinaturaTipo.choices, default=AssinaturaTipo.FISICA
     )
-    assinatura_arquivo = models.FileField(upload_to="assinaturas/%Y/%m/", blank=True, null=True)
+    assinatura_arquivo = models.FileField(
+        upload_to="assinaturas/%Y/%m/", blank=True, null=True, validators=[validar_upload]
+    )
 
     class Meta:
         verbose_name = "Detalhe de Empréstimo"

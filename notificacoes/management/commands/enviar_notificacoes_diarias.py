@@ -4,7 +4,7 @@ docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md §4.1 (fluxograma "Verificação
 Diária de Vencimentos").
 
 Nesta fase roda via `manage.py enviar_notificacoes_diarias` (agendável
-por cron/Celery Beat numa fase posterior — a lógica de negócio já está
+por cron (ou Vercel Cron) numa fase posterior — a lógica de negócio já está
 isolada aqui, então trocar o agendador não exige tocar neste código).
 
     python manage.py enviar_notificacoes_diarias

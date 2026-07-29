@@ -7,8 +7,15 @@
     <div class="muted" style="font-size:12.5px;margin-bottom:20px;">Plataforma de Gestão de Ativos Assistivos</div>
     <form method="post">
       {% csrf_token %}
+      {% comment %} As mensagens já vêm prontas do formulário: credencial inválida usa um
+         texto único que não distingue "usuário não existe" de "senha errada"
+         (evita enumeração de contas), e o bloqueio por tentativas tem a sua.
+         Ver contas/forms.py. {% endcomment %}
       {% if form.errors %}
-        <ul class="errorlist"><li>Usuário ou senha inválidos.</li></ul>
+        <ul class="errorlist">
+          {% for erro in form.non_field_errors %}<li>{{ erro }}</li>{% endfor %}
+          {% if not form.non_field_errors %}<li>Informe usuário e senha.</li>{% endif %}
+        </ul>
       {% endif %}
       <div class="field">
         <label for="id_username">Usuário</label>
@@ -21,6 +28,9 @@
       <input type="hidden" name="next" value="{{ next }}">
       <button class="btn btn-primary btn-block" type="submit">Entrar</button>
     </form>
+    <div style="margin-top:16px;text-align:center;">
+      <a href="{% url 'password_reset' %}" style="font-size:12.5px;">Esqueci minha senha</a>
+    </div>
   </div>
 </div>
 {% endblock %}

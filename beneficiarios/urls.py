@@ -8,4 +8,7 @@ urlpatterns = [
     path("", views.lista, name="lista"),
     path("novo/", views.criar, name="criar"),
     path("<int:pk>/", views.ficha, name="ficha"),
+    path("<int:pk>/exportar/", views.exportar, name="exportar"),
+    path("<int:pk>/anonimizar/", views.anonimizar_titular, name="anonimizar"),
+    path("documento/<int:pk>/", views.baixar_documento, name="baixar_documento"),
 ]

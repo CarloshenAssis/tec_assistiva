@@ -47,3 +47,26 @@ jobs:
 
       - name: Rodar testes
         run: python manage.py test
+
+      - name: Verificação de segurança do deploy
+        # `check --deploy` roda as verificações que só importam em produção
+        # (HSTS, cookies seguros, DEBUG desligado, SECRET_KEY). Roda com o
+        # ambiente de produção simulado, já que em DEBUG elas são puladas.
+        env:
+          DJANGO_DEBUG: "False"
+          DJANGO_SECRET_KEY: chave-de-ci-com-tamanho-suficiente-para-validacao-1234
+          DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+        run: python manage.py check --deploy --fail-level WARNING
+
+      - name: Estáticos coletados estão atualizados
+        # O runtime da Vercel não roda `collectstatic`, então o resultado vai
+        # versionado no repositório. Este passo pega o caso de alguém alterar
+        # CSS/JS e esquecer de regerar — falha que, sem isso, só apareceria
+        # como "minha mudança não subiu" depois do deploy.
+        run: |
+          python manage.py collectstatic --noinput --clear
+          if [ -n "$(git status --porcelain staticfiles/)" ]; then
+            echo "::error::staticfiles/ desatualizado. Rode 'python manage.py collectstatic --noinput' e faça commit."
+            git status --porcelain staticfiles/ | head -20
+            exit 1
+          fi

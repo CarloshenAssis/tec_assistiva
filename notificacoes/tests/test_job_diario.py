@@ -29,7 +29,7 @@ class JobDiarioNotificacoesTest(TestCase):
 
         self.categoria = CategoriaAtivo.objects.all_tenants().create(tenant=self.tenant, nome="Cadeira de Rodas")
         self.beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-00", whatsapp="(12) 99999-0000"
+            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09", whatsapp="(12) 99999-0000"
         )
 
     def _emprestar_com_prazo(self, patrimonio, dias_ate_vencer):

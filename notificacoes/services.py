@@ -30,13 +30,20 @@ def _despachar(notificacao: NotificacaoEnviada) -> bool:
     """
     Backend "log" — ponto de extensão para um provedor real (Meta Cloud
     API/Twilio para WhatsApp, SMTP para Email). Retorna True em sucesso.
+
+    O log registra apenas identificadores internos. O destinatário (telefone
+    ou e-mail) e o corpo renderizado (que traz nome do beneficiário e do
+    equipamento) são dados pessoais: colocá-los aqui criaria uma segunda base
+    de dados pessoais, sem controle de acesso e sem prazo de retenção, na
+    saída padrão da aplicação — que na Vercel é coletada e fica retida fora
+    do nosso controle. O conteúdo enviado continua disponível no próprio
+    registro `NotificacaoEnviada`, que é tenant-scoped e auditável.
     """
     logger.info(
-        "[notificação %s] para %s via %s: %s",
+        "[notificação %s] envio #%s via %s",
         notificacao.template.tipo,
-        notificacao.destinatario,
+        notificacao.pk,
         notificacao.canal,
-        notificacao.corpo_renderizado,
     )
     return True
 

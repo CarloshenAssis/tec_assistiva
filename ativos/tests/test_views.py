@@ -38,7 +38,7 @@ class BaseViewTest(TestCase):
             tenant=self.tenant_a, patrimonio="CAD-0001", categoria=self.categoria_a
         )
         self.beneficiario_a = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant_a, nome="Maria Silva", cpf="123.456.789-00"
+            tenant=self.tenant_a, nome="Maria Silva", cpf="123.456.789-09"
         )
 
         categoria_b = CategoriaAtivo.objects.all_tenants().create(tenant=self.tenant_b, nome="Muletas")
