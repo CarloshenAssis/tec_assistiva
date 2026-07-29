@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from ativos.domain.enums import StatusAtivo
 from ativos.models import Ativo, DetalheEmprestimo, Movimentacao
@@ -6,6 +6,22 @@ from ativos.selectors import resumo_cores
 from beneficiarios.models import Beneficiario
 from core.decorators import tenant_required
 from notificacoes.models import NotificacaoEnviada
+
+
+def raiz(request):
+    """
+    Redirecionamento inicial (`/` e destino padrão pós-login).
+
+    Não pode apontar direto para `app:dashboard`: um usuário da plataforma
+    (`is_platform_staff`, sem tenant) recebe 403 lá — a área dele é
+    `owner:dashboard`. Descoberto ao testar o login da primeira conta Owner
+    em produção: o redirect fixo mandava até o Owner para `/app/dashboard/`.
+    """
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if request.user.is_platform_staff:
+        return redirect("owner:dashboard")
+    return redirect("app:dashboard")
 
 # Rótulos do "resumo colorido" do dashboard (docs — Módulo Mapa Operacional
 # de Ativos): a mesma cor identifica a situação em toda a plataforma, aqui

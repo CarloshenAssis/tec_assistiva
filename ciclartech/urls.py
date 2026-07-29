@@ -2,14 +2,14 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from django.views.generic import RedirectView
 
 from contas.forms import FormularioLoginSeguro
 from contas.views import AlterarSenhaView
+from core.views import raiz
 from core.views_saude import saude
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="app:dashboard", permanent=False)),
+    path("", raiz, name="raiz"),
     # Caminho do admin configurável por ambiente. Manter `/admin/` em
     # produção é entregar o alvo pronto: varredores automatizados batem nesse
     # caminho por padrão, e cada tentativa consome o limite de bloqueio de

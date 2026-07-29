@@ -194,7 +194,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "app:dashboard"
+# Não aponta direto para "app:dashboard": um usuário da plataforma
+# (is_platform_staff, sem tenant) recebe 403 lá — a área dele é
+# "owner:dashboard". `core.views.raiz` decide o destino certo por tipo de
+# usuário. Ver ciclartech/urls.py.
+LOGIN_REDIRECT_URL = "raiz"
 LOGOUT_REDIRECT_URL = "login"
 
 # Caminho do Django Admin. Trocar por um valor não óbvio em produção não é
