@@ -319,6 +319,49 @@ def _contexto_por_status(ativo):
 
 
 @tenant_required
+def localizar(request):
+    """
+    Porta de entrada única para achar um ativo — reúne as três formas de
+    busca da especificação original (escanear QR Code / pesquisar
+    patrimônio / pesquisar categoria / pesquisar nome) numa tela só, em vez
+    de espalhadas entre `scan`, a lista de ativos e o mapa
+    (docs/business-rules/qrcode.md).
+
+    O código manual/câmera continua postando para `scan` (mesmo backend,
+    já testado) — esta tela só acrescenta a busca por texto/categoria, que
+    `scan` nunca ofereceu.
+    """
+    busca = request.GET.get("q", "").strip()
+    categoria_id = request.GET.get("categoria")
+
+    resultados = []
+    if busca or categoria_id:
+        qs = _ativos_no_escopo(request).select_related("categoria", "unidade")
+        if categoria_id:
+            qs = qs.filter(categoria_id=categoria_id)
+        if busca:
+            qs = qs.filter(
+                Q(patrimonio__icontains=busca)
+                | Q(categoria__nome__icontains=busca)
+                | Q(fabricante__icontains=busca)
+                | Q(modelo__icontains=busca)
+            )
+        resultados = list(qs[:30])
+
+    return render(
+        request,
+        "ativos/localizar.html",
+        {
+            "nav_atual": "localizar",
+            "busca": busca,
+            "categoria_id": int(categoria_id) if categoria_id else None,
+            "categorias": CategoriaAtivo.objects.all().order_by("nome"),
+            "resultados": resultados,
+        },
+    )
+
+
+@tenant_required
 def resolver_qr(request, token):
     """
     Modo "Operação por QR Code" — docs/PLANO_DOMINIO_ATIVOS.md §3.4.
@@ -336,14 +379,14 @@ def resolver_qr(request, token):
         .first()
     )
     if ativo is None:
-        return render(request, "ativos/quick_panel_nao_encontrado.html", {"nav_atual": "scan"}, status=404)
+        return render(request, "ativos/quick_panel_nao_encontrado.html", {"nav_atual": "localizar"}, status=404)
 
     contexto_emprestimo = datas_previstas_por_ativo([ativo.id]).get(ativo.id)
     ativo.cor_operacional = cor_de(ativo, contexto_emprestimo).value
 
     acoes = acoes_disponiveis(ativo.status_enum, nivel_hierarquico=nivel_hierarquico(request))
     acoes = _preparar_acoes_para_template(ativo, acoes, origem="quick_panel")
-    contexto = {"nav_atual": "scan", "ativo": ativo, "acoes": acoes, **_contexto_por_status(ativo)}
+    contexto = {"nav_atual": "localizar", "ativo": ativo, "acoes": acoes, **_contexto_por_status(ativo)}
     return render(request, "ativos/quick_panel.html", contexto)
 
 
@@ -366,7 +409,7 @@ def scan(request):
             messages.error(request, "Nenhum ativo encontrado para esse código.")
             return redirect("app:ativos:scan")
         return redirect("app:ativos:resolver_qr", token=ativo.qr_token)
-    return render(request, "ativos/scan.html", {"nav_atual": "scan"})
+    return render(request, "ativos/scan.html", {"nav_atual": "localizar"})
 
 
 ACOES_SIMPLES = {

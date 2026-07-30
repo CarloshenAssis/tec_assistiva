@@ -7,6 +7,7 @@ app_name = "ativos"
 urlpatterns = [
     path("", views.lista, name="lista"),
     path("novo/", views.criar, name="criar"),
+    path("localizar/", views.localizar, name="localizar"),
     path("scan/", views.scan, name="scan"),
     path("qr/<str:token>/", views.resolver_qr, name="resolver_qr"),
     path("emprestimo/", views.wizard_emprestimo, name="wizard_emprestimo"),

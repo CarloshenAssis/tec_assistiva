@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Localizar Ativo · Ciclartech{% endblock %}
+{% block page_title %}Localizar Ativo{% endblock %}
+{% block content %}
+<div class="grid" style="grid-template-columns:1fr 1.3fr;gap:16px;align-items:start;">
+
+  <div class="card">
+    <div class="card-title">Escanear QR Code</div>
+    <div style="aspect-ratio:3/4;border-radius:16px;background:var(--sidebar-bg);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin-bottom:14px;">
+      <video id="qr-video" style="display:none;width:100%;height:100%;object-fit:cover;" muted playsinline></video>
+      <button id="qr-iniciar-camera" type="button" class="btn btn-primary" style="position:relative;z-index:1;">
+        Ativar câmera
+      </button>
+      <div id="qr-overlay" style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:var(--sidebar-muted);padding:0 20px;">
+        A leitura acontece no seu navegador — nenhuma imagem é enviada ao servidor.
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'app:ativos:scan' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label for="id_codigo">Ou digite o patrimônio / código do QR</label>
+        <input type="text" name="codigo" id="id_codigo" placeholder="Digite o código impresso na etiqueta">
+      </div>
+      <button class="btn btn-secondary btn-block" type="submit">Buscar por código</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pesquisar por patrimônio, categoria ou nome</div>
+    <form method="get" class="flex gap-2" style="margin-bottom:14px;flex-wrap:wrap;">
+      <input type="text" name="q" value="{{ busca }}" placeholder="Patrimônio, fabricante, modelo..." style="flex:2;min-width:200px;" autofocus>
+      <select name="categoria" style="flex:1;min-width:160px;">
+        <option value="">Todas as categorias</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria.pk }}" {% if categoria.pk == categoria_id %}selected{% endif %}>{{ categoria.nome }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Buscar</button>
+    </form>
+
+    <div class="table">
+      <div class="table-head" style="grid-template-columns:1fr 1fr 1fr 90px;">
+        <div>Patrimônio</div><div>Categoria</div><div>Unidade</div><div>Status</div>
+      </div>
+      {% for ativo in resultados %}
+        <a class="table-row clickable" style="grid-template-columns:1fr 1fr 1fr 90px;text-decoration:none;color:inherit;" href="{% url 'app:ativos:ficha' ativo.pk %}">
+          <div style="font-size:13.5px;font-weight:600;">{{ ativo.patrimonio }}</div>
+          <div style="font-size:13px;">{{ ativo.categoria.nome }}</div>
+          <div style="font-size:13px;">{{ ativo.unidade.nome|default:"—" }}</div>
+          <div><span class="badge badge-{{ ativo.status }}">{{ ativo.get_status_display }}</span></div>
+        </a>
+      {% empty %}
+        {% if busca or categoria_id %}
+          <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum ativo encontrado com esses filtros.</div>
+        {% else %}
+          <div style="padding:20px;font-size:13px;color:var(--text-faint);">Digite um termo ou escolha uma categoria para buscar.</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'vendor/jsQR.min.js' %}" defer></script>
+<script src="{% static 'js/qr-scanner.js' %}" defer></script>
+{% endblock %}

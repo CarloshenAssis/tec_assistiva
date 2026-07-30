@@ -82,8 +82,8 @@
           <a class="nav-item {% if nav_atual == 'manutencao' %}active{% endif %}" href="{% url 'app:ativos:manutencao_lista' %}">
             <span class="dot"></span> Manutenção
           </a>
-          <a class="nav-item {% if nav_atual == 'scan' %}active{% endif %}" href="{% url 'app:ativos:scan' %}">
-            <span class="dot"></span> Ler QR Code
+          <a class="nav-item {% if nav_atual == 'localizar' %}active{% endif %}" href="{% url 'app:ativos:localizar' %}">
+            <span class="dot"></span> Localizar Ativo
           </a>
         </div>
       </div>
@@ -183,8 +183,8 @@
       <a class="{% if nav_atual == 'devolucao' %}active{% endif %}" href="{% url 'app:ativos:devolucao' %}">
         <span class="icon">⟲</span> Devolver
       </a>
-      <a class="{% if nav_atual == 'scan' %}active{% endif %}" href="{% url 'app:ativos:scan' %}">
-        <span class="icon">▦</span> QR Code
+      <a class="{% if nav_atual == 'localizar' %}active{% endif %}" href="{% url 'app:ativos:localizar' %}">
+        <span class="icon">▦</span> Localizar
       </a>
     </nav>
     <a class="fab" href="{% url 'app:ativos:wizard_emprestimo' %}">+</a>
