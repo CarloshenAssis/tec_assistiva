@@ -60,6 +60,58 @@ def normalizar_cpf(valor: str) -> str:
     return _APENAS_DIGITOS.sub("", valor or "")
 
 
+# --------------------------------------------------------------- CNPJ ----
+
+#: Pesos do cálculo de módulo 11 do CNPJ — não seguem uma progressão simples
+#: (voltam a 9 depois de descer até 2), por isso ficam explícitos em vez de
+#: gerados por fórmula.
+_PESOS_CNPJ_PRIMEIRO_DIGITO = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+_PESOS_CNPJ_SEGUNDO_DIGITO = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+
+
+def cnpj_e_valido(valor: str) -> bool:
+    """Confere os dois dígitos verificadores do CNPJ, mesmo princípio de `cpf_e_valido`."""
+    numeros = _APENAS_DIGITOS.sub("", valor or "")
+
+    if len(numeros) != 14:
+        return False
+    if numeros == numeros[0] * 14:
+        return False
+
+    soma = sum(int(d) * peso for d, peso in zip(numeros[:12], _PESOS_CNPJ_PRIMEIRO_DIGITO))
+    resto = soma % 11
+    digito1 = "0" if resto < 2 else str(11 - resto)
+    if numeros[12] != digito1:
+        return False
+
+    soma = sum(int(d) * peso for d, peso in zip(numeros[:13], _PESOS_CNPJ_SEGUNDO_DIGITO))
+    resto = soma % 11
+    digito2 = "0" if resto < 2 else str(11 - resto)
+    return numeros[13] == digito2
+
+
+def validar_cnpj(valor: str) -> None:
+    if not cnpj_e_valido(valor):
+        raise ValidationError("CNPJ inválido — confira os números digitados.", code="cnpj_invalido")
+
+
+def normalizar_cnpj(valor: str) -> str:
+    return _APENAS_DIGITOS.sub("", valor or "")
+
+
+def validar_documento(valor: str, tipo_documento: str) -> None:
+    """
+    Despacha para `validar_cpf`/`validar_cnpj` conforme `tipo_documento`
+    (`beneficiarios.models.Beneficiario.TipoDocumento`) — ponto único usado
+    pelo formulário de cadastro, para o CPF e o CNPJ nunca terem validação
+    divergente entre as duas telas que os usam.
+    """
+    if tipo_documento == "cnpj":
+        validar_cnpj(valor)
+    else:
+        validar_cpf(valor)
+
+
 # ------------------------------------------------------------- Upload ----
 
 #: Allowlist — nunca uma blocklist. Extensão fora desta lista é recusada,

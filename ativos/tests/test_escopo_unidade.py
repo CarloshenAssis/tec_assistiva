@@ -137,7 +137,7 @@ class AcoesRespeitamOEscopoTest(BaseDuasUnidades):
 class WizardEDevolucaoRespeitamOEscopoTest(BaseDuasUnidades):
     def test_wizard_nao_oferece_ativo_de_outra_unidade(self):
         beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09", unidade=self.norte
+            tenant=self.tenant, nome="Maria Silva", documento="123.456.789-09", unidade=self.norte
         )
         self.logar("gestor_norte")
         sessao = self.client.session
@@ -211,13 +211,13 @@ class BeneficiarioPorUnidadeTest(BaseDuasUnidades):
     def setUp(self):
         super().setUp()
         self.do_norte = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Ana do Norte", cpf="123.456.789-09", unidade=self.norte
+            tenant=self.tenant, nome="Ana do Norte", documento="123.456.789-09", unidade=self.norte
         )
         self.do_sul = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Bruno do Sul", cpf="234.567.891-73", unidade=self.sul
+            tenant=self.tenant, nome="Bruno do Sul", documento="234.567.891-73", unidade=self.sul
         )
         self.sem_unidade = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Carla Sem Unidade", cpf="345.678.912-38"
+            tenant=self.tenant, nome="Carla Sem Unidade", documento="345.678.912-38"
         )
 
     def test_gestor_ve_titular_da_sua_unidade_e_os_sem_unidade(self):

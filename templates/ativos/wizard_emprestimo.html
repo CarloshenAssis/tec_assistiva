@@ -33,7 +33,7 @@
             <button type="submit" class="flex justify-between" style="all:unset;cursor:pointer;width:100%;padding:12px 10px;border-radius:8px;">
               <span>
                 <span style="font-size:13.5px;font-weight:600;display:block;">{{ p.nome }}</span>
-                <span class="muted" style="font-size:12px;">{{ p.cpf }} · {{ p.cidade }}</span>
+                <span class="muted" style="font-size:12px;">{{ p.documento }} · {{ p.cidade }}</span>
               </span>
               <span style="color:var(--accent);font-size:12px;align-self:center;">Selecionar</span>
             </button>
@@ -92,6 +92,20 @@
           <label>Prazo personalizado (dias)</label>
           <input type="number" name="prazo_dias" min="1" value="45">
         </div>
+        {% if locacao_financeiro_habilitado %}
+          <div class="field" style="margin-bottom:0;flex:1;">
+            <label>Valor da diária (R$)</label>
+            <input type="text" name="valor_diaria" placeholder="Opcional" inputmode="decimal">
+          </div>
+          <div class="field" style="margin-bottom:0;flex:1;">
+            <label>Caução (R$)</label>
+            <input type="text" name="caucao" placeholder="Opcional" inputmode="decimal">
+          </div>
+          <div class="field" style="margin-bottom:0;flex:1;">
+            <label>Multa por dia de atraso (%)</label>
+            <input type="text" name="percentual_multa_atraso_dia" placeholder="Opcional" inputmode="decimal">
+          </div>
+        {% endif %}
         <button class="btn btn-secondary" type="submit">Usar</button>
       </form>
 
@@ -99,6 +113,9 @@
       <div class="card-title">Passo 4 · Checklist, foto e assinatura do termo</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:14px;">
         {{ beneficiario.nome }} · {{ ativo.patrimonio }} ({{ ativo.categoria.nome }}) · {{ prazo_dias }} dias
+        {% if valor_diaria %} · R$ {{ valor_diaria }}/dia{% endif %}
+        {% if caucao %} · Caução R$ {{ caucao }}{% endif %}
+        {% if percentual_multa_atraso_dia %} · Multa {{ percentual_multa_atraso_dia }}%/dia de atraso{% endif %}
       </div>
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}

@@ -41,13 +41,13 @@ class BaseLgpdTest(TestCase):
         self.titular_a = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant_a,
             nome="Maria Silva",
-            cpf="123.456.789-09",
+            documento="123.456.789-09",
             telefone="(12) 99999-0000",
             email="maria@exemplo.br",
             bairro="Centro",
         )
         self.titular_b = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant_b, nome="João Pedro", cpf="234.567.891-73"
+            tenant=self.tenant_b, nome="João Pedro", documento="234.567.891-73"
         )
 
 
@@ -66,7 +66,7 @@ class AnonimizacaoTest(BaseLgpdTest):
     def test_cpf_nao_e_preservado(self):
         anonimizar(self.titular_a)
         self.titular_a.refresh_from_db()
-        self.assertNotIn("123456789", self.titular_a.cpf.replace(".", "").replace("-", ""))
+        self.assertNotIn("123456789", self.titular_a.documento.replace(".", "").replace("-", ""))
 
     def test_apaga_documentos_com_dado_de_saude(self):
         DocumentoBeneficiario.objects.all_tenants().create(
@@ -113,7 +113,7 @@ class ExportacaoTest(BaseLgpdTest):
     def test_pacote_contem_os_dados_do_titular(self):
         dados = exportar_dados(self.titular_a)
         self.assertEqual("Maria Silva", dados["titular"]["nome"])
-        self.assertEqual("123.456.789-09", dados["titular"]["cpf"])
+        self.assertEqual("123.456.789-09", dados["titular"]["documento"])
         self.assertIn("base_legal", dados["tratamento"])
 
     def test_funcionario_nao_pode_exportar(self):

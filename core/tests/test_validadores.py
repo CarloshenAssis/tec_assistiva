@@ -11,9 +11,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
 
 from core.validadores import (
+    cnpj_e_valido,
     cpf_e_valido,
+    normalizar_cnpj,
     normalizar_cpf,
+    validar_cnpj,
     validar_cpf,
+    validar_documento,
     validar_upload,
     validar_upload_imagem,
 )
@@ -55,6 +59,53 @@ class CpfTest(SimpleTestCase):
 
     def test_normalizacao_remove_mascara(self):
         self.assertEqual("12345678909", normalizar_cpf("123.456.789-09"))
+
+
+class CnpjTest(SimpleTestCase):
+    def test_aceita_cnpj_com_digito_verificador_correto(self):
+        self.assertTrue(cnpj_e_valido("11.222.333/0001-81"))
+
+    def test_aceita_sem_mascara(self):
+        self.assertTrue(cnpj_e_valido("11222333000181"))
+
+    def test_recusa_digito_verificador_errado(self):
+        self.assertFalse(cnpj_e_valido("11.222.333/0001-00"))
+
+    def test_recusa_sequencia_de_digito_repetido(self):
+        self.assertFalse(cnpj_e_valido("11.111.111/1111-11"))
+
+    def test_recusa_quantidade_errada_de_digitos(self):
+        self.assertFalse(cnpj_e_valido("11.222.333/0001-8"))
+
+    def test_recusa_vazio(self):
+        self.assertFalse(cnpj_e_valido(""))
+        self.assertFalse(cnpj_e_valido(None))
+
+    def test_validador_levanta_para_o_django(self):
+        with self.assertRaises(ValidationError):
+            validar_cnpj("11.222.333/0001-00")
+
+    def test_normalizacao_remove_mascara(self):
+        self.assertEqual("11222333000181", normalizar_cnpj("11.222.333/0001-81"))
+
+
+class ValidarDocumentoTest(SimpleTestCase):
+    """Dispatcher usado pelo cadastro de titular (docs/business-rules/modulos.md)."""
+
+    def test_valida_como_cpf_por_padrao(self):
+        validar_documento("123.456.789-09", "cpf")
+        with self.assertRaises(ValidationError):
+            validar_documento("123.456.789-00", "cpf")
+
+    def test_valida_como_cnpj_quando_solicitado(self):
+        validar_documento("11.222.333/0001-81", "cnpj")
+        with self.assertRaises(ValidationError):
+            validar_documento("11.222.333/0001-00", "cnpj")
+
+    def test_cpf_valido_nao_passa_como_cnpj(self):
+        """Confirma que os dois validadores realmente são independentes, não um fallback do outro."""
+        with self.assertRaises(ValidationError):
+            validar_documento("123.456.789-09", "cnpj")
 
 
 class UploadTest(SimpleTestCase):

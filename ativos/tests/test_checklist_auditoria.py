@@ -38,7 +38,7 @@ class ChecklistDetalhadoTest(TestCase):
             unidade=self.unidade,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09"
+            tenant=self.tenant, nome="Maria Silva", documento="123.456.789-09"
         )
         self.funcionario = Usuario.objects.create_user(
             username="func_checklist",
@@ -112,7 +112,7 @@ class TimelineDaFichaMostraQuemFezOCheckinTest(TestCase):
             unidade=self.unidade,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="João Pedro", cpf="234.567.891-73"
+            tenant=self.tenant, nome="João Pedro", documento="234.567.891-73"
         )
         self.gestor = Usuario.objects.create_user(
             username="gestor_timeline_chk",

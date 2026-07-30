@@ -9,6 +9,7 @@ urlpatterns = [
     path("contratos/novo/", views.criar_tenant, name="criar_tenant"),
     path("contratos/<int:pk>/", views.tenant_detalhe, name="tenant_detalhe"),
     path("contratos/<int:pk>/alternar-ativo/", views.alternar_tenant_ativo, name="alternar_tenant_ativo"),
+    path("contratos/<int:pk>/alternar-modulo/", views.alternar_modulo, name="alternar_modulo"),
     path(
         "contratos/<int:tenant_id>/administrador/novo/",
         views.criar_administrador,

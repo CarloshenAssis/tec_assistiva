@@ -8,8 +8,10 @@ valores válidos entre a camada de domínio e a camada de persistência.
 """
 
 import uuid
+from decimal import Decimal
 
 from django.db import models
+from django.utils import timezone
 
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
 from core.models import Fornecedor, TenantManager, TenantModel, TenantQuerySet, Unidade
@@ -260,9 +262,63 @@ class DetalheEmprestimo(TenantModel):
         upload_to="assinaturas/%Y/%m/", blank=True, null=True, validators=[validar_upload]
     )
 
+    # ------------------------------------- Locação financeira (opcional) ----
+    # Só preenchidos quando o tenant tem o módulo `locacao_financeiro`
+    # habilitado (docs/business-rules/modulos.md — ligado por padrão para o
+    # segmento Locadora). Ficam aqui, não num model `ContratoLocacao`
+    # separado: são três campos opcionais do mesmo empréstimo, não um
+    # conceito de negócio com ciclo de vida próprio — criar uma tabela e um
+    # join a mais para isso seria complexidade sem contrapartida.
+    valor_diaria = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Valor cobrado por dia de locação.",
+    )
+    caucao = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Valor retido como caução, conferido na devolução.",
+    )
+    percentual_multa_atraso_dia = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Percentual sobre o valor total do período, cobrado por dia de atraso na devolução.",
+    )
+
     class Meta:
         verbose_name = "Detalhe de Empréstimo"
         verbose_name_plural = "Detalhes de Empréstimo"
+
+    @property
+    def valor_total_periodo(self):
+        """`None` quando o tenant não usa o módulo financeiro — nunca `0`, que pareceria "gratuito"."""
+        if self.valor_diaria is None:
+            return None
+        return self.valor_diaria * self.prazo_dias
+
+    def valor_multa_atraso(self, hoje=None):
+        """
+        Multa estimada se a devolução ocorresse em `hoje` (padrão: data
+        atual). É uma estimativa informativa para a tela de devolução — quem
+        decide o valor final cobrado é o operador, o sistema não desconta
+        nada automaticamente.
+        """
+        if self.percentual_multa_atraso_dia is None or self.valor_diaria is None:
+            return None
+
+        hoje = hoje or timezone.now().date()
+        dias_atraso = (hoje - self.data_prevista_devolucao).days
+        if dias_atraso <= 0:
+            return Decimal("0")
+        return (
+            self.valor_total_periodo * self.percentual_multa_atraso_dia / Decimal("100")
+        ) * dias_atraso
 
 
 class LayoutEtiqueta(models.TextChoices):

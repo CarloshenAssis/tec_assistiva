@@ -76,7 +76,7 @@ class TransferirServiceTest(BaseTransferencia):
 
     def test_nao_transfere_ativo_emprestado(self):
         beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09"
+            tenant=self.tenant, nome="Maria Silva", documento="123.456.789-09"
         )
         services.emprestar(self.ativo, beneficiario, usuario=None, prazo_dias=30)
         self.ativo.refresh_from_db()

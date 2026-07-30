@@ -160,6 +160,58 @@ class Unidade(TenantModel):
         return self.nome
 
 
+class Modulo(models.Model):
+    """
+    Catálogo de funcionalidades que podem ser ligadas/desligadas por tenant
+    (docs/business-rules/modulos.md).
+
+    Cross-tenant por natureza (é catálogo da plataforma, o mesmo para
+    todos) — por isso não herda `TenantModel`. Populado por migration de
+    dados (mesmo padrão de `contas.Papel`, ver
+    `contas/migrations/0002_seed_papeis.py`), não por tela de cadastro:
+    criar um módulo é decisão de produto, não operação de cliente.
+    """
+
+    codigo = models.SlugField(max_length=50, unique=True)
+    nome = models.CharField(max_length=100)
+    descricao = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Módulo"
+        verbose_name_plural = "Módulos"
+        ordering = ["nome"]
+
+    def __str__(self) -> str:
+        return self.nome
+
+
+class TenantModulo(TenantModel):
+    """
+    Ativação explícita de um módulo para um tenant — sobrepõe o padrão do
+    segmento (ver `core.features.modulo_habilitado`).
+
+    Herda `TenantModel` só pelo campo `tenant` e pelo `TenantManager`
+    (que dá `all_tenants()`) — a leitura de "este tenant específico tem
+    este módulo?" é sempre feita com `tenant` explícito no filtro (nunca
+    via ContextVar do tenant corrente), porque é chamada tanto de dentro
+    de uma requisição quanto da tela do Owner (cross-tenant por definição).
+    Ver `core.features` para a função que usa isto.
+    """
+
+    modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE, related_name="tenants")
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Módulo do Tenant"
+        verbose_name_plural = "Módulos do Tenant"
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "modulo"], name="tenant_modulo_unico")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.tenant.nome} · {self.modulo.nome} · {'ativo' if self.ativo else 'inativo'}"
+
+
 class Fornecedor(TenantModel):
     """Fornecedor/oficina/prestador usado em aquisição e manutenção de ativos."""
 

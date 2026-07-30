@@ -5,6 +5,7 @@ orquestramos formulários, sessão do wizard e redirecionamentos.
 """
 
 import io
+from decimal import Decimal, InvalidOperation
 
 import qrcode
 from django.contrib import messages
@@ -52,6 +53,7 @@ from ativos.selectors import (
     resolver_busca_patrimonio,
 )
 from beneficiarios.models import Beneficiario
+from core import features
 from core.decorators import nivel_hierarquico, tenant_required
 from core.models import Unidade
 from core.unidades import enxerga_todas_as_unidades, filtrar_por_unidade, unidades_visiveis
@@ -560,6 +562,24 @@ def _passo_wizard_emprestimo(wizard: dict) -> int:
     return 4
 
 
+def _texto_decimal_ou_none(valor: str):
+    """
+    Valida e normaliza um campo monetário opcional do wizard para string —
+    guardado assim na sessão porque `Decimal` não é serializável em JSON
+    (`django.contrib.sessions` usa JSON por padrão). Levanta
+    `InvalidOperation` se o texto não for um número (não silencia o erro:
+    quem chama decide a mensagem).
+    """
+    valor = (valor or "").strip()
+    if not valor:
+        return None
+    return str(Decimal(valor.replace(",", ".")))
+
+
+def _decimal_da_sessao(valor):
+    return Decimal(valor) if valor is not None else None
+
+
 @tenant_required
 def wizard_emprestimo(request):
     """
@@ -598,6 +618,19 @@ def wizard_emprestimo(request):
             wizard["ativo_id"] = int(request.POST["ativo_id"])
         elif acao == "definir_prazo":
             wizard["prazo_dias"] = int(request.POST["prazo_dias"])
+            if features.modulo_habilitado(request.tenant, features.LOCACAO_FINANCEIRO):
+                # A sessão do Django serializa em JSON — `Decimal` não é
+                # serializável, então o wizard guarda string (ou None) e só
+                # vira Decimal de fato no momento de chamar `services.emprestar`.
+                try:
+                    wizard["valor_diaria"] = _texto_decimal_ou_none(request.POST.get("valor_diaria"))
+                    wizard["caucao"] = _texto_decimal_ou_none(request.POST.get("caucao"))
+                    wizard["percentual_multa_atraso_dia"] = _texto_decimal_ou_none(
+                        request.POST.get("percentual_multa_atraso_dia")
+                    )
+                except InvalidOperation:
+                    messages.error(request, "Valor de locação inválido — use só números e ponto decimal.")
+                    return redirect("app:ativos:wizard_emprestimo")
         elif acao == "confirmar":
             beneficiario = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
             ativo = _ativo_no_escopo(request, wizard["ativo_id"])
@@ -613,6 +646,11 @@ def wizard_emprestimo(request):
                     prazo_dias=wizard["prazo_dias"],
                     checklist=checklist,
                     assinatura_arquivo=arquivo,
+                    valor_diaria=_decimal_da_sessao(wizard.get("valor_diaria")),
+                    caucao=_decimal_da_sessao(wizard.get("caucao")),
+                    percentual_multa_atraso_dia=_decimal_da_sessao(
+                        wizard.get("percentual_multa_atraso_dia")
+                    ),
                 )
             except DominioAtivoError as exc:
                 messages.error(request, str(exc))
@@ -639,7 +677,7 @@ def wizard_emprestimo(request):
         busca = request.GET.get("q", "")
         contexto["busca"] = busca
         contexto["resultados"] = (
-            _beneficiarios_no_escopo(request).filter(Q(nome__icontains=busca) | Q(cpf__icontains=busca))[:15]
+            _beneficiarios_no_escopo(request).filter(Q(nome__icontains=busca) | Q(documento__icontains=busca))[:15]
             if busca
             else []
         )
@@ -660,6 +698,9 @@ def wizard_emprestimo(request):
         contexto["beneficiario"] = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
         contexto["prazo_dias"] = wizard.get("prazo_dias")
         contexto["checklist_itens"] = CHECKLIST_ITENS_EMPRESTIMO
+        contexto["valor_diaria"] = wizard.get("valor_diaria")
+        contexto["caucao"] = wizard.get("caucao")
+        contexto["percentual_multa_atraso_dia"] = wizard.get("percentual_multa_atraso_dia")
 
     return render(request, "ativos/wizard_emprestimo.html", contexto)
 
@@ -685,7 +726,7 @@ def devolucao(request):
                 )
                 .filter(
                     Q(detalhe_emprestimo__beneficiario__nome__icontains=busca)
-                    | Q(detalhe_emprestimo__beneficiario__cpf__icontains=busca)
+                    | Q(detalhe_emprestimo__beneficiario__documento__icontains=busca)
                 )
                 .select_related("ativo")
                 .order_by("-data_hora")

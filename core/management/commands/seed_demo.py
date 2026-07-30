@@ -97,10 +97,10 @@ class Command(BaseCommand):
                 ("Maria Silva", "123.456.789-09", "São José dos Campos", "Jardim Satélite", "(12) 99811-2233"),
                 ("João Pedro", "234.567.891-73", "São José dos Campos", "Jardim Aquarius", "(12) 99722-3344"),
             ]
-            for nome, cpf, cidade, bairro, whatsapp in beneficiarios_seed:
+            for nome, documento, cidade, bairro, whatsapp in beneficiarios_seed:
                 Beneficiario.objects.get_or_create(
                     tenant=tenant,
-                    cpf=cpf,
+                    documento=documento,
                     defaults={"nome": nome, "cidade": cidade, "bairro": bairro, "whatsapp": whatsapp},
                 )
 

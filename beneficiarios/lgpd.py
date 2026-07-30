@@ -58,7 +58,8 @@ def exportar_dados(beneficiario) -> dict[str, Any]:
     return {
         "titular": {
             "nome": beneficiario.nome,
-            "cpf": beneficiario.cpf,
+            "documento": beneficiario.documento,
+            "tipo_documento": beneficiario.get_tipo_documento_display(),
             "rg": beneficiario.rg,
             "data_nascimento": (
                 beneficiario.data_nascimento.isoformat()
@@ -145,9 +146,12 @@ def anonimizar(beneficiario, *, request=None, usuario=None) -> None:
     agora = timezone.now()
 
     beneficiario.nome = f"{MARCADOR_ANONIMO} #{beneficiario.pk}"
-    # O CPF tem unicidade por tenant, então não pode virar string vazia em
-    # massa — derivar do PK mantém a restrição satisfeita sem reter o número.
-    beneficiario.cpf = f"000.000.000-{beneficiario.pk:02d}"[:14]
+    # O documento tem unicidade por tenant, então não pode virar string vazia
+    # em massa — derivar do PK mantém a restrição satisfeita sem reter o
+    # número. `[:18]` cobre tanto CPF quanto CNPJ (o valor gerado nem
+    # precisa ser um CPF válido: passou por anonimização, não é mais usado
+    # para identificar ninguém).
+    beneficiario.documento = f"000.000.000-{beneficiario.pk:02d}"[:18]
     beneficiario.data_nascimento = None
 
     for campo in _CAMPOS_TEXTO_ANONIMIZAVEIS:

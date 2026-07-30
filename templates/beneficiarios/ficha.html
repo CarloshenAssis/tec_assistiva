@@ -7,7 +7,7 @@
 <div class="grid" style="grid-template-columns:1.3fr 1fr;gap:16px;align-items:start;margin-top:12px;">
   <div class="card">
     <div style="font-size:20px;font-weight:800;">{{ beneficiario.nome }}</div>
-    <div class="muted" style="font-size:13px;">CPF {{ beneficiario.cpf }} · Nascimento {{ beneficiario.data_nascimento|date:"d/m/Y"|default:"—" }}</div>
+    <div class="muted" style="font-size:13px;">{{ beneficiario.get_tipo_documento_display }} {{ beneficiario.documento }} · Nascimento {{ beneficiario.data_nascimento|date:"d/m/Y"|default:"—" }}</div>
 
     <div class="grid grid-2 mt-3" style="font-size:13px;">
       <div><div class="faint" style="font-size:11.5px;">Telefone</div>{{ beneficiario.telefone|default:"—" }}</div>
@@ -63,7 +63,7 @@
             </form>
           </div>
           <div class="faint" style="font-size:11px;margin-top:6px;line-height:1.5;">
-            A anonimização remove nome, CPF e contatos e apaga os documentos anexados.
+            A anonimização remove nome, documento e contatos e apaga os documentos anexados.
             O histórico de empréstimos é preservado sem vínculo com a pessoa.
           </div>
         {% endif %}

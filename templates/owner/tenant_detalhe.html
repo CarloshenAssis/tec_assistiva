@@ -27,6 +27,32 @@
   </div>
 
   <div class="card">
+    <div class="card-title">Módulos</div>
+    <div class="faint" style="font-size:11.5px;margin-bottom:10px;">
+      Ligados por padrão conforme o segmento ({{ tenant.get_segmento_display }}); o toggle abaixo sobrepõe o padrão só para este contrato.
+    </div>
+    <div class="flex-col gap-1">
+      {% for item in modulos %}
+        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid #F0EDE5;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">{{ item.modulo.nome }}</div>
+            <div class="faint" style="font-size:11.5px;max-width:360px;">{{ item.modulo.descricao }}</div>
+          </div>
+          <form method="post" action="{% url 'owner:alternar_modulo' tenant.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="modulo" value="{{ item.modulo.codigo }}">
+            <button class="btn {% if item.ativo %}btn-secondary{% else %}btn-primary{% endif %}" style="font-size:12px;" type="submit">
+              {% if item.ativo %}Desligar{% else %}Ligar{% endif %}
+            </button>
+          </form>
+        </div>
+      {% empty %}
+        <div class="faint" style="font-size:12.5px;">Nenhum módulo cadastrado no catálogo.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">Usuários deste contrato</div>
     <div class="table mt-2">
       <div class="table-head" style="grid-template-columns:1.2fr 1fr 90px 80px;">

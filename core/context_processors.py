@@ -5,6 +5,8 @@ numa prefeitura, "Cliente" numa locadora) — ver `core.models.Tenant`.
 
 from __future__ import annotations
 
+from core import features
+
 
 def vocabulario(request):
     """
@@ -20,8 +22,17 @@ def vocabulario(request):
     """
     tenant = getattr(request, "tenant", None)
     if tenant is None:
-        return {"rotulo_beneficiario_singular": "Beneficiário", "rotulo_beneficiario_plural": "Beneficiários"}
+        return {
+            "rotulo_beneficiario_singular": "Beneficiário",
+            "rotulo_beneficiario_plural": "Beneficiários",
+            "locacao_financeiro_habilitado": False,
+            "documento_pessoa_juridica_habilitado": False,
+        }
     return {
         "rotulo_beneficiario_singular": tenant.rotulo_beneficiario_singular,
         "rotulo_beneficiario_plural": tenant.rotulo_beneficiario_plural,
+        "locacao_financeiro_habilitado": features.modulo_habilitado(tenant, features.LOCACAO_FINANCEIRO),
+        "documento_pessoa_juridica_habilitado": features.modulo_habilitado(
+            tenant, features.DOCUMENTO_PESSOA_JURIDICA
+        ),
     }

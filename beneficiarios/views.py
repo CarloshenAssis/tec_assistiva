@@ -37,7 +37,7 @@ def lista(request):
     busca = request.GET.get("q", "").strip()
     qs = _no_escopo(request)
     if busca:
-        qs = qs.filter(Q(nome__icontains=busca) | Q(cpf__icontains=busca) | Q(telefone__icontains=busca))
+        qs = qs.filter(Q(nome__icontains=busca) | Q(documento__icontains=busca) | Q(telefone__icontains=busca))
     return render(
         request,
         "beneficiarios/lista.html",

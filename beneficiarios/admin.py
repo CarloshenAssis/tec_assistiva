@@ -11,7 +11,7 @@ class DocumentoBeneficiarioInline(admin.TabularInline):
 
 @admin.register(Beneficiario)
 class BeneficiarioAdmin(TenantScopedAdmin):
-    list_display = ("nome", "cpf", "tipo_relacao", "cidade", "tenant")
+    list_display = ("nome", "documento", "tipo_relacao", "cidade", "tenant")
     list_filter = ("tenant", "tipo_relacao")
-    search_fields = ("nome", "cpf", "telefone")
+    search_fields = ("nome", "documento", "telefone")
     inlines = [DocumentoBeneficiarioInline]

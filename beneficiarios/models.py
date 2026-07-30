@@ -51,11 +51,29 @@ class Beneficiario(TenantModel):
         related_name="beneficiarios",
         help_text="Unidade que atende este titular. Em branco, fica visível a toda a organização.",
     )
+    class TipoDocumento(models.TextChoices):
+        """
+        CNPJ só faz sentido para tenant com o módulo `documento_pessoa_
+        juridica` habilitado (docs/business-rules/modulos.md — hoje ligado
+        por padrão só para o segmento Locadora); o formulário restringe a
+        opção conforme o tenant, o model aceita ambos sem julgar.
+        """
+
+        CPF = "cpf", "CPF"
+        CNPJ = "cnpj", "CNPJ"
+
     tipo_relacao = models.CharField(
         max_length=20, choices=TipoRelacao.choices, default=TipoRelacao.BENEFICIARIO
     )
     nome = models.CharField(max_length=150)
-    cpf = models.CharField(max_length=14)
+    tipo_documento = models.CharField(
+        max_length=4, choices=TipoDocumento.choices, default=TipoDocumento.CPF
+    )
+    #: Renomeado de `cpf` para `documento` (ver migration
+    #: `0005_documento_flexivel`): o mesmo campo guarda CPF ou CNPJ conforme
+    #: `tipo_documento`. `max_length=18` cobre a máscara de CNPJ
+    #: ("00.000.000/0000-00"), maior que a de CPF.
+    documento = models.CharField(max_length=18)
     rg = models.CharField(max_length=20, blank=True)
     data_nascimento = models.DateField(null=True, blank=True)
     telefone = models.CharField(max_length=20, blank=True)
@@ -98,7 +116,9 @@ class Beneficiario(TenantModel):
         verbose_name = "Beneficiário"
         verbose_name_plural = "Beneficiários"
         constraints = [
-            models.UniqueConstraint(fields=["tenant", "cpf"], name="beneficiario_cpf_unico_por_tenant")
+            models.UniqueConstraint(
+                fields=["tenant", "documento"], name="beneficiario_documento_unico_por_tenant"
+            )
         ]
         ordering = ["nome"]
 

@@ -33,6 +33,11 @@ ARQUIVOS_PERMITIDOS = {
     # precisa funcionar fora de request context (script de importação em
     # lote, testes), filtra só pela própria categoria, nunca cross-tenant.
     BASE_DIR / "ativos" / "patrimonio.py",
+    # modulo_habilitado(tenant, codigo) recebe o tenant como argumento
+    # explícito — mesmo motivo de core/unidades.py: precisa responder por
+    # QUALQUER tenant (tela do Owner), não só o corrente, e funcionar fora
+    # de request context. Filtra sempre por tenant.pk explícito.
+    BASE_DIR / "core" / "features.py",
     # Apenas menciona o método em docstring/comentário explicativo, não o chama.
     BASE_DIR / "core" / "tenancy.py",
     BASE_DIR / "core" / "models.py",

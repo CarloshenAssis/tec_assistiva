@@ -34,7 +34,7 @@ class BaseComTenant(TestCase):
             unidade=self.unidade_a,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
-            tenant=self.tenant_a, nome="Maria Silva", cpf="123.456.789-09"
+            tenant=self.tenant_a, nome="Maria Silva", documento="123.456.789-09"
         )
 
 

@@ -19,6 +19,17 @@
         Emprestado para {{ detalhe_emprestimo.beneficiario.nome }}
         {% if dias_em_posse is not None %} há {{ dias_em_posse }} dias{% endif %}
       </div>
+      {% if locacao_financeiro_habilitado and detalhe_emprestimo.valor_total_periodo %}
+        <div class="muted" style="font-size:12.5px;margin-top:4px;">
+          Valor do período: R$ {{ detalhe_emprestimo.valor_total_periodo }}
+          {% if detalhe_emprestimo.caucao %} · Caução: R$ {{ detalhe_emprestimo.caucao }}{% endif %}
+          {% with multa=detalhe_emprestimo.valor_multa_atraso %}
+            {% if multa %}
+              <span style="color:var(--cor-vermelho-medio-text);font-weight:600;"> · Multa por atraso estimada: R$ {{ multa }}</span>
+            {% endif %}
+          {% endwith %}
+        </div>
+      {% endif %}
     </div>
 
     <form method="post" enctype="multipart/form-data" class="mt-2">

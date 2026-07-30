@@ -78,6 +78,9 @@ def emprestar(
     observacoes: str = "",
     checklist: Optional[dict] = None,
     assinatura_arquivo=None,
+    valor_diaria=None,
+    caucao=None,
+    percentual_multa_atraso_dia=None,
 ) -> Movimentacao:
     """
     Assinatura física é o padrão do sistema (docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md
@@ -85,6 +88,13 @@ def emprestar(
     `assinatura_arquivo` é a foto/scan do termo assinado — não uma
     assinatura em tela. O módulo de assinatura digital (opcional, por
     tenant) fica fora do escopo desta fase.
+
+    `valor_diaria`/`caucao`/`percentual_multa_atraso_dia`: dados de locação
+    financeira (docs/business-rules/modulos.md), sempre opcionais aqui — a
+    view decide se pede esses campos ao operador conforme o módulo do
+    tenant; o serviço só grava o que vier, sem checar o módulo de novo (a
+    mesma verificação em dois lugares seria uma segunda fonte de verdade
+    para divergir).
     """
     data_prevista = timezone.now().date() + timedelta(days=prazo_dias)
     movimentacao = _registrar(
@@ -103,6 +113,9 @@ def emprestar(
         data_prevista_devolucao=data_prevista,
         assinatura_tipo=DetalheEmprestimo.AssinaturaTipo.FISICA,
         assinatura_arquivo=assinatura_arquivo,
+        valor_diaria=valor_diaria,
+        caucao=caucao,
+        percentual_multa_atraso_dia=percentual_multa_atraso_dia,
     )
     _notificar_confirmacao_emprestimo(ativo, beneficiario, data_prevista, movimentacao)
     return movimentacao

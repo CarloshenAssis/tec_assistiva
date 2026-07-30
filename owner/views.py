@@ -20,7 +20,8 @@ from auditoria.selectors import listar_registros
 from auditoria.services import registrar
 from contas.models import Papel, Usuario
 from contas.senhas import gerar_senha_temporaria
-from core.models import Tenant
+from core import features
+from core.models import Modulo, Tenant
 from owner.decorators import owner_required
 from owner.forms import CriarAdministradorForm, TenantForm
 
@@ -65,8 +66,39 @@ def tenant_detalhe(request, pk):
     return render(
         request,
         "owner/tenant_detalhe.html",
-        {"nav_atual": "owner_dashboard", "tenant": tenant, "usuarios": usuarios},
+        {
+            "nav_atual": "owner_dashboard",
+            "tenant": tenant,
+            "usuarios": usuarios,
+            "modulos": features.modulos_do_tenant(tenant),
+        },
     )
+
+
+@owner_required
+def alternar_modulo(request, pk):
+    """
+    Liga/desliga um módulo para um tenant específico — sobrepõe o padrão do
+    segmento (`core.features._MODULOS_PADRAO_POR_SEGMENTO`).
+
+    Exige POST: muda o que a organização inteira enxerga na próxima
+    requisição (ex.: campos de contrato de locação aparecerem/sumirem).
+    """
+    if request.method != "POST":
+        raise PermissionDenied("Esta operação exige confirmação (POST).")
+    tenant = get_object_or_404(Tenant, pk=pk)
+    modulo = get_object_or_404(Modulo, codigo=request.POST.get("modulo"))
+
+    # Estado atual (padrão do segmento OU override já existente) — o toggle
+    # sempre inverte o que está em vigor agora, nunca "liga na marra".
+    ativo_agora = features.modulo_habilitado(tenant, modulo.codigo)
+    features.definir_modulo(tenant, modulo.codigo, not ativo_agora)
+
+    messages.success(
+        request,
+        f"Módulo \"{modulo.nome}\" {'desligado' if ativo_agora else 'ligado'} para {tenant.nome}.",
+    )
+    return redirect("owner:tenant_detalhe", pk=tenant.pk)
 
 
 @owner_required
