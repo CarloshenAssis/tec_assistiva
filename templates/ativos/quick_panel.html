@@ -14,7 +14,7 @@
 
   {% if detalhe_emprestimo %}
     <div class="context-box">
-      <div class="k">Beneficiário atual</div>
+      <div class="k">{{ rotulo_beneficiario_singular }} atual</div>
       {{ detalhe_emprestimo.beneficiario.nome }}
     </div>
     <div class="context-box">

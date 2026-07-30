@@ -35,7 +35,7 @@
         </select>
       </div>
       <div class="field" style="margin-bottom:0;">
-        <label>Bairro (do beneficiário)</label>
+        <label>Bairro (do {{ rotulo_beneficiario_singular|lower }})</label>
         <input type="text" name="bairro" value="{{ bairro }}" placeholder="Ex: Jardim Satélite">
       </div>
       <div style="grid-column:1/-1;" class="flex gap-2">
@@ -68,7 +68,7 @@
           </div>
           {% if resultado_busca.beneficiario %}
             <div class="mt-1" style="font-size:13px;">
-              Beneficiário: <strong>{{ resultado_busca.beneficiario.nome }}</strong>
+              {{ rotulo_beneficiario_singular }}: <strong>{{ resultado_busca.beneficiario.nome }}</strong>
               ({{ resultado_busca.beneficiario.bairro|default:"bairro não informado" }})
               {% if resultado_busca.data_prevista_devolucao %} · Previsão: {{ resultado_busca.data_prevista_devolucao|date:"d/m/Y" }}{% endif %}
             </div>

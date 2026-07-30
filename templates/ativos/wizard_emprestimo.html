@@ -10,7 +10,7 @@
         <div class="flex-col items-center gap-1">
           <div class="wizard-step-circle {% if n|add:'0' <= passo %}done{% endif %} {% if n|add:'0' == passo %}active{% endif %}">{{ n }}</div>
           <div class="wizard-step-label">
-            {% if n == "1" %}Beneficiário{% elif n == "2" %}Equipamento{% elif n == "3" %}Prazo{% else %}Checklist{% endif %}
+            {% if n == "1" %}{{ rotulo_beneficiario_singular }}{% elif n == "2" %}Equipamento{% elif n == "3" %}Prazo{% else %}Checklist{% endif %}
           </div>
         </div>
         {% if n != "4" %}<div class="wizard-step-line"></div>{% endif %}
@@ -20,7 +20,7 @@
 
   <div class="card">
     {% if passo == 1 %}
-      <div class="card-title">Passo 1 · Pesquisar beneficiário</div>
+      <div class="card-title">Passo 1 · Pesquisar {{ rotulo_beneficiario_singular|lower }}</div>
       <form method="get" class="mt-1" style="margin-bottom:14px;">
         <input type="text" name="q" value="{{ busca }}" placeholder="CPF, nome ou telefone..." autofocus>
       </form>
@@ -39,11 +39,11 @@
             </button>
           </form>
         {% empty %}
-          {% if busca %}<div class="faint">Nenhum beneficiário encontrado.</div>
-          {% else %}<div class="faint">Digite para buscar um beneficiário.</div>{% endif %}
+          {% if busca %}<div class="faint">Nenhum {{ rotulo_beneficiario_singular|lower }} encontrado.</div>
+          {% else %}<div class="faint">Digite para buscar um {{ rotulo_beneficiario_singular|lower }}.</div>{% endif %}
         {% endfor %}
       </div>
-      <div class="mt-2"><a class="btn btn-secondary" href="{% url 'app:beneficiarios:criar' %}">+ Cadastrar novo beneficiário</a></div>
+      <div class="mt-2"><a class="btn btn-secondary" href="{% url 'app:beneficiarios:criar' %}">+ Cadastrar novo {{ rotulo_beneficiario_singular|lower }}</a></div>
 
     {% elif passo == 2 %}
       <div class="card-title">Passo 2 · Selecionar ativo</div>

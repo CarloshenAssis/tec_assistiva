@@ -97,7 +97,7 @@
             <span class="dot"></span> Centro de Etiquetas
           </a>
           <a class="nav-item {% if nav_atual == 'beneficiarios' %}active{% endif %}" href="{% url 'app:beneficiarios:lista' %}">
-            <span class="dot"></span> Beneficiários
+            <span class="dot"></span> {{ rotulo_beneficiario_plural }}
           </a>
         </div>
       </div>

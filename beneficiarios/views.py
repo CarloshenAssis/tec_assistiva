@@ -53,12 +53,21 @@ def criar(request):
             beneficiario = form.save(commit=False)
             beneficiario.tenant = request.tenant
             beneficiario.save()
-            messages.success(request, f"Beneficiário {beneficiario.nome} cadastrado com sucesso.")
+            messages.success(
+                request,
+                f"{request.tenant.rotulo_beneficiario_singular} {beneficiario.nome} cadastrado com sucesso.",
+            )
             return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
     else:
         form = BeneficiarioForm(usuario=request.user)
     return render(
-        request, "beneficiarios/form.html", {"nav_atual": "beneficiarios", "form": form, "titulo": "Novo Beneficiário"}
+        request,
+        "beneficiarios/form.html",
+        {
+            "nav_atual": "beneficiarios",
+            "form": form,
+            "titulo": f"Novo {request.tenant.rotulo_beneficiario_singular}",
+        },
     )
 
 

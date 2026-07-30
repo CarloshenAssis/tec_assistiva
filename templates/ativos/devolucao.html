@@ -5,7 +5,7 @@
 <div class="card" style="max-width:680px;">
   <div class="card-title">Pesquisar empréstimo ativo</div>
   <form method="get">
-    <input type="text" name="q" value="{{ busca }}" placeholder="Patrimônio, nome ou CPF do beneficiário..." autofocus>
+    <input type="text" name="q" value="{{ busca }}" placeholder="Patrimônio, nome ou CPF do {{ rotulo_beneficiario_singular|lower }}..." autofocus>
   </form>
 
   {% if busca and not ativo %}

@@ -31,6 +31,19 @@ class Tenant(models.Model):
         HOSPITAL = "hospital", "Hospital"
         ONG = "ong", "ONG"
 
+    #: Como cada segmento chama a pessoa/entidade atendida pelos ativos —
+    #: só rotula a tela (nav, títulos, botões, `docs/business-rules/`
+    #: nenhum ainda cobre isto pois é diferenciação de vocabulário, não de
+    #: regra). O dado continua sendo o mesmo `Beneficiario` em todos os
+    #: segmentos — não há campo/fluxo diferente por trás do rótulo.
+    _ROTULO_BENEFICIARIO_POR_SEGMENTO = {
+        Segmento.FUNDO_SOCIAL: ("Beneficiário", "Beneficiários"),
+        Segmento.ONG: ("Beneficiário", "Beneficiários"),
+        Segmento.HOME_CARE: ("Paciente", "Pacientes"),
+        Segmento.HOSPITAL: ("Paciente", "Pacientes"),
+        Segmento.LOCADORA: ("Cliente", "Clientes"),
+    }
+
     nome = models.CharField(max_length=150)
     slug = models.SlugField(max_length=60, unique=True)
     segmento = models.CharField(
@@ -45,6 +58,14 @@ class Tenant(models.Model):
         verbose_name = "Tenant"
         verbose_name_plural = "Tenants"
         ordering = ["nome"]
+
+    @property
+    def rotulo_beneficiario_singular(self) -> str:
+        return self._ROTULO_BENEFICIARIO_POR_SEGMENTO.get(self.segmento, ("Beneficiário", "Beneficiários"))[0]
+
+    @property
+    def rotulo_beneficiario_plural(self) -> str:
+        return self._ROTULO_BENEFICIARIO_POR_SEGMENTO.get(self.segmento, ("Beneficiário", "Beneficiários"))[1]
 
     def __str__(self) -> str:
         return self.nome

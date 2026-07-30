@@ -5,7 +5,7 @@
 <div class="flex-col gap-3">
   <div class="grid grid-4">
     <div class="stat-card"><div class="label">Total de ativos</div><div class="value">{{ total_ativos }}</div></div>
-    <div class="stat-card"><div class="label">Total de beneficiários</div><div class="value">{{ total_beneficiarios }}</div></div>
+    <div class="stat-card"><div class="label">Total de {{ rotulo_beneficiario_plural|lower }}</div><div class="value">{{ total_beneficiarios }}</div></div>
     <div class="stat-card"><div class="label">Com empréstimo ativo</div><div class="value" style="color:var(--accent);">{{ beneficiarios_com_emprestimo }}</div></div>
     <div class="stat-card"><div class="label">Notificações enviadas</div><div class="value">{{ total_notificacoes }}</div></div>
   </div>

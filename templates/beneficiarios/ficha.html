@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ beneficiario.nome }} · Ciclartech{% endblock %}
-{% block page_title %}Ficha do Beneficiário{% endblock %}
+{% block page_title %}Ficha do {{ rotulo_beneficiario_singular }}{% endblock %}
 {% block content %}
-<a class="btn btn-ghost" href="{% url 'app:beneficiarios:lista' %}">← Voltar para Beneficiários</a>
+<a class="btn btn-ghost" href="{% url 'app:beneficiarios:lista' %}">← Voltar para {{ rotulo_beneficiario_plural }}</a>
 
 <div class="grid" style="grid-template-columns:1.3fr 1fr;gap:16px;align-items:start;margin-top:12px;">
   <div class="card">

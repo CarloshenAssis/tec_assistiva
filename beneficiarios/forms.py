@@ -1,8 +1,22 @@
 from django import forms
 
 from beneficiarios.models import Beneficiario
+from core.models import Tenant
 from core.unidades import unidades_visiveis
 from core.validadores import validar_cpf
+
+#: `tipo_relacao` que já vem pré-selecionado no cadastro, conforme o
+#: segmento do tenant — mesma ideia de vocabulário de
+#: `core.models.Tenant.rotulo_beneficiario_singular`, mas aplicada ao
+#: valor salvo, não só ao rótulo da tela. Continua editável: uma
+#: prefeitura pode ocasionalmente cadastrar alguém como "Cliente" (ex.:
+#: locação avulsa dentro de um fundo social), então isto é só o padrão
+#: sugerido, nunca uma trava.
+_TIPO_RELACAO_PADRAO_POR_SEGMENTO = {
+    Tenant.Segmento.LOCADORA: Beneficiario.TipoRelacao.CLIENTE,
+    Tenant.Segmento.HOME_CARE: Beneficiario.TipoRelacao.PACIENTE,
+    Tenant.Segmento.HOSPITAL: Beneficiario.TipoRelacao.PACIENTE,
+}
 
 
 class BeneficiarioForm(forms.ModelForm):
@@ -41,6 +55,11 @@ class BeneficiarioForm(forms.ModelForm):
             self.fields["unidade"].queryset = unidades_visiveis(usuario).filter(
                 ativo=True
             ).order_by("nome")
+            # Só no cadastro (nunca sobrescreve o que já foi salvo na edição).
+            if not self.instance.pk and usuario.tenant_id:
+                padrao = _TIPO_RELACAO_PADRAO_POR_SEGMENTO.get(usuario.tenant.segmento)
+                if padrao:
+                    self.fields["tipo_relacao"].initial = padrao
 
     def clean_cpf(self):
         cpf = self.cleaned_data["cpf"]

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Beneficiários · Ciclartech{% endblock %}
-{% block page_title %}Beneficiários{% endblock %}
+{% block title %}{{ rotulo_beneficiario_plural }} · Ciclartech{% endblock %}
+{% block page_title %}{{ rotulo_beneficiario_plural }}{% endblock %}
 {% block header_actions %}
-  <a class="btn btn-primary" href="{% url 'app:beneficiarios:criar' %}">+ Novo Beneficiário</a>
+  <a class="btn btn-primary" href="{% url 'app:beneficiarios:criar' %}">+ Novo {{ rotulo_beneficiario_singular }}</a>
 {% endblock %}
 {% block content %}
 <div class="flex-col gap-3">
@@ -22,7 +22,7 @@
         <div><span class="badge badge-disponivel">{{ p.get_tipo_relacao_display }}</span></div>
       </a>
     {% empty %}
-      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum beneficiário encontrado.</div>
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">Nenhum {{ rotulo_beneficiario_singular|lower }} encontrado.</div>
     {% endfor %}
   </div>
 </div>

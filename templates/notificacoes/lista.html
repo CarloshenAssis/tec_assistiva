@@ -4,7 +4,7 @@
 {% block content %}
 <div class="table">
   <div class="table-head" style="grid-template-columns:140px 1fr 1fr 90px 100px;">
-    <div>Data</div><div>Beneficiário</div><div>Tipo</div><div>Canal</div><div>Status</div>
+    <div>Data</div><div>{{ rotulo_beneficiario_singular }}</div><div>Tipo</div><div>Canal</div><div>Status</div>
   </div>
   {% for n in notificacoes %}
     <div class="table-row" style="grid-template-columns:140px 1fr 1fr 90px 100px;">
