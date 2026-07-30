@@ -7,10 +7,16 @@
   <div style="font-size:13px;color:var(--text-faint);margin-top:8px;line-height:1.5;">
     Todo ativo pertence obrigatoriamente a uma categoria (ex.: Cadeira de Rodas,
     Andador) — é o que define o prefixo do código patrimonial gerado automaticamente.
-    Cadastre a primeira categoria para começar.
+    {% if eh_admin %}
+      Cadastre a primeira categoria para começar.
+    {% else %}
+      Peça ao administrador da sua organização para cadastrar ao menos uma categoria.
+    {% endif %}
   </div>
-  <div style="margin-top:14px;">
-    <a class="btn btn-primary" href="{% url 'app:ativos:categorias_criar' %}">Cadastrar categoria</a>
-  </div>
+  {% if eh_admin %}
+    <div style="margin-top:14px;">
+      <a class="btn btn-primary" href="{% url 'app:ativos:categorias_criar' %}">Cadastrar categoria</a>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

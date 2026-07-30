@@ -210,7 +210,11 @@ def criar(request):
     # Mesmo raciocínio para categoria: é FK obrigatória do Ativo, então sem
     # nenhuma cadastrada o formulário teria um campo obrigatório sem opção.
     if not CategoriaAtivo.objects.exists():
-        return render(request, "ativos/sem_categoria.html", {"nav_atual": "ativos"})
+        return render(
+            request,
+            "ativos/sem_categoria.html",
+            {"nav_atual": "ativos", "eh_admin": nivel_hierarquico(request) >= NIVEL_ADMIN},
+        )
 
     if request.method == "POST":
         form = AtivoForm(request.POST, usuario=request.user)

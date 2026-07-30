@@ -1,9 +1,12 @@
 """
 Cadastro de Categorias de Ativo — Cadastros → Categorias.
 
-Mesmo nível de `criar`/`editar` Ativo (Gestor+): categoria é pré-requisito
-direto do cadastro de ativo, não uma configuração organizacional separada
-como Unidade (essa sim restrita a Admin — ver core/views_unidades.py).
+Restrito a Admin, mesmo raciocínio de Unidade (core/views_unidades.py):
+categoria é taxonomia da organização inteira — vale para todas as
+unidades/gestores do tenant —, não uma decisão operacional de cada
+Gestor. Se cada Gestor cadastrasse a sua, o mesmo tipo de ativo viraria
+duas categorias divergentes (ex.: "Cadeira de Rodas" e "cadeira rodas")
+em unidades diferentes da mesma organização.
 """
 
 from __future__ import annotations
@@ -12,20 +15,20 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
-from ativos.domain.acoes import NIVEL_GESTOR
+from ativos.domain.acoes import NIVEL_ADMIN
 from ativos.forms import CategoriaAtivoForm
 from ativos.models import CategoriaAtivo
 from core.decorators import nivel_hierarquico, tenant_required
 
 
-def _exigir_gestor(request) -> None:
-    if nivel_hierarquico(request) < NIVEL_GESTOR:
-        raise PermissionDenied("Somente Gestor ou Admin podem gerenciar categorias.")
+def _exigir_admin(request) -> None:
+    if nivel_hierarquico(request) < NIVEL_ADMIN:
+        raise PermissionDenied("Somente Admin pode gerenciar categorias.")
 
 
 @tenant_required
 def categorias_lista(request):
-    _exigir_gestor(request)
+    _exigir_admin(request)
     categorias = CategoriaAtivo.objects.all().order_by("nome")
     return render(
         request,
@@ -36,7 +39,7 @@ def categorias_lista(request):
 
 @tenant_required
 def categorias_criar(request):
-    _exigir_gestor(request)
+    _exigir_admin(request)
     if request.method == "POST":
         form = CategoriaAtivoForm(request.POST, tenant=request.tenant)
         if form.is_valid():
@@ -56,7 +59,7 @@ def categorias_criar(request):
 
 @tenant_required
 def categorias_editar(request, pk):
-    _exigir_gestor(request)
+    _exigir_admin(request)
     categoria = get_object_or_404(CategoriaAtivo, pk=pk)
     if request.method == "POST":
         form = CategoriaAtivoForm(request.POST, instance=categoria, tenant=request.tenant)
