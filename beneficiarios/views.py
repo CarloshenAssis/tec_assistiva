@@ -14,6 +14,7 @@ from beneficiarios.lgpd import anonimizar, exportar_dados
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from core.arquivos import resposta_de_download
 from core.decorators import nivel_hierarquico, tenant_required
+from core.unidades import filtrar_por_unidade
 
 #: Exportar e anonimizar são operações sobre a totalidade dos dados de uma
 #: pessoa — ficam restritas a Admin (nível 30). Um funcionário de balcão
@@ -21,10 +22,20 @@ from core.decorators import nivel_hierarquico, tenant_required
 NIVEL_ADMIN = 30
 
 
+def _no_escopo(request):
+    """
+    Beneficiários visíveis ao usuário — os da unidade dele e os que não têm
+    unidade definida (docs/business-rules/unidades.md; ver o comentário no
+    campo `Beneficiario.unidade` para por que o nulo é inclusivo aqui e
+    exclusivo em Ativo).
+    """
+    return filtrar_por_unidade(Beneficiario.objects.all(), request.user, incluir_sem_unidade=True)
+
+
 @tenant_required
 def lista(request):
     busca = request.GET.get("q", "").strip()
-    qs = Beneficiario.objects.all()
+    qs = _no_escopo(request)
     if busca:
         qs = qs.filter(Q(nome__icontains=busca) | Q(cpf__icontains=busca) | Q(telefone__icontains=busca))
     return render(
@@ -37,7 +48,7 @@ def lista(request):
 @tenant_required
 def criar(request):
     if request.method == "POST":
-        form = BeneficiarioForm(request.POST)
+        form = BeneficiarioForm(request.POST, usuario=request.user)
         if form.is_valid():
             beneficiario = form.save(commit=False)
             beneficiario.tenant = request.tenant
@@ -45,7 +56,7 @@ def criar(request):
             messages.success(request, f"Beneficiário {beneficiario.nome} cadastrado com sucesso.")
             return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
     else:
-        form = BeneficiarioForm()
+        form = BeneficiarioForm(usuario=request.user)
     return render(
         request, "beneficiarios/form.html", {"nav_atual": "beneficiarios", "form": form, "titulo": "Novo Beneficiário"}
     )
@@ -53,7 +64,7 @@ def criar(request):
 
 @tenant_required
 def ficha(request, pk):
-    beneficiario = get_object_or_404(Beneficiario, pk=pk)
+    beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     emprestimos = beneficiario.emprestimos.select_related("movimentacao", "movimentacao__ativo").order_by(
         "-movimentacao__data_hora"
     )
@@ -114,7 +125,7 @@ def exportar(request, pk):
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode exportar os dados de um titular.")
 
-    beneficiario = get_object_or_404(Beneficiario, pk=pk)
+    beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     dados = exportar_dados(beneficiario)
 
     registrar(
@@ -146,7 +157,7 @@ def anonimizar_titular(request, pk):
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode anonimizar os dados de um titular.")
 
-    beneficiario = get_object_or_404(Beneficiario, pk=pk)
+    beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
 
     if request.method != "POST":
         raise PermissionDenied("Esta operação é irreversível e exige confirmação (POST).")

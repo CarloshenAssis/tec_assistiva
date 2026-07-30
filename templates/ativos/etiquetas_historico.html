@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Histórico de impressão · Ciclartech{% endblock %}
+{% block page_title %}Histórico de impressão de etiquetas{% endblock %}
+{% block header_actions %}
+<a class="btn btn-primary" href="{% url 'app:ativos:etiquetas_centro' %}">Voltar ao Centro de Etiquetas</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="font-size:12.5px;color:var(--text-faint);margin-bottom:12px;">
+    Cada linha é uma folha emitida. O registro significa "folha gerada" — o sistema
+    não tem como saber se o papel saiu da impressora, e é por isso que reimprimir
+    é uma ação normal, não uma correção de erro.
+  </div>
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:150px 1fr 130px 1fr;">
+      <div>Quando</div><div>Ativos</div><div>Tamanho</div><div>Quem imprimiu</div>
+    </div>
+    {% for lote in lotes %}
+      <div class="table-row" style="grid-template-columns:150px 1fr 130px 1fr;">
+        <div style="font-size:12.5px;">{{ lote.impresso_em|date:"d/m/Y H:i" }}</div>
+        <div style="font-size:12.5px;">
+          <strong>{{ lote.ativos|length }}</strong> etiqueta{{ lote.ativos|length|pluralize }}:
+          {% for ativo in lote.ativos|slice:":6" %}
+            <a href="{% url 'app:ativos:ficha' ativo.pk %}">{{ ativo.patrimonio }}</a>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+          {% if lote.ativos|length > 6 %}<span style="color:var(--text-faint);">e mais {{ lote.ativos|length|add:"-6" }}</span>{% endif %}
+        </div>
+        <div style="font-size:12px;">{{ lote.layout }}</div>
+        <div style="font-size:12.5px;">{{ lote.usuario.get_username|default:"—" }}</div>
+      </div>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">
+        Nenhuma etiqueta impressa ainda.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

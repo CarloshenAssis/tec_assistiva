@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Centro de Etiquetas · Ciclartech{% endblock %}
+{% block page_title %}Centro de Etiquetas{% endblock %}
+{% block header_actions %}
+<a class="btn btn-ghost" href="{% url 'app:ativos:etiquetas_historico' %}">Histórico de impressão</a>
+{% endblock %}
+{% block content %}
+
+{% if sem_unidade_atribuida %}
+  <div class="card" style="border-left:3px solid var(--cor-amarelo);margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:600;">Nenhuma unidade atribuída ao seu usuário</div>
+    <div style="font-size:12.5px;color:var(--text-faint);margin-top:4px;">
+      Por isso nenhum ativo aparece abaixo. Peça ao administrador da sua organização
+      para atribuir ao menos uma unidade ao seu acesso.
+    </div>
+  </div>
+{% endif %}
+
+{% if total_na_fila %}
+  <div class="card" style="border-left:3px solid var(--cor-azul);margin-bottom:14px;">
+    <div style="font-size:13px;">
+      <strong>{{ total_na_fila }}</strong> ativo{{ total_na_fila|pluralize }} ainda sem etiqueta impressa.
+      <a href="?somente_sem_etiqueta=on">Ver só a fila de impressão</a>
+    </div>
+  </div>
+{% endif %}
+
+<form method="get" class="card" style="margin-bottom:14px;">
+  <div class="grid-2" style="gap:12px;">
+    {% for campo in form %}
+      {% if campo.name != "layout" %}
+        <label style="font-size:12.5px;">
+          {{ campo.label }}
+          {{ campo }}
+          {% if campo.help_text %}<div style="font-size:11.5px;color:var(--text-faint);">{{ campo.help_text }}</div>{% endif %}
+        </label>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div style="margin-top:12px;">
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+    <a class="btn btn-ghost" href="{% url 'app:ativos:etiquetas_centro' %}">Limpar</a>
+  </div>
+</form>
+
+<form method="post" action="{% url 'app:ativos:etiquetas_folha' %}" target="_blank">
+  {% csrf_token %}
+  <div class="card" style="margin-bottom:14px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+    <label style="font-size:12.5px;">
+      {{ form.layout.label }}
+      {{ form.layout }}
+    </label>
+    <button class="btn btn-primary" type="submit">Gerar etiquetas selecionadas</button>
+    <div style="font-size:11.5px;color:var(--text-faint);max-width:420px;">
+      <span id="contador-selecionados">Nenhum ativo selecionado</span> ·
+      A folha abre em nova aba, já com a caixa de impressão. Para salvar em PDF,
+      escolha "Salvar como PDF" no destino da impressão.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table">
+      <div class="table-head" style="grid-template-columns:36px 1fr 1fr 1fr 110px 110px;">
+        <div><input type="checkbox" id="marcar-todos" title="Selecionar todos"></div>
+        <div>Patrimônio</div><div>Categoria</div><div>Unidade</div><div>Impressões</div><div>Última</div>
+      </div>
+      {% for ativo in ativos %}
+        <div class="table-row" style="grid-template-columns:36px 1fr 1fr 1fr 110px 110px;">
+          <div>
+            <input type="checkbox" name="ativos" value="{{ ativo.pk }}" class="marcavel"
+                   {% if ativo.pk == ativo_pre_selecionado %}checked{% endif %}>
+          </div>
+          <div style="font-size:13px;font-weight:600;">
+            <a href="{% url 'app:ativos:ficha' ativo.pk %}">{{ ativo.patrimonio }}</a>
+          </div>
+          <div style="font-size:12.5px;">{{ ativo.categoria.nome }}</div>
+          <div style="font-size:12.5px;">{{ ativo.unidade.nome }}</div>
+          <div style="font-size:12.5px;">
+            {% if ativo.qtd_impressoes %}{{ ativo.qtd_impressoes }}{% else %}
+              <span class="badge badge-cor-azul">Nunca impressa</span>
+            {% endif %}
+          </div>
+          <div style="font-size:12px;color:var(--text-faint);">
+            {{ ativo.impresso_em_ultima|date:"d/m/Y H:i"|default:"—" }}
+          </div>
+        </div>
+      {% empty %}
+        <div style="padding:20px;font-size:13px;color:var(--text-faint);">
+          Nenhum ativo encontrado com esses filtros.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</form>
+
+<script src="{% static 'js/etiquetas.js' %}" defer></script>
+{% endblock %}

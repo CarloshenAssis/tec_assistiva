@@ -16,17 +16,17 @@ implementada, em vez de decidida caso a caso na view.
   unidades, cadastra Gestores/Funcionários, define permissões (unidades
   atribuídas), visualiza todos os ativos/empréstimos/unidades da
   organização.
-- **Gestor**: acesso operacional pleno dentro das unidades atribuídas a
-  ele (hoje o filtro por unidade ainda não está aplicado nas listagens —
-  ver `docs/business-rules/unidades.md`, Pendências). Pode cadastrar
-  ativos, emprestar, devolver, enviar/finalizar manutenção, cadastrar
-  beneficiários, emitir relatórios, dar baixa, registrar recuperação de
-  ativo extraviado, editar dados de manutenção em curso, gerenciar
-  usuários de nível igual ou inferior.
-- **Funcionário**: acesso apenas às operações do dia a dia — localizar
-  ativos, emprestar, devolver, renovar, registrar fotos, consultar
-  ativos, finalizar higienização. Não altera configurações da
-  organização, não cadastra/edita ativos, não gerencia usuários.
+- **Gestor**: acesso operacional pleno, restrito às unidades atribuídas a
+  ele. Pode cadastrar ativos, emprestar, devolver, enviar/finalizar
+  manutenção, cadastrar beneficiários, emitir relatórios, dar baixa,
+  registrar extravio e recuperação, transferir ativo entre unidades,
+  gerenciar usuários de nível igual ou inferior.
+- **Funcionário**: acesso às operações do dia a dia, restrito às unidades
+  atribuídas a ele — localizar ativos, emprestar, devolver, renovar,
+  registrar fotos, consultar ativos, finalizar higienização, corrigir dados
+  da manutenção em curso, imprimir etiquetas. Não altera configurações da
+  organização, não cadastra/edita ativos, não gerencia usuários, não
+  transfere ativo entre unidades.
 
 ## Matriz de permissões por ação
 
@@ -35,8 +35,11 @@ implementada, em vez de decidida caso a caso na view.
 | Consultar ativo / QR / timeline | ✓ | ✓ | ✓ | ✓ (cross-tenant) |
 | Emprestar / devolver / renovar | ✓ | ✓ | ✓ | — |
 | Enviar / finalizar manutenção | ✓ | ✓ | ✓ | — |
-| Editar manutenção em curso | — | ✓ | ✓ | — |
+| Editar manutenção em curso | ✓ | ✓ | ✓ | — |
 | Cadastrar / editar ativo | — | ✓ | ✓ | — |
+| Imprimir / reimprimir etiqueta | ✓ | ✓ | ✓ | — |
+| Transferir ativo entre unidades | — | ✓ | ✓ | — |
+| Registrar extravio | — | ✓ | ✓ | — |
 | Dar baixa em ativo | — | ✓ | ✓ | — |
 | Registrar recuperação (extravio) | — | ✓ | ✓ | — |
 | Reativar ativo inativo | — | — | ✓ | — |
@@ -59,6 +62,13 @@ implementada, em vez de decidida caso a caso na view.
 - Um Admin nunca é bloqueado por unidade — a regra "Admin vê tudo" é
   incondicional, independente de qualquer atribuição de unidade que
   porventura exista para ele.
+- Além do nível hierárquico, toda ação sobre um ativo é limitada pelo
+  **escopo de unidade** do usuário: um Gestor não opera ativo de unidade que
+  não lhe foi atribuída, mesmo tendo o nível necessário para a ação. Ver
+  `docs/business-rules/unidades.md`.
+- Acesso fora do escopo de unidade responde **404** (não encontrado), não
+  403: confirmar a existência já entregaria a informação que o escopo
+  protege.
 - Falha de permissão em qualquer view sempre retorna `PermissionDenied`
   (403), nunca um redirecionamento silencioso que esconda o motivo.
 

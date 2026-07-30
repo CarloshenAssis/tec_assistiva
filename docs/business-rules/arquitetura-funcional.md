@@ -54,10 +54,12 @@ movimentação é oferecida — só consulta (histórico, fotos, timeline).
 | Emprestado | Devolver → Higienização | Em Higienização | `emprestimos.md` |
 | Emprestado | Devolver → Manutenção | Em Manutenção | `emprestimos.md` |
 | Emprestado | Extravio | Extraviado | `emprestimos.md` |
+| Disponível | Extravio | Extraviado | `ativos.md` |
 | Em Higienização | Concluir higienização | Disponível | `emprestimos.md` |
 | Em Manutenção | Finalizar manutenção | Disponível | `manutencao.md` |
 | Em Manutenção | Dar baixa | Baixado | `manutencao.md` |
 | Extraviado | Registrar recuperação | Disponível | `emprestimos.md` |
+| Disponível / Reservado / Manutenção / Higienização | Transferir de unidade | o mesmo estado | `unidades.md` |
 | Disponível / Manutenção / Reservado | Inativar | Inativo | `ativos.md` |
 | Inativo | Reativar | Disponível | `ativos.md` |
 
@@ -80,6 +82,9 @@ unidades/usuários.
 - O usuário não pertence ao tenant do ativo (isolamento multi-tenant,
   reforçado por teste de arquitetura — nunca é possível operar um ativo
   de outra organização, mesmo por engano de URL).
+- O ativo pertence a uma unidade que o usuário não opera
+  (`docs/business-rules/unidades.md`). Nesse caso a resposta é 404, não 403:
+  confirmar a existência já entregaria a informação que o escopo protege.
 - Campos obrigatórios da ação (motivo de manutenção, destino de devolução,
   prazo de renovação) não foram informados.
 
@@ -96,12 +101,15 @@ Toda transição de status listada na tabela acima gera uma `Movimentacao`
 
 ## O que acontece quando um ativo muda de unidade?
 
-Hoje, a alteração de unidade de um ativo é feita por edição direta do
-cadastro — não existe ainda um fluxo de "transferência" com origem,
-destino e timeline dedicada. Esta é uma pendência registrada em
-`docs/business-rules/unidades.md`; quando implementada, deve seguir o
-mesmo princípio das demais movimentações: gerar `Movimentacao`, atualizar
-a timeline, e nunca pular etapas silenciosamente.
+A transferência gera uma `Movimentacao` do tipo "Transferência entre
+Unidades", que **preserva o estado operacional** do ativo (um ativo em
+manutenção transferido continua em manutenção) e registra origem e destino
+por nome, além da referência. Não é permitida com o ativo emprestado, e
+exige justificativa. Detalhe completo em `docs/business-rules/unidades.md`.
+
+Consequência de negócio a ter em mente: depois da transferência, o ativo sai
+da visão de quem o transferiu (se a unidade de destino não estiver atribuída
+a ele). Isso é esperado, e é a razão de a justificativa ser obrigatória.
 
 ## Princípios que toda funcionalidade nova deve respeitar
 
@@ -113,6 +121,9 @@ a timeline, e nunca pular etapas silenciosamente.
 3. Toda ação de negócio relevante identifica o usuário responsável — a
    pergunta "quem fez isso" sempre tem resposta.
 4. Isolamento entre tenants é a regra padrão; acesso cross-tenant é
-   exceção auditada e documentada, nunca um efeito colateral de um bug.
+   exceção auditada e documentada, nunca um efeito colateral de um bug. O
+   mesmo vale, dentro de um tenant, para o escopo de unidade: o filtro é
+   aplicado por padrão e falha fechado (vê nada) quando não há atribuição,
+   nunca aberto.
 5. Falha em um sistema auxiliar (notificação, auditoria) nunca impede a
    operação principal de negócio — é sempre best-effort e isolada.

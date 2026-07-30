@@ -43,9 +43,11 @@ para o status atual e o perfil do usuário
 ## Validações
 
 - Código digitado manualmente deve ser único no tenant (case-insensitive).
-- QR Code de ativo inexistente ou de outro tenant sempre responde com a
-  mesma página de erro — o sistema nunca revela que o ativo existe em
-  outra organização.
+- QR Code de ativo inexistente, de outro tenant, ou de unidade que o usuário
+  não opera sempre responde com a mesma página de erro — o sistema nunca
+  revela que o ativo existe fora do escopo de quem leu a etiqueta.
+- A busca manual por código patrimonial respeita o mesmo escopo: não é uma
+  porta lateral para consultar ativo de outra unidade.
 
 ## Permissões por perfil
 
@@ -64,11 +66,18 @@ ativo (ver `docs/business-rules/ativos.md`).
 
 | Status | Ações mostradas |
 |---|---|
-| Disponível | Emprestar, Editar, Histórico |
-| Reservado | Confirmar empréstimo, Histórico |
-| Emprestado | Devolver, Renovar, Histórico |
-| Em Manutenção | Finalizar manutenção, Histórico |
+| Disponível | Emprestar, Reservar, Enviar para manutenção, Transferir de unidade, Editar, Imprimir etiqueta, Registrar extravio, Dar baixa, Histórico |
+| Reservado | Confirmar empréstimo, Cancelar reserva, Transferir de unidade, Imprimir etiqueta, Histórico |
+| Emprestado | Receber devolução, Renovar, Imprimir etiqueta, Registrar extravio, Histórico |
+| Em Manutenção | Finalizar manutenção, Editar manutenção, Transferir de unidade, Imprimir etiqueta, Dar baixa, Histórico |
+| Em Higienização | Concluir higienização, Transferir de unidade, Imprimir etiqueta, Histórico |
+| Extraviado | Registrar recuperação, Histórico |
+| Inativo | Reativar, Histórico |
 | Baixado | Somente visualizar |
+
+A lista também é filtrada pelo nível hierárquico do usuário — um Funcionário
+não vê "Transferir de unidade" nem "Dar baixa". Ver
+`docs/business-rules/permissoes.md`.
 
 ## Casos de exceção
 

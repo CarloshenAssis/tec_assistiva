@@ -11,7 +11,7 @@ from ativos.domain.enums import StatusAtivo
 from ativos.domain.exceptions import TransicaoInvalidaError
 from ativos.models import Ativo, CategoriaAtivo, Movimentacao
 from beneficiarios.models import Beneficiario
-from core.models import Tenant
+from core.models import Tenant, Unidade
 from core.tenancy import reset_current_tenant_id, set_current_tenant_id
 
 
@@ -26,8 +26,12 @@ class BaseComTenant(TestCase):
         self.categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant_a, nome="Cadeira de Rodas"
         )
+        self.unidade_a = Unidade.objects.all_tenants().create(tenant=self.tenant_a, nome="Sede A")
         self.ativo = Ativo.objects.all_tenants().create(
-            tenant=self.tenant_a, patrimonio="CAD-0001", categoria=self.categoria
+            tenant=self.tenant_a,
+            patrimonio="CAD-0001",
+            categoria=self.categoria,
+            unidade=self.unidade_a,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant_a, nome="Maria Silva", cpf="123.456.789-09"
@@ -179,8 +183,9 @@ class IsolamentoMultiTenantDeAtivosTest(BaseComTenant):
         categoria_b = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant_b, nome="Cadeira de Rodas"
         )
+        unidade_b = Unidade.objects.all_tenants().create(tenant=self.tenant_b, nome="Sede B")
         Ativo.objects.all_tenants().create(
-            tenant=self.tenant_b, patrimonio="CAD-0001", categoria=categoria_b
+            tenant=self.tenant_b, patrimonio="CAD-0001", categoria=categoria_b, unidade=unidade_b
         )
 
         # Mesmo patrimônio em tenants diferentes não colide (unique_together por tenant).

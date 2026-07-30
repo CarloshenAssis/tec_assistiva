@@ -36,6 +36,12 @@ Um ativo chega em manutenção por dois caminhos: diretamente do estoque
 - Só é possível enviar para manutenção um ativo `Disponível` (fora do
   fluxo de devolução).
 - Enviar para manutenção exige motivo; fornecedor e valor são opcionais.
+- **Corrigir os dados da manutenção em curso é permitido ao Funcionário.**
+  Quem está com o ativo na oficina é quem sabe o motivo real, o fornecedor e
+  o valor — exigir aprovação de Gestor para isso só geraria dado errado
+  esperando liberação. A correção fica rastreada na auditoria.
+- O formulário de correção abre preenchido com os valores atuais: é uma
+  correção, não um registro novo — abrir vazio convidaria a apagar dado.
 - Finalizar manutenção só é possível com o ativo `Em Manutenção`, e sempre
   retorna para `Disponível` — nunca para `Emprestado` diretamente.
 - Um ativo em manutenção pode ir direto para baixa (`Em Manutenção →
@@ -55,7 +61,7 @@ Um ativo chega em manutenção por dois caminhos: diretamente do estoque
 |---|---|
 | Enviar para manutenção | Funcionário |
 | Finalizar manutenção | Funcionário |
-| Editar dados de manutenção em curso | Gestor |
+| Editar dados de manutenção em curso | Funcionário |
 | Dar baixa a partir de manutenção | Gestor |
 
 ## Estados possíveis
@@ -69,17 +75,24 @@ Um ativo chega em manutenção por dois caminhos: diretamente do estoque
 | Disponível | Enviar para manutenção | Em Manutenção |
 | Emprestado | Devolver → Manutenção | Em Manutenção |
 | Em Manutenção | Finalizar manutenção | Disponível |
+| Em Manutenção | Transferir de unidade | Em Manutenção (sem troca de status) |
 | Em Manutenção | Dar baixa | Baixado |
 
 ## Casos de exceção
 
-- A ação "Editar manutenção em curso" está definida no catálogo de ações
-  (nível Gestor) mas **não tem handler correspondente** implementado nas
-  views — funcionalidade pendente, não deve ser anunciada como disponível
-  até ser implementada.
+- **Editar manutenção em curso não gera `Movimentacao`.** É correção de
+  metadado (motivo/fornecedor/valor), não evento de estado: o ativo continua
+  em manutenção. A alteração fica registrada na trilha de auditoria
+  (`docs/business-rules/auditoria.md`), que guarda quem alterou, quais campos
+  e quando. A Timeline registra transições de estado; a Auditoria registra
+  alterações de dado — ver a distinção em `docs/business-rules/timeline.md`.
+- Um ativo em manutenção sem registro de detalhe (importação antiga, ou
+  manutenção criada fora dos serviços) tem o detalhe criado na primeira
+  edição, em vez de erro na cara do operador — que não teria como resolver
+  isso.
 - Um ativo com múltiplas manutenções no histórico só tem a manutenção mais
-  recente considerada ao finalizar — registros antigos permanecem intactos
-  na timeline.
+  recente considerada ao finalizar ou editar — registros antigos permanecem
+  intactos na timeline.
 
 ## Impactos em outros módulos
 

@@ -131,24 +131,42 @@ complexidade de uso para quem opera o sistema no dia a dia.
   tenant; código digitado manualmente é validado por unicidade. Também
   registrado como exceção auditada (mesmo motivo do `core/unidades.py`).
 
+- **Unidade obrigatória no ativo** (`ativos/models.py::Ativo.unidade`,
+  `PROTECT`): migration `ativos/0005_*` faz o backfill (cria "Unidade
+  Principal" só nos tenants que precisam, reaproveita a única existente
+  quando não há ambiguidade) antes de aplicar o `NOT NULL`.
+- **Escopo de unidade aplicado em todas as telas**
+  (`core/unidades.py::filtrar_por_unidade`, usado por
+  `ativos/views.py::_ativos_no_escopo` e equivalentes): lista de ativos,
+  ficha, QR Code, busca por patrimônio, wizard de empréstimo, devolução,
+  mapa, manutenção, agenda, beneficiários, dashboard, relatórios e Centro de
+  Etiquetas. Fora do escopo responde 404, não 403. Telas avisam
+  explicitamente quando o usuário não tem unidade atribuída.
+- **Centro de Etiquetas** (`ativos/etiquetas.py`, `ativos/views.py::
+  etiquetas_*`, `templates/ativos/etiquetas_*.html`): fila de impressão,
+  filtros (categoria/unidade/status/só sem etiqueta), seleção em lote,
+  três layouts, histórico agrupado por lote, "Última impressão"/"Quantidade
+  de impressões"/"Reimprimir" na ficha. PDF pela caixa de impressão do
+  navegador — decisão documentada em `docs/business-rules/etiquetas.md`.
+- **Transferência entre unidades** (`ativos/services.py::transferir`): não
+  altera o estado operacional, exige justificativa, bloqueada para ativo
+  emprestado, guarda origem e destino por nome. Tipo `recuperacao` foi
+  separado de `transferencia`, que antes acumulava os dois significados.
+- **Dashboard por unidade** (`ativos/selectors.py::resumo_por_unidade`) e
+  indicadores agregados no banco em consulta única, no lugar de uma contagem
+  por status e da materialização de todos os ativos em memória.
+- **Extravio na UI** e **correção de manutenção em curso** (esta liberada ao
+  Funcionário — quem está com o ativo na oficina é quem sabe corrigir).
+
 ### Pendente (não implementado ainda)
 
-- **Centro de Etiquetas**: impressão individual/lote, geração de PDF,
-  reimpressão, histórico de impressão, fila de impressão, layouts
-  Pequeno/Médio/Grande, campos "Última impressão"/"Quantidade de
-  impressões" na ficha do ativo.
-- **"Localizar Ativo"**: tela dedicada com escanear QR Code / pesquisar por
-  patrimônio / categoria / nome.
-- **Aplicação de `unidades_visiveis()` nas telas de listagem**: o modelo de
-  permissão existe (`core/unidades.py`), mas ainda não está conectado nas
-  views de listagem de ativos, beneficiários, dashboard e mapa operacional
-  — hoje essas telas continuam mostrando todos os dados do tenant,
-  independente da unidade atribuída ao Gestor/Funcionário.
-- **Dashboard por unidade** para o Admin (contagens de total/emprestados/
-  manutenção/disponíveis agrupadas por unidade).
-- **Transferência entre unidades**: UI e fluxo explícitos. O campo
-  `Movimentacao.unidade` já existe no model, mas falta a tela de
-  transferência (origem → destino → registro de movimentação → timeline).
+- **"Localizar Ativo"**: tela dedicada única com escanear QR Code /
+  pesquisar por patrimônio / categoria / nome. Hoje as três entradas
+  existem, mas espalhadas (`scan`, lista de ativos, mapa) em vez de reunidas
+  numa porta de entrada só.
+- **Leitura de QR Code por câmera**: a rota de resolução já é o backend
+  completo do fluxo; falta a biblioteca client-side de leitura
+  (`Permissions-Policy` já libera `camera=(self)`).
 
 QR Code (`Ativo.qr_token`, gerado por `gerar_qr_token()`) e o histórico
 completo por ativo (timeline, movimentações, fotos, manutenções,

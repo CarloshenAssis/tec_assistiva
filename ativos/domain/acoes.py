@@ -40,31 +40,46 @@ _ACOES_POR_STATUS = {
         Acao("emprestar", "Emprestar", NIVEL_FUNCIONARIO),
         Acao("enviar_manutencao", "Enviar para Manutenção", NIVEL_FUNCIONARIO),
         Acao("reservar", "Reservar", NIVEL_FUNCIONARIO),
+        Acao("transferir", "Transferir de Unidade", NIVEL_GESTOR),
         Acao("editar", "Editar", NIVEL_GESTOR),
+        Acao("imprimir_etiqueta", "Imprimir Etiqueta", NIVEL_FUNCIONARIO),
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
         Acao("ver_fotos", "Ver Fotos", NIVEL_FUNCIONARIO),
         Acao("ver_timeline", "Ver Timeline", NIVEL_FUNCIONARIO),
+        Acao("registrar_extravio", "Registrar Extravio", NIVEL_GESTOR),
         Acao("dar_baixa", "Dar Baixa", NIVEL_GESTOR),
     ],
     S.RESERVADO: [
         Acao("confirmar_emprestimo", "Confirmar Empréstimo", NIVEL_FUNCIONARIO),
         Acao("cancelar_reserva", "Cancelar Reserva", NIVEL_FUNCIONARIO),
+        Acao("transferir", "Transferir de Unidade", NIVEL_GESTOR),
+        Acao("imprimir_etiqueta", "Imprimir Etiqueta", NIVEL_FUNCIONARIO),
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
     ],
     S.EMPRESTADO: [
         Acao("receber_devolucao", "Receber Devolução", NIVEL_FUNCIONARIO),
         Acao("renovar", "Renovar Empréstimo", NIVEL_FUNCIONARIO),
+        Acao("imprimir_etiqueta", "Imprimir Etiqueta", NIVEL_FUNCIONARIO),
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
         Acao("ver_fotos", "Ver Fotos", NIVEL_FUNCIONARIO),
+        Acao("registrar_extravio", "Registrar Extravio", NIVEL_GESTOR),
     ],
     S.MANUTENCAO: [
         Acao("finalizar_manutencao", "Finalizar Manutenção", NIVEL_FUNCIONARIO),
-        Acao("editar_manutencao", "Editar Manutenção", NIVEL_GESTOR),
+        # Quem está com o ativo em mãos na oficina é quem sabe corrigir
+        # motivo/fornecedor/valor — exigir Gestor para isso só geraria dado
+        # errado esperando aprovação. A alteração fica registrada na trilha
+        # de auditoria (auditoria/rastreamento.py), então continua rastreável.
+        Acao("editar_manutencao", "Editar Manutenção", NIVEL_FUNCIONARIO),
+        Acao("transferir", "Transferir de Unidade", NIVEL_GESTOR),
+        Acao("imprimir_etiqueta", "Imprimir Etiqueta", NIVEL_FUNCIONARIO),
         Acao("dar_baixa", "Dar Baixa", NIVEL_GESTOR),
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
     ],
     S.HIGIENIZACAO: [
         Acao("concluir_higienizacao", "Concluir Higienização", NIVEL_FUNCIONARIO),
+        Acao("transferir", "Transferir de Unidade", NIVEL_GESTOR),
+        Acao("imprimir_etiqueta", "Imprimir Etiqueta", NIVEL_FUNCIONARIO),
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
     ],
     S.EXTRAVIADO: [
@@ -73,6 +88,8 @@ _ACOES_POR_STATUS = {
     ],
     S.BAIXADO: [
         # Estado terminal: somente consulta, nenhuma ação de movimentação.
+        # Imprimir etiqueta também não faz sentido — o ativo saiu do
+        # patrimônio, uma etiqueta nova só geraria confusão no inventário.
         Acao("ver_historico", "Ver Histórico", NIVEL_FUNCIONARIO),
         Acao("ver_fotos", "Ver Fotos", NIVEL_FUNCIONARIO),
         Acao("ver_timeline", "Ver Timeline", NIVEL_FUNCIONARIO),

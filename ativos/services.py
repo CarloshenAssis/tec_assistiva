@@ -12,6 +12,7 @@ o registro de `Movimentacao` correspondente (violando o invariante
 """
 
 import logging
+import uuid
 from datetime import timedelta
 from typing import Optional
 
@@ -19,9 +20,19 @@ from django.db import transaction
 from django.utils import timezone
 
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
-from ativos.domain.exceptions import AcaoAdministrativaInvalidaError
+from ativos.domain.exceptions import (
+    AcaoAdministrativaInvalidaError,
+    TransferenciaInvalidaError,
+)
 from ativos.domain.state_machine import pode_inativar, transicionar
-from ativos.models import Ativo, DetalheEmprestimo, DetalheManutencao, FotoMovimentacao, Movimentacao
+from ativos.models import (
+    Ativo,
+    DetalheEmprestimo,
+    DetalheManutencao,
+    FotoMovimentacao,
+    ImpressaoEtiqueta,
+    Movimentacao,
+)
 
 
 def _registrar(
@@ -225,7 +236,74 @@ def registrar_extravio(ativo: Ativo, usuario, observacoes: str = "") -> Moviment
 
 def registrar_recuperacao(ativo: Ativo, usuario, observacoes: str = "") -> Movimentacao:
     """Ativo extraviado que foi encontrado — recuperação, exige justificativa."""
-    return _registrar(ativo, TipoMovimentacao.TRANSFERENCIA, usuario, observacoes=observacoes)
+    return _registrar(ativo, TipoMovimentacao.RECUPERACAO, usuario, observacoes=observacoes)
+
+
+def transferir(ativo: Ativo, usuario, unidade_destino, observacoes: str = "") -> Movimentacao:
+    """
+    Move a unidade responsável pelo ativo, sem alterar o estado operacional
+    dele (docs/business-rules/unidades.md).
+
+    Guarda nome e id da unidade de origem e de destino em
+    `dados_especificos`, e não apenas a FK `Movimentacao.unidade`: a FK é
+    `SET_NULL` e aponta só para o destino, então sem essa cópia textual o
+    histórico perderia de onde o ativo saiu no dia em que a unidade de
+    origem fosse renomeada ou removida — justamente a informação que a
+    transferência existe para registrar.
+    """
+    origem = ativo.unidade
+    if origem is not None and unidade_destino.pk == origem.pk:
+        raise TransferenciaInvalidaError(
+            f"O ativo {ativo.patrimonio} já está na unidade {unidade_destino.nome}."
+        )
+    return _registrar(
+        ativo,
+        TipoMovimentacao.TRANSFERENCIA,
+        usuario,
+        unidade=unidade_destino,
+        observacoes=observacoes,
+        dados_especificos={
+            "unidade_origem_id": origem.pk if origem else None,
+            "unidade_origem_nome": origem.nome if origem else "",
+            "unidade_destino_id": unidade_destino.pk,
+            "unidade_destino_nome": unidade_destino.nome,
+        },
+    )
+
+
+def editar_manutencao(
+    ativo: Ativo, usuario, motivo: str, fornecedor=None, valor=None
+) -> DetalheManutencao:
+    """
+    Corrige os dados da manutenção em curso (motivo/fornecedor/valor).
+
+    Não gera `Movimentacao`: o estado do ativo não muda, e a timeline
+    registra eventos de estado, não correções de metadado. A alteração é
+    capturada automaticamente pela trilha de auditoria (sinal `post_save`
+    em `auditoria/rastreamento.py`), que registra quem alterou quais campos
+    e quando — ver docs/business-rules/manutencao.md.
+    """
+    if ativo.status_enum != StatusAtivo.MANUTENCAO:
+        raise AcaoAdministrativaInvalidaError(ativo.status_enum, "editar_manutencao")
+
+    movimentacao = Movimentacao.objects.mais_recente_do_tipo(ativo, TipoMovimentacao.MANUTENCAO)
+    detalhe = getattr(movimentacao, "detalhe_manutencao", None) if movimentacao else None
+    if detalhe is None:
+        # Ativo em manutenção sem DetalheManutencao é dado inconsistente
+        # (importação antiga, ou manutenção criada fora dos serviços). Criar
+        # o detalhe é melhor que estourar erro na cara do operador, que não
+        # tem como resolver isso.
+        detalhe = DetalheManutencao.objects.create(
+            tenant=ativo.tenant, movimentacao=movimentacao, motivo=motivo, valor=valor,
+            fornecedor=fornecedor,
+        )
+        return detalhe
+
+    detalhe.motivo = motivo
+    detalhe.fornecedor = fornecedor
+    detalhe.valor = valor
+    detalhe.save(update_fields=["motivo", "fornecedor", "valor"])
+    return detalhe
 
 
 def dar_baixa(ativo: Ativo, usuario, motivo: str, observacoes: str = "") -> Movimentacao:
@@ -236,6 +314,31 @@ def dar_baixa(ativo: Ativo, usuario, motivo: str, observacoes: str = "") -> Movi
         observacoes=observacoes,
         dados_especificos={"motivo": motivo},
     )
+
+
+def registrar_impressao_etiquetas(ativos, usuario, layout: str) -> list:
+    """
+    Grava o histórico de impressão de um lote de etiquetas
+    (docs/business-rules/etiquetas.md).
+
+    Todas as etiquetas geradas na mesma folha compartilham um `lote`, o que
+    permite mostrar o histórico agrupado e reimprimir exatamente o mesmo
+    conjunto depois. Chamado no momento em que a folha é gerada — não há
+    como o sistema saber se o papel realmente saiu da impressora, então o
+    registro significa "folha emitida", e é por isso que "Reimprimir"
+    existe como ação normal e não como correção de erro.
+    """
+    lote = uuid.uuid4()
+    registros = [
+        ImpressaoEtiqueta(
+            tenant=ativo.tenant, ativo=ativo, layout=layout, usuario=usuario, lote=lote
+        )
+        for ativo in ativos
+    ]
+    # bulk_create não dispara os sinais de auditoria (limitação conhecida,
+    # ver docs/business-rules/auditoria.md) — aceitável aqui: o próprio
+    # ImpressaoEtiqueta JÁ É a trilha do evento, com usuário e horário.
+    return ImpressaoEtiqueta.objects.bulk_create(registros)
 
 
 def inativar(ativo: Ativo, usuario, motivo: str = "") -> None:

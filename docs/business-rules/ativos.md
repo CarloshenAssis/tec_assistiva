@@ -43,6 +43,9 @@ categoria antes de qualquer outra operação ser possível.
   detalhamento da geração.
 - Todo ativo possui categoria — obrigatória (`on_delete=PROTECT`: uma
   categoria em uso nunca pode ser excluída, só desativada).
+- **Todo ativo pertence a uma unidade responsável — obrigatória**, mesmo que
+  a organização tenha só uma (`docs/business-rules/unidades.md`). Também
+  `PROTECT`: unidade com ativos não se exclui, se desativa.
 - Todo ativo nasce com status `Disponível` (default do model).
 - Todo ativo gera timeline automaticamente a partir da primeira movimentação
   registrada contra ele (ver `docs/business-rules/timeline.md`).
@@ -67,6 +70,9 @@ categoria antes de qualquer outra operação ser possível.
 | Cadastrar ativo | Gestor |
 | Editar ativo | Gestor |
 | Consultar ativo / localizar por QR | Funcionário |
+| Imprimir / reimprimir etiqueta | Funcionário |
+| Transferir de unidade | Gestor |
+| Registrar extravio | Gestor |
 | Ações de movimentação (emprestar, devolver, manutenção etc.) | ver `docs/business-rules/emprestimos.md` e `manutencao.md` |
 
 ## Estados possíveis
@@ -85,20 +91,24 @@ Ver a tabela consolidada de transições em
 
 ## Casos de exceção
 
-- **Ativo sem unidade é permitido hoje.** O campo `Ativo.unidade` é opcional
-  (`null=True, blank=True`) tanto no model quanto no formulário de cadastro.
-  Isso diverge da regra desejada "nenhum ativo existe sem unidade, mesmo que
-  exista apenas uma" (ver `docs/business-rules/unidades.md`, seção
-  Pendências) — hoje o sistema não impede o cadastro sem unidade.
-- QR Code apontando para um ativo de outro tenant (ou inexistente) sempre
-  responde com a mesma página de "não encontrado" — nunca revela se o
-  ativo existe em outra organização.
+- Se a organização ainda não tem nenhuma unidade cadastrada, a tela de
+  cadastro de ativo orienta a criar a primeira em vez de exibir um
+  formulário cujo campo obrigatório não tem opção nenhuma.
+- QR Code apontando para um ativo de outro tenant, de unidade que o usuário
+  não opera, ou inexistente, sempre responde com a mesma página de "não
+  encontrado" — nunca revela se o ativo existe fora do escopo de quem leu.
+- Um ativo `Baixado` não tem etiqueta emitida (saiu do patrimônio) — ver
+  `docs/business-rules/etiquetas.md`.
 
 ## Impactos em outros módulos
 
 - Toda mudança de status gera uma `Movimentacao`, que alimenta a Timeline
   (`docs/business-rules/timeline.md`) e o Dashboard
   (`docs/business-rules/dashboard.md`).
+- A unidade do ativo define quem o enxerga
+  (`docs/business-rules/unidades.md`) e alimenta o Dashboard por unidade.
+- Todo ativo recém-cadastrado entra na fila de impressão de etiquetas
+  (`docs/business-rules/etiquetas.md`).
 - Criação/alteração/exclusão do registro `Ativo` é capturada automaticamente
   pela trilha de auditoria LGPD (`docs/business-rules/auditoria.md`).
 - Empréstimos vencendo/vencidos disparam notificações

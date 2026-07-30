@@ -6,6 +6,7 @@ Consultas de leitura complexas isoladas da lógica de escrita (docs/ESPECIFICACA
 from collections import defaultdict
 from typing import Dict, Optional
 
+from django.db.models import Count, Max
 from django.utils import timezone
 
 from ativos.domain.cores import CorOperacional, cor_operacional
@@ -142,9 +143,119 @@ def checklist_detalhado(movimentacao: Movimentacao) -> list[dict]:
     ]
 
 
-def resolver_busca_patrimonio(termo: str):
-    """Busca exata (case-insensitive) por patrimônio, para a caixa de pesquisa do Mapa."""
-    ativo = Ativo.objects.select_related("categoria", "unidade").filter(patrimonio__iexact=termo).first()
+#: Status considerados "fora de operação" no resumo por unidade — não
+#: entram na conta de disponível/emprestado/manutenção, mas o total tem de
+#: fechar com a quantidade real de ativos da unidade.
+_STATUS_DESTAQUE_UNIDADE = [
+    StatusAtivo.DISPONIVEL,
+    StatusAtivo.EMPRESTADO,
+    StatusAtivo.MANUTENCAO,
+]
+
+
+def indicadores_por_status(ativos_qs) -> Dict[str, int]:
+    """
+    Contagem de ativos por status em UMA consulta agregada.
+
+    Substitui o padrão anterior de um `COUNT(*)` por status (8 queries para
+    montar o cabeçalho do dashboard). O ganho real não é o número de
+    round-trips: é que a contagem passa a ser resolvida pelo banco em cima
+    do índice, sem trazer linha nenhuma para a aplicação —
+    docs/business-rules/dashboard.md.
+    """
+    contagem = {status.value: 0 for status in StatusAtivo}
+    for linha in ativos_qs.values("status").annotate(total=Count("id")):
+        contagem[linha["status"]] = linha["total"]
+    return contagem
+
+
+def resumo_por_unidade(ativos_qs) -> list[dict]:
+    """
+    Total / disponíveis / emprestados / em manutenção por unidade, em UMA
+    consulta (docs/business-rules/dashboard.md — "Dashboard por Unidade").
+
+    Agrupa por `unidade` e `status` de uma vez e pivota em memória sobre o
+    resultado agregado (poucas dezenas de linhas), em vez de rodar uma
+    consulta por unidade × status.
+    """
+    linhas = ativos_qs.values("unidade_id", "unidade__nome", "status").annotate(
+        total=Count("id")
+    )
+
+    por_unidade: Dict[object, dict] = {}
+    for linha in linhas:
+        chave = linha["unidade_id"]
+        bucket = por_unidade.setdefault(
+            chave,
+            {
+                "unidade_id": chave,
+                "nome": linha["unidade__nome"] or "Sem unidade definida",
+                "total": 0,
+                **{status.value: 0 for status in _STATUS_DESTAQUE_UNIDADE},
+            },
+        )
+        bucket["total"] += linha["total"]
+        if linha["status"] in bucket:
+            bucket[linha["status"]] += linha["total"]
+
+    return sorted(por_unidade.values(), key=lambda item: item["total"], reverse=True)
+
+
+def resumo_cores_agregado(ativos_qs) -> Dict[str, int]:
+    """
+    Contagem por cor operacional sem carregar todos os ativos na memória.
+
+    `resumo_cores` (acima) materializa o queryset inteiro porque precisa do
+    objeto Ativo para colorir item a item — aceitável numa lista paginada,
+    caro no dashboard de um tenant com muitos ativos. Aqui a conta é feita
+    em duas consultas: uma agregação por status (que já resolve todas as
+    cores que não dependem de prazo) e uma varredura apenas dos ativos
+    EMPRESTADOS, cuja cor depende da data prevista de devolução.
+    """
+    por_status = indicadores_por_status(ativos_qs)
+    hoje = timezone.now().date()
+    contagem: Dict[str, int] = defaultdict(int)
+
+    for status in StatusAtivo:
+        total = por_status.get(status.value, 0)
+        if not total or status == StatusAtivo.EMPRESTADO:
+            continue
+        # Sem empréstimo em aberto, a cor é função apenas do status.
+        contagem[cor_operacional(status, None, hoje=hoje).value] += total
+
+    emprestados = ativos_qs.filter(status=StatusAtivo.EMPRESTADO.value).values_list("id", flat=True)
+    datas = datas_previstas_por_ativo(list(emprestados))
+    for ativo_id in emprestados:
+        info = datas.get(ativo_id)
+        data_prevista = info.get("data_prevista_devolucao") if info else None
+        contagem[cor_operacional(StatusAtivo.EMPRESTADO, data_prevista, hoje=hoje).value] += 1
+
+    return dict(contagem)
+
+
+def anotar_impressoes(ativos_qs):
+    """
+    Anota `qtd_impressoes` e `impresso_em_ultima` para uso em listagem —
+    evita o N+1 que as properties `Ativo.total_impressoes`/
+    `ultima_impressao` causariam ao serem lidas dentro de um loop de
+    template (docs/business-rules/etiquetas.md).
+    """
+    return ativos_qs.annotate(
+        qtd_impressoes=Count("impressoes", distinct=True),
+        impresso_em_ultima=Max("impressoes__impresso_em"),
+    )
+
+
+def resolver_busca_patrimonio(termo: str, ativos_qs=None):
+    """
+    Busca exata (case-insensitive) por patrimônio, para a caixa de pesquisa do Mapa.
+
+    `ativos_qs` permite à view passar o queryset já restrito ao escopo de
+    unidade do usuário — sem isso, a pesquisa por patrimônio viraria uma porta
+    lateral para consultar um ativo de unidade que o usuário não opera.
+    """
+    base = ativos_qs if ativos_qs is not None else Ativo.objects.all()
+    ativo = base.select_related("categoria", "unidade").filter(patrimonio__iexact=termo).first()
     if ativo is None:
         return None
     contexto = datas_previstas_por_ativo([ativo.id]).get(ativo.id)

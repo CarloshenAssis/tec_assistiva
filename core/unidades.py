@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from django.db.models import Q
+
 from ativos.domain.acoes import NIVEL_ADMIN
 from core.models import Unidade
 
@@ -64,6 +66,43 @@ def unidades_do_usuario(usuario) -> "models.QuerySet[Unidade]":  # noqa: F821
     isso com `all_tenants()` + filtro explícito por `usuario`.
     """
     return Unidade.objects.all_tenants().filter(usuarios_permitidos=usuario)
+
+
+def enxerga_todas_as_unidades(usuario) -> bool:
+    """Admin, superusuário e Owner nunca são restritos por unidade."""
+    return bool(
+        usuario.is_platform_staff
+        or usuario.is_superuser
+        or nivel_do_usuario(usuario) >= NIVEL_ADMIN
+    )
+
+
+def filtrar_por_unidade(queryset, usuario, campo: str = "unidade", incluir_sem_unidade: bool = False):
+    """
+    Restringe `queryset` às unidades que `usuario` pode ver.
+
+    É o ponto único que aplica o escopo de unidade nas telas de listagem —
+    antes disso a permissão existia (`unidades_visiveis`) mas nenhuma tela a
+    usava, então um Gestor de uma unidade via os ativos de todas
+    (docs/business-rules/unidades.md).
+
+    Para Admin/Owner devolve o queryset intacto: a checagem sai do caminho
+    em vez de virar um `IN` gigante com todas as unidades do tenant.
+
+    `incluir_sem_unidade=True` mantém visíveis os registros com o campo
+    nulo. Usado em Beneficiário (titular sem unidade é da organização toda,
+    ver o comentário no model) e NÃO em Ativo, onde unidade é obrigatória e
+    um nulo só existiria como dado corrompido — nesse caso é melhor
+    desaparecer da lista (fail-closed) do que vazar para quem não deveria
+    ver.
+    """
+    if enxerga_todas_as_unidades(usuario):
+        return queryset
+
+    filtro = Q(**{f"{campo}__in": unidades_visiveis(usuario)})
+    if incluir_sem_unidade:
+        filtro |= Q(**{f"{campo}__isnull": True})
+    return queryset.filter(filtro)
 
 
 def usuario_pode_operar_unidade(usuario, unidade: Optional[Unidade]) -> bool:

@@ -119,6 +119,7 @@ Checklist:
 | Emprestar / confirmar reserva | Funcionário |
 | Devolver | Funcionário |
 | Renovar | Funcionário |
+| Registrar extravio | Gestor |
 | Registrar recuperação de ativo extraviado | Gestor |
 
 ## Estados possíveis
@@ -138,19 +139,28 @@ Checklist:
 | Emprestado | Devolver → Higienização | Em Higienização |
 | Emprestado | Devolver → Manutenção | Em Manutenção |
 | Emprestado | Extravio | Extraviado |
+| Disponível | Extravio | Extraviado |
 | Em Higienização | Concluir higienização | Disponível |
 
 ## Casos de exceção
 
-- Transferência entre unidades **não é** um tipo de movimentação de
-  empréstimo — hoje `transferencia` só é usada na recuperação de um ativo
-  extraviado (`Extraviado → Disponível`). Alterar a unidade de um ativo
-  emprestado é feito por edição direta do cadastro, não por um fluxo de
-  movimentação dedicado (ver Pendências em
-  `docs/business-rules/unidades.md`).
+- Registrar extravio e registrar recuperação exigem **justificativa
+  obrigatória**: sem o "por quê", o registro não tem nada a contar depois.
+  Extravio pode ser registrado tanto a partir de `Emprestado` (o beneficiário
+  não devolveu) quanto de `Disponível` (o inventário não encontrou o item na
+  prateleira).
+- Recuperação de extravio tem tipo próprio de movimentação
+  (`Recuperação de Extravio`), separado de `Transferência entre Unidades` —
+  antes os dois compartilhavam o mesmo tipo, o que deixava o histórico
+  ambíguo.
+- **Não se transfere ativo emprestado** entre unidades — ver
+  `docs/business-rules/unidades.md`.
 - Falha ao enviar a notificação de confirmação de empréstimo nunca impede o
   empréstimo em si — a notificação é best-effort (ver
   `docs/business-rules/notificacoes.md`).
+- Todo o fluxo (busca de beneficiário, busca de ativo, devolução) respeita o
+  escopo de unidade do usuário: o wizard não oferece ativo de unidade que ele
+  não opera, e a busca da devolução não o encontra.
 
 ## Impactos em outros módulos
 

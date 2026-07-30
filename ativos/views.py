@@ -16,21 +16,35 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ativos import services
-from ativos.domain.acoes import NIVEL_GESTOR, acoes_disponiveis
+from ativos.domain.acoes import NIVEL_ADMIN, NIVEL_GESTOR, acoes_disponiveis
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
 from ativos.domain.exceptions import DominioAtivoError
+from ativos.etiquetas import montar_etiquetas
 from ativos.forms import (
     CHECKLIST_ITENS_DEVOLUCAO,
     CHECKLIST_ITENS_EMPRESTIMO,
     AtivoForm,
     DarBaixaForm,
+    EditarManutencaoForm,
     EnviarManutencaoForm,
+    FiltroEtiquetasForm,
+    JustificativaForm,
     ObservacaoForm,
     RenovarForm,
+    TransferirUnidadeForm,
 )
-from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo, FotoAtivo, Movimentacao
+from ativos.models import (
+    Ativo,
+    CategoriaAtivo,
+    DetalheEmprestimo,
+    FotoAtivo,
+    ImpressaoEtiqueta,
+    LayoutEtiqueta,
+    Movimentacao,
+)
 from ativos.patrimonio import gerar_codigo_patrimonial
 from ativos.selectors import (
+    anotar_impressoes,
     checklist_detalhado,
     cor_de,
     datas_previstas_por_ativo,
@@ -40,6 +54,7 @@ from ativos.selectors import (
 from beneficiarios.models import Beneficiario
 from core.decorators import nivel_hierarquico, tenant_required
 from core.models import Unidade
+from core.unidades import enxerga_todas_as_unidades, filtrar_por_unidade, unidades_visiveis
 
 TABS_FICHA = [
     ("informacoes", "Informações"),
@@ -52,14 +67,56 @@ TABS_FICHA = [
 ]
 
 
+def _ativos_no_escopo(request):
+    """
+    Ativos que o usuário logado pode ver: tenant corrente (via
+    `TenantManager`) **e** unidade permitida.
+
+    Todo acesso a Ativo nas views passa por aqui — é o que faz a permissão de
+    unidade (`Usuario.unidades`) valer de fato, e não só existir no modelo
+    (docs/business-rules/unidades.md). Admin/Owner recebem o queryset sem
+    filtro adicional.
+    """
+    return filtrar_por_unidade(Ativo.objects.all(), request.user)
+
+
+def _ativo_no_escopo(request, pk):
+    """
+    Como `get_object_or_404`, mas dentro do escopo de unidade do usuário.
+
+    Um ativo de outra unidade responde 404 — deliberadamente igual a "não
+    existe", e não 403: confirmar a existência já entregaria a informação que
+    o escopo existe para proteger (mesmo princípio de `resolver_qr`).
+    """
+    return get_object_or_404(
+        _ativos_no_escopo(request).select_related(
+            "categoria", "subcategoria", "unidade", "fornecedor"
+        ),
+        pk=pk,
+    )
+
+
+def _beneficiarios_no_escopo(request):
+    """
+    Beneficiários visíveis ao usuário: os da unidade dele **mais** os que não
+    têm unidade definida (visíveis a toda a organização — ver o comentário no
+    campo `Beneficiario.unidade`).
+    """
+    return filtrar_por_unidade(
+        Beneficiario.objects.all(), request.user, incluir_sem_unidade=True
+    )
+
+
 @tenant_required
 def lista(request):
     categoria_filtro = request.GET.get("categoria")
     busca = request.GET.get("q", "").strip()
 
+    escopo = _ativos_no_escopo(request)
+
     resumo_categorias = []
     for categoria in CategoriaAtivo.objects.all():
-        itens = Ativo.objects.filter(categoria=categoria)
+        itens = escopo.filter(categoria=categoria)
         resumo_categorias.append(
             {
                 "id": categoria.id,
@@ -70,7 +127,7 @@ def lista(request):
             }
         )
 
-    ativos_qs = Ativo.objects.select_related("categoria", "unidade").all()
+    ativos_qs = escopo.select_related("categoria", "unidade")
     if categoria_filtro:
         ativos_qs = ativos_qs.filter(categoria_id=categoria_filtro)
     if busca:
@@ -94,8 +151,24 @@ def lista(request):
             "ativos": ativos,
             "categoria_filtro": int(categoria_filtro) if categoria_filtro else None,
             "busca": busca,
+            "sem_unidade_atribuida": _sem_unidade_atribuida(request),
         },
     )
+
+
+def _sem_unidade_atribuida(request) -> bool:
+    """
+    Gestor/Funcionário sem nenhuma unidade atribuída não vê ativo algum —
+    comportamento correto (fail-closed), mas indistinguível de "a
+    organização não tem ativos" na tela.
+
+    As telas usam isto para explicar a diferença: sem esse aviso, o suporte
+    recebe "o sistema apagou meus ativos" quando o que houve foi um cadastro
+    de usuário incompleto.
+    """
+    if enxerga_todas_as_unidades(request.user):
+        return False
+    return not unidades_visiveis(request.user).exists()
 
 
 _FOTO_CAMPOS = [
@@ -117,8 +190,23 @@ def _salvar_fotos_cadastro(ativo, arquivos):
 def criar(request):
     if nivel_hierarquico(request) < NIVEL_GESTOR:
         raise PermissionDenied("Somente Gestor ou Admin podem cadastrar ativos.")
+
+    # Ativo sem unidade não existe mais (docs/business-rules/unidades.md), então
+    # sem nenhuma unidade disponível não há cadastro possível. Explicar isso
+    # aqui é melhor que renderizar um formulário cujo único campo obrigatório
+    # está vazio e não tem opção.
+    unidades_disponiveis = filtrar_por_unidade(
+        Unidade.objects.filter(ativo=True), request.user, campo="pk"
+    )
+    if not unidades_disponiveis.exists():
+        return render(
+            request,
+            "ativos/sem_unidade.html",
+            {"nav_atual": "ativos", "eh_admin": nivel_hierarquico(request) >= NIVEL_ADMIN},
+        )
+
     if request.method == "POST":
-        form = AtivoForm(request.POST)
+        form = AtivoForm(request.POST, usuario=request.user)
         if form.is_valid():
             ativo = form.save(commit=False)
             ativo.tenant = request.tenant
@@ -128,10 +216,13 @@ def criar(request):
                 ativo.patrimonio = gerar_codigo_patrimonial(ativo.categoria)
             ativo.save()
             _salvar_fotos_cadastro(ativo, request.FILES)
-            messages.success(request, f"Ativo {ativo.patrimonio} cadastrado com sucesso.")
+            messages.success(
+                request,
+                f"Ativo {ativo.patrimonio} cadastrado. A etiqueta dele já está na fila de impressão.",
+            )
             return redirect("app:ativos:ficha", pk=ativo.pk)
     else:
-        form = AtivoForm()
+        form = AtivoForm(usuario=request.user)
     return render(
         request,
         "ativos/form.html",
@@ -143,15 +234,15 @@ def criar(request):
 def editar(request, pk):
     if nivel_hierarquico(request) < NIVEL_GESTOR:
         raise PermissionDenied("Somente Gestor ou Admin podem editar ativos.")
-    ativo = get_object_or_404(Ativo, pk=pk)
+    ativo = _ativo_no_escopo(request, pk)
     if request.method == "POST":
-        form = AtivoForm(request.POST, instance=ativo)
+        form = AtivoForm(request.POST, instance=ativo, usuario=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Ativo atualizado.")
             return redirect("app:ativos:ficha", pk=ativo.pk)
     else:
-        form = AtivoForm(instance=ativo)
+        form = AtivoForm(instance=ativo, usuario=request.user)
     return render(
         request,
         "ativos/form.html",
@@ -161,9 +252,7 @@ def editar(request, pk):
 
 @tenant_required
 def ficha(request, pk):
-    ativo = get_object_or_404(
-        Ativo.objects.select_related("categoria", "subcategoria", "unidade", "fornecedor"), pk=pk
-    )
+    ativo = _ativo_no_escopo(request, pk)
     contexto_emprestimo = datas_previstas_por_ativo([ativo.id]).get(ativo.id)
     ativo.cor_operacional = cor_de(ativo, contexto_emprestimo).value
 
@@ -201,6 +290,13 @@ def ficha(request, pk):
         contexto["manutencoes"] = ativo.movimentacoes.filter(
             tipo=TipoMovimentacao.MANUTENCAO.value
         ).select_related("detalhe_manutencao")
+    if aba == "qrcode":
+        # "Última impressão"/"Quantidade de impressões"/"Reimprimir" na ficha
+        # do ativo (docs/business-rules/etiquetas.md).
+        contexto["impressoes"] = ativo.impressoes.select_related("usuario")[:10]
+        contexto["total_impressoes"] = ativo.total_impressoes
+        contexto["ultima_impressao"] = ativo.ultima_impressao
+        contexto["layouts_etiqueta"] = LayoutEtiqueta.choices
 
     return render(request, "ativos/ficha.html", contexto)
 
@@ -225,12 +321,18 @@ def resolver_qr(request, token):
     """
     Modo "Operação por QR Code" — docs/PLANO_DOMINIO_ATIVOS.md §3.4.
 
-    Se o token não pertence ao tenant corrente (ou não existe), a resposta
-    é idêntica ("não encontrado") — nunca revelamos que o ativo existe em
-    outro tenant (defesa em profundidade, mesmo princípio de
+    Se o token não pertence ao tenant corrente, a uma unidade que o usuário
+    pode operar, ou simplesmente não existe, a resposta é idêntica ("não
+    encontrado") — nunca revelamos que o ativo existe fora do escopo de quem
+    leu a etiqueta (defesa em profundidade, mesmo princípio de
     docs/PLANO_DOMINIO_ATIVOS.md §3.2).
     """
-    ativo = Ativo.objects.select_related("categoria", "unidade").filter(qr_token=token).first()
+    ativo = (
+        _ativos_no_escopo(request)
+        .select_related("categoria", "unidade")
+        .filter(qr_token=token)
+        .first()
+    )
     if ativo is None:
         return render(request, "ativos/quick_panel_nao_encontrado.html", {"nav_atual": "scan"}, status=404)
 
@@ -253,9 +355,11 @@ def scan(request):
     """
     if request.method == "POST":
         codigo = request.POST.get("codigo", "").strip()
-        ativo = Ativo.objects.filter(qr_token=codigo).first() or Ativo.objects.filter(
-            patrimonio__iexact=codigo
-        ).first()
+        escopo = _ativos_no_escopo(request)
+        ativo = (
+            escopo.filter(qr_token=codigo).first()
+            or escopo.filter(patrimonio__iexact=codigo).first()
+        )
         if ativo is None:
             messages.error(request, "Nenhum ativo encontrado para esse código.")
             return redirect("app:ativos:scan")
@@ -273,10 +377,17 @@ ACOES_SIMPLES = {
 
 ACOES_COM_FORM = {
     "enviar_manutencao": EnviarManutencaoForm,
+    "editar_manutencao": EditarManutencaoForm,
     "dar_baixa": DarBaixaForm,
     "renovar": RenovarForm,
     "registrar_recuperacao": ObservacaoForm,
+    "registrar_extravio": JustificativaForm,
+    "transferir": TransferirUnidadeForm,
 }
+
+#: Ações cujo formulário precisa conhecer o ativo para montar as opções
+#: (hoje: transferir, que exclui a unidade atual da lista de destinos).
+_ACOES_FORM_COM_ATIVO = {"transferir"}
 
 
 def _url_redirecionamento(codigo, ativo):
@@ -284,7 +395,20 @@ def _url_redirecionamento(codigo, ativo):
         return f"{reverse('app:ativos:wizard_emprestimo')}?ativo={ativo.pk}"
     if codigo == "receber_devolucao":
         return f"{reverse('app:ativos:devolucao')}?q={ativo.patrimonio}"
+    if codigo == "imprimir_etiqueta":
+        return f"{reverse('app:ativos:etiquetas_centro')}?ativo={ativo.pk}"
     return None
+
+
+def _initial_da_acao(codigo, ativo):
+    """Pré-preenche o formulário quando a ação é uma CORREÇÃO, não um registro novo."""
+    if codigo != "editar_manutencao":
+        return None
+    movimentacao = Movimentacao.objects.mais_recente_do_tipo(ativo, TipoMovimentacao.MANUTENCAO)
+    detalhe = getattr(movimentacao, "detalhe_manutencao", None) if movimentacao else None
+    if detalhe is None:
+        return None
+    return {"motivo": detalhe.motivo, "fornecedor": detalhe.fornecedor_id, "valor": detalhe.valor}
 
 
 _ACOES_LINK_DIRETO = {
@@ -335,12 +459,25 @@ def _executar_acao_com_form(codigo, ativo, usuario, dados):
         services.enviar_manutencao(
             ativo, usuario, motivo=dados["motivo"], fornecedor=dados.get("fornecedor"), valor=dados.get("valor")
         )
+    elif codigo == "editar_manutencao":
+        services.editar_manutencao(
+            ativo, usuario, motivo=dados["motivo"], fornecedor=dados.get("fornecedor"), valor=dados.get("valor")
+        )
     elif codigo == "dar_baixa":
         services.dar_baixa(ativo, usuario, motivo=dados["motivo"])
     elif codigo == "renovar":
         services.renovar(ativo, usuario, novo_prazo_dias=dados["novo_prazo_dias"])
     elif codigo == "registrar_recuperacao":
         services.registrar_recuperacao(ativo, usuario, observacoes=dados.get("observacoes", ""))
+    elif codigo == "registrar_extravio":
+        services.registrar_extravio(ativo, usuario, observacoes=dados["observacoes"])
+    elif codigo == "transferir":
+        services.transferir(
+            ativo,
+            usuario,
+            unidade_destino=dados["unidade_destino"],
+            observacoes=dados["observacoes"],
+        )
 
 
 def _redirecionar_pos_acao(ativo, origem):
@@ -360,7 +497,7 @@ def executar_acao(request, pk, codigo):
     tela: a ficha, o painel de QR Code e (futuramente) a API chamam
     exatamente esta mesma verificação.
     """
-    ativo = get_object_or_404(Ativo, pk=pk)
+    ativo = _ativo_no_escopo(request, pk)
     acoes_permitidas = {
         a.codigo: a for a in acoes_disponiveis(ativo.status_enum, nivel_hierarquico=nivel_hierarquico(request))
     }
@@ -376,8 +513,9 @@ def executar_acao(request, pk, codigo):
 
     if codigo in ACOES_COM_FORM:
         FormClass = ACOES_COM_FORM[codigo]
+        extra = {"ativo": ativo} if codigo in _ACOES_FORM_COM_ATIVO else {}
         if request.method == "POST":
-            form = FormClass(request.POST)
+            form = FormClass(request.POST, **extra)
             if form.is_valid():
                 try:
                     _executar_acao_com_form(codigo, ativo, request.user, form.cleaned_data)
@@ -387,7 +525,7 @@ def executar_acao(request, pk, codigo):
                     messages.success(request, "Ação registrada com sucesso.")
                 return _redirecionar_pos_acao(ativo, origem)
         else:
-            form = FormClass()
+            form = FormClass(initial=_initial_da_acao(codigo, ativo), **extra)
         return render(
             request,
             "ativos/acao_form.html",
@@ -461,8 +599,8 @@ def wizard_emprestimo(request):
         elif acao == "definir_prazo":
             wizard["prazo_dias"] = int(request.POST["prazo_dias"])
         elif acao == "confirmar":
-            beneficiario = get_object_or_404(Beneficiario, pk=wizard["beneficiario_id"])
-            ativo = get_object_or_404(Ativo, pk=wizard["ativo_id"])
+            beneficiario = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
+            ativo = _ativo_no_escopo(request, wizard["ativo_id"])
             checklist = {
                 chave: (f"checklist_{chave}" in request.POST) for chave, _ in CHECKLIST_ITENS_EMPRESTIMO
             }
@@ -501,25 +639,25 @@ def wizard_emprestimo(request):
         busca = request.GET.get("q", "")
         contexto["busca"] = busca
         contexto["resultados"] = (
-            Beneficiario.objects.filter(Q(nome__icontains=busca) | Q(cpf__icontains=busca))[:15]
+            _beneficiarios_no_escopo(request).filter(Q(nome__icontains=busca) | Q(cpf__icontains=busca))[:15]
             if busca
             else []
         )
     elif passo == 2:
-        contexto["beneficiario"] = get_object_or_404(Beneficiario, pk=wizard["beneficiario_id"])
+        contexto["beneficiario"] = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
         busca = request.GET.get("q", "")
         contexto["busca"] = busca
-        qs = Ativo.objects.filter(status=StatusAtivo.DISPONIVEL.value).select_related("categoria")
+        qs = _ativos_no_escopo(request).filter(status=StatusAtivo.DISPONIVEL.value).select_related("categoria")
         if busca:
             qs = qs.filter(Q(patrimonio__icontains=busca) | Q(categoria__nome__icontains=busca))
         contexto["resultados"] = qs[:15]
         contexto["ativo_sugerido_id"] = wizard.get("ativo_id_sugerido")
     elif passo == 3:
-        contexto["ativo"] = get_object_or_404(Ativo, pk=wizard["ativo_id"])
-        contexto["beneficiario"] = get_object_or_404(Beneficiario, pk=wizard["beneficiario_id"])
+        contexto["ativo"] = _ativo_no_escopo(request, wizard["ativo_id"])
+        contexto["beneficiario"] = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
     elif passo == 4:
-        contexto["ativo"] = get_object_or_404(Ativo, pk=wizard["ativo_id"])
-        contexto["beneficiario"] = get_object_or_404(Beneficiario, pk=wizard["beneficiario_id"])
+        contexto["ativo"] = _ativo_no_escopo(request, wizard["ativo_id"])
+        contexto["beneficiario"] = get_object_or_404(_beneficiarios_no_escopo(request), pk=wizard["beneficiario_id"])
         contexto["prazo_dias"] = wizard.get("prazo_dias")
         contexto["checklist_itens"] = CHECKLIST_ITENS_EMPRESTIMO
 
@@ -534,13 +672,16 @@ def devolucao(request):
     dias_em_posse = None
 
     if busca:
-        ativo = Ativo.objects.filter(
+        escopo = _ativos_no_escopo(request)
+        ativo = escopo.filter(
             Q(patrimonio__iexact=busca) | Q(qr_token=busca), status=StatusAtivo.EMPRESTADO.value
         ).first()
         if ativo is None:
             mov = (
                 Movimentacao.objects.filter(
-                    tipo=TipoMovimentacao.EMPRESTIMO.value, ativo__status=StatusAtivo.EMPRESTADO.value
+                    tipo=TipoMovimentacao.EMPRESTIMO.value,
+                    ativo__status=StatusAtivo.EMPRESTADO.value,
+                    ativo__in=escopo,
                 )
                 .filter(
                     Q(detalhe_emprestimo__beneficiario__nome__icontains=busca)
@@ -559,7 +700,7 @@ def devolucao(request):
                 dias_em_posse = (timezone.now().date() - mov.data_hora.date()).days
 
     if request.method == "POST" and request.POST.get("destino"):
-        ativo_confirmado = get_object_or_404(Ativo, pk=request.POST.get("ativo_id"))
+        ativo_confirmado = _ativo_no_escopo(request, request.POST.get("ativo_id"))
         try:
             destino = StatusAtivo(request.POST["destino"])
         except ValueError:
@@ -608,7 +749,7 @@ def devolucao(request):
 
 @tenant_required
 def qrcode_imagem(request, pk):
-    ativo = get_object_or_404(Ativo, pk=pk)
+    ativo = _ativo_no_escopo(request, pk)
     url = request.build_absolute_uri(reverse("app:ativos:resolver_qr", args=[ativo.qr_token]))
     imagem = qrcode.make(url)
     buffer = io.BytesIO()
@@ -626,7 +767,8 @@ def agenda(request):
     """
     hoje = timezone.now().date()
     detalhes = DetalheEmprestimo.objects.filter(
-        movimentacao__ativo__status=StatusAtivo.EMPRESTADO.value
+        movimentacao__ativo__status=StatusAtivo.EMPRESTADO.value,
+        movimentacao__ativo__in=_ativos_no_escopo(request),
     ).select_related("movimentacao__ativo", "movimentacao__ativo__categoria", "beneficiario")
 
     hoje_lista, proximos, atrasados = [], [], []
@@ -661,7 +803,7 @@ def mapa(request):
     bairro = request.GET.get("bairro", "").strip()
     busca = request.GET.get("q", "").strip()
 
-    ativos_qs = Ativo.objects.all()
+    ativos_qs = _ativos_no_escopo(request)
     if categoria_id:
         ativos_qs = ativos_qs.filter(categoria_id=categoria_id)
     if status_filtro:
@@ -677,7 +819,9 @@ def mapa(request):
 
     dados = mapa_operacional(ativos_qs)
 
-    resultado_busca = resolver_busca_patrimonio(busca) if busca else None
+    resultado_busca = (
+        resolver_busca_patrimonio(busca, ativos_qs=_ativos_no_escopo(request)) if busca else None
+    )
 
     return render(
         request,
@@ -687,7 +831,7 @@ def mapa(request):
             "por_unidade": dados["por_unidade"],
             "por_bairro": dados["por_bairro"],
             "categorias": CategoriaAtivo.objects.all(),
-            "unidades": Unidade.objects.all(),
+            "unidades": unidades_visiveis(request.user).order_by("nome"),
             "status_opcoes": list(StatusAtivo),
             "categoria_id": categoria_id,
             "status_filtro": status_filtro,
@@ -702,8 +846,150 @@ def mapa(request):
 @tenant_required
 def manutencao_lista(request):
     itens = []
-    for ativo in Ativo.objects.filter(status=StatusAtivo.MANUTENCAO.value).select_related("categoria"):
+    for ativo in _ativos_no_escopo(request).filter(
+        status=StatusAtivo.MANUTENCAO.value
+    ).select_related("categoria"):
         mov = Movimentacao.objects.mais_recente_do_tipo(ativo, TipoMovimentacao.MANUTENCAO)
         detalhe = getattr(mov, "detalhe_manutencao", None) if mov is not None else None
         itens.append({"ativo": ativo, "movimentacao": mov, "detalhe": detalhe})
     return render(request, "ativos/manutencao_lista.html", {"nav_atual": "manutencao", "itens": itens})
+
+
+# ------------------------------------------------ Centro de Etiquetas ----
+# docs/business-rules/etiquetas.md
+
+
+@tenant_required
+def etiquetas_centro(request):
+    """
+    Centro de Etiquetas: filtra o acervo, seleciona os ativos e gera a folha
+    de etiquetas para impressão.
+
+    O parâmetro `?ativo=<pk>` vem da ação "Imprimir Etiqueta" da ficha/painel
+    de QR — abre a tela já com aquele ativo pré-marcado, em vez de obrigar o
+    operador a caçá-lo numa lista de centenas.
+    """
+    form = FiltroEtiquetasForm(request.GET or None, usuario=request.user)
+    ativos_qs = anotar_impressoes(_ativos_no_escopo(request)).select_related(
+        "categoria", "unidade"
+    )
+
+    if form.is_valid():
+        dados = form.cleaned_data
+        if dados.get("categoria"):
+            ativos_qs = ativos_qs.filter(categoria=dados["categoria"])
+        if dados.get("unidade"):
+            ativos_qs = ativos_qs.filter(unidade=dados["unidade"])
+        if dados.get("status"):
+            ativos_qs = ativos_qs.filter(status=dados["status"])
+        if dados.get("somente_sem_etiqueta"):
+            ativos_qs = ativos_qs.filter(impressoes__isnull=True)
+
+    # Etiqueta de ativo baixado não é impressa (ver ativos/domain/acoes.py):
+    # o ativo saiu do patrimônio, uma etiqueta nova só confundiria o
+    # inventário. Fica fora da lista mesmo sem filtro de status.
+    ativos_qs = ativos_qs.exclude(status=StatusAtivo.BAIXADO.value)
+
+    ativo_pre_selecionado = request.GET.get("ativo")
+    total_na_fila = (
+        _ativos_no_escopo(request)
+        .filter(impressoes__isnull=True)
+        .exclude(status=StatusAtivo.BAIXADO.value)
+        .count()
+    )
+
+    return render(
+        request,
+        "ativos/etiquetas_centro.html",
+        {
+            "nav_atual": "etiquetas",
+            "form": form,
+            "ativos": ativos_qs.order_by("patrimonio")[:300],
+            "ativo_pre_selecionado": int(ativo_pre_selecionado) if ativo_pre_selecionado else None,
+            "total_na_fila": total_na_fila,
+            "sem_unidade_atribuida": _sem_unidade_atribuida(request),
+        },
+    )
+
+
+@tenant_required
+def etiquetas_folha(request):
+    """
+    Gera a folha de etiquetas (HTML pronto para impressão) e registra o
+    histórico de impressão.
+
+    Exige POST porque produz efeito colateral (grava `ImpressaoEtiqueta`) —
+    um GET tornaria o registro acionável por pré-visualização de link,
+    inflando o histórico com impressões que nunca aconteceram.
+
+    A conversão para PDF é feita pela caixa de impressão do navegador
+    ("Salvar como PDF") — ver a justificativa em ativos/etiquetas.py.
+    """
+    if request.method != "POST":
+        raise PermissionDenied("A geração de etiquetas exige confirmação (POST).")
+
+    layout = request.POST.get("layout") or LayoutEtiqueta.MEDIO
+    if layout not in LayoutEtiqueta.values:
+        messages.error(request, "Tamanho de etiqueta inválido.")
+        return redirect("app:ativos:etiquetas_centro")
+
+    ids = request.POST.getlist("ativos")
+    ativos = list(
+        _ativos_no_escopo(request)
+        .filter(pk__in=ids)
+        .exclude(status=StatusAtivo.BAIXADO.value)
+        .select_related("categoria")
+        .order_by("patrimonio")
+    )
+    if not ativos:
+        messages.error(request, "Selecione ao menos um ativo para imprimir.")
+        return redirect("app:ativos:etiquetas_centro")
+
+    def url_de(ativo):
+        return request.build_absolute_uri(
+            reverse("app:ativos:resolver_qr", args=[ativo.qr_token])
+        )
+
+    etiquetas = montar_etiquetas(
+        ativos, url_de=url_de, instituicao=request.tenant.nome, layout=layout
+    )
+    services.registrar_impressao_etiquetas(ativos, usuario=request.user, layout=layout)
+
+    return render(
+        request,
+        "ativos/etiquetas_folha.html",
+        {"etiquetas": etiquetas, "layout": layout, "total": len(etiquetas)},
+    )
+
+
+@tenant_required
+def etiquetas_historico(request):
+    """
+    Histórico de impressão, agrupado por lote — "40 etiquetas médias em
+    12/03, por João" em vez de 40 linhas soltas.
+    """
+    registros = (
+        ImpressaoEtiqueta.objects.filter(ativo__in=_ativos_no_escopo(request))
+        .select_related("usuario", "ativo")
+        .order_by("-impresso_em")[:500]
+    )
+
+    lotes = {}
+    for registro in registros:
+        bucket = lotes.setdefault(
+            registro.lote,
+            {
+                "lote": registro.lote,
+                "impresso_em": registro.impresso_em,
+                "usuario": registro.usuario,
+                "layout": registro.get_layout_display(),
+                "ativos": [],
+            },
+        )
+        bucket["ativos"].append(registro.ativo)
+
+    return render(
+        request,
+        "ativos/etiquetas_historico.html",
+        {"nav_atual": "etiquetas", "lotes": list(lotes.values())},
+    )

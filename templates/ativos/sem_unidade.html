@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Cadastrar ativo · Ciclartech{% endblock %}
+{% block page_title %}Cadastrar ativo{% endblock %}
+{% block content %}
+<div class="card" style="border-left:3px solid var(--cor-amarelo);">
+  <div style="font-size:14px;font-weight:600;">É preciso ter uma unidade antes de cadastrar ativos</div>
+  <div style="font-size:13px;color:var(--text-faint);margin-top:8px;line-height:1.5;">
+    Todo ativo pertence obrigatoriamente a uma unidade responsável — é o que permite
+    saber onde cada equipamento está e controlar quem pode operá-lo.
+    {% if eh_admin %}
+      Cadastre a primeira unidade para começar. Se a organização tem um só endereço,
+      uma única unidade já resolve.
+    {% else %}
+      Nenhuma unidade está atribuída ao seu acesso. Peça ao administrador da sua
+      organização para atribuir ao menos uma unidade ao seu usuário.
+    {% endif %}
+  </div>
+  {% if eh_admin %}
+    <div style="margin-top:14px;">
+      <a class="btn btn-primary" href="{% url 'app:unidades:criar' %}">Cadastrar unidade</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

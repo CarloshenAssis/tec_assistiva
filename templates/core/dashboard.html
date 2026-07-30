@@ -51,6 +51,28 @@
     </div>
   </div>
 
+  {% if por_unidade %}
+    {# Visão por unidade — só aparece para quem enxerga mais de uma unidade #}
+    {# (docs/business-rules/dashboard.md). #}
+    <div class="card">
+      <div class="card-title">Por unidade</div>
+      <div class="table">
+        <div class="table-head" style="grid-template-columns:1.4fr 80px 100px 110px 100px;">
+          <div>Unidade</div><div>Total</div><div>Disponíveis</div><div>Emprestados</div><div>Manutenção</div>
+        </div>
+        {% for linha in por_unidade %}
+          <div class="table-row" style="grid-template-columns:1.4fr 80px 100px 110px 100px;">
+            <div style="font-size:13px;font-weight:600;">{{ linha.nome }}</div>
+            <div style="font-size:13px;">{{ linha.total }}</div>
+            <div style="font-size:13px;">{{ linha.disponivel }}</div>
+            <div style="font-size:13px;">{{ linha.emprestado }}</div>
+            <div style="font-size:13px;">{{ linha.manutencao }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <div class="card">
     <div class="card-title">Movimentações recentes</div>
     {% for m in movimentacoes_recentes %}

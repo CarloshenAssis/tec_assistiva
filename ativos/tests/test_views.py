@@ -9,7 +9,7 @@ from django.urls import reverse
 from ativos.models import Ativo, CategoriaAtivo
 from beneficiarios.models import Beneficiario
 from contas.models import Papel, Usuario
-from core.models import Tenant
+from core.models import Tenant, Unidade
 
 
 class BaseViewTest(TestCase):
@@ -34,16 +34,29 @@ class BaseViewTest(TestCase):
         self.categoria_a = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant_a, nome="Cadeira de Rodas"
         )
+        # Unidade é obrigatória no Ativo, e Gestor/Funcionário só enxergam as
+        # unidades atribuídas a eles (docs/business-rules/unidades.md).
+        self.unidade_a = Unidade.objects.all_tenants().create(tenant=self.tenant_a, nome="Sede A")
+        self.gestor_a.unidades.add(self.unidade_a)
+        self.funcionario_a.unidades.add(self.unidade_a)
         self.ativo_a = Ativo.objects.all_tenants().create(
-            tenant=self.tenant_a, patrimonio="CAD-0001", categoria=self.categoria_a
+            tenant=self.tenant_a,
+            patrimonio="CAD-0001",
+            categoria=self.categoria_a,
+            unidade=self.unidade_a,
         )
         self.beneficiario_a = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant_a, nome="Maria Silva", cpf="123.456.789-09"
         )
 
         categoria_b = CategoriaAtivo.objects.all_tenants().create(tenant=self.tenant_b, nome="Muletas")
+        self.unidade_b = Unidade.objects.all_tenants().create(tenant=self.tenant_b, nome="Sede B")
+        self.gestor_b.unidades.add(self.unidade_b)
         self.ativo_b = Ativo.objects.all_tenants().create(
-            tenant=self.tenant_b, patrimonio="MUL-0001", categoria=categoria_b
+            tenant=self.tenant_b,
+            patrimonio="MUL-0001",
+            categoria=categoria_b,
+            unidade=self.unidade_b,
         )
 
 
@@ -93,7 +106,11 @@ class RBACNasViewsTest(BaseViewTest):
         self.client.login(username="gestor_a", password="senha-teste-123")
         response = self.client.post(
             reverse("app:ativos:criar"),
-            {"patrimonio": "CAD-9999", "categoria": self.categoria_a.pk},
+            {
+                "patrimonio": "CAD-9999",
+                "categoria": self.categoria_a.pk,
+                "unidade": self.unidade_a.pk,
+            },
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Ativo.objects.all_tenants().filter(tenant=self.tenant_a, patrimonio="CAD-9999").exists())

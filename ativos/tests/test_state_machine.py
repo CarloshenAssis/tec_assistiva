@@ -60,7 +60,35 @@ class TransicoesValidasTest(SimpleTestCase):
         self.assertEqual(transicionar(S.EMPRESTADO, T.EXTRAVIO), S.EXTRAVIADO)
 
     def test_extraviado_recuperado_volta_disponivel(self):
-        self.assertEqual(transicionar(S.EXTRAVIADO, T.TRANSFERENCIA), S.DISPONIVEL)
+        # Tipo próprio (`recuperacao`), separado de `transferencia`, que agora
+        # significa mudança de unidade responsável.
+        self.assertEqual(transicionar(S.EXTRAVIADO, T.RECUPERACAO), S.DISPONIVEL)
+
+    def test_disponivel_pode_ser_dado_por_extraviado(self):
+        """Inventário que não encontra o item na prateleira — não precisa estar emprestado."""
+        self.assertEqual(transicionar(S.DISPONIVEL, T.EXTRAVIO), S.EXTRAVIADO)
+
+    def test_transferencia_preserva_o_estado_operacional(self):
+        """Mudar de unidade não muda o que se pode fazer com o ativo."""
+        for estado in (S.DISPONIVEL, S.RESERVADO, S.MANUTENCAO, S.HIGIENIZACAO):
+            self.assertEqual(transicionar(estado, T.TRANSFERENCIA), estado)
+
+
+class TransferenciaEntreUnidadesTest(SimpleTestCase):
+    """docs/business-rules/unidades.md — quais estados permitem transferir."""
+
+    def test_nao_transfere_ativo_emprestado(self):
+        """
+        O ativo está com o beneficiário: trocar a unidade responsável no meio do
+        empréstimo tornaria ambíguo quem responde pela devolução.
+        """
+        with self.assertRaises(TransicaoInvalidaError):
+            transicionar(S.EMPRESTADO, T.TRANSFERENCIA)
+
+    def test_nao_transfere_ativo_baixado_ou_extraviado(self):
+        for estado in (S.BAIXADO, S.EXTRAVIADO, S.INATIVO):
+            with self.assertRaises(TransicaoInvalidaError):
+                transicionar(estado, T.TRANSFERENCIA)
 
 
 class TransicoesInvalidasTest(SimpleTestCase):

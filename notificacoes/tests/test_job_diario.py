@@ -7,7 +7,7 @@ from django.utils import timezone
 from ativos import services
 from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo
 from beneficiarios.models import Beneficiario
-from core.models import Tenant
+from core.models import Tenant, Unidade
 from core.tenancy import reset_current_tenant_id, set_current_tenant_id
 from notificacoes.models import NotificacaoEnviada, NotificacaoTemplate
 
@@ -28,12 +28,18 @@ class JobDiarioNotificacoesTest(TestCase):
             )
 
         self.categoria = CategoriaAtivo.objects.all_tenants().create(tenant=self.tenant, nome="Cadeira de Rodas")
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
         self.beneficiario = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09", whatsapp="(12) 99999-0000"
         )
 
     def _emprestar_com_prazo(self, patrimonio, dias_ate_vencer):
-        ativo = Ativo.objects.all_tenants().create(tenant=self.tenant, patrimonio=patrimonio, categoria=self.categoria)
+        ativo = Ativo.objects.all_tenants().create(
+            tenant=self.tenant,
+            patrimonio=patrimonio,
+            categoria=self.categoria,
+            unidade=self.unidade,
+        )
         services.emprestar(ativo, self.beneficiario, usuario=None, prazo_dias=30)
         detalhe = DetalheEmprestimo.objects.get(movimentacao__ativo=ativo)
         detalhe.data_prevista_devolucao = timezone.now().date() + timedelta(days=dias_ate_vencer)

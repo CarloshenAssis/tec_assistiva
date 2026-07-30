@@ -17,12 +17,24 @@ from ativos.domain.exceptions import DestinoObrigatorioError, TransicaoInvalidaE
 S = StatusAtivo
 T = TipoMovimentacao
 
+#: Estados a partir dos quais transferir o ativo de unidade é permitido.
+#:
+#: São os estados em que o ativo está sob controle direto da organização.
+#: `EMPRESTADO` fica de fora de propósito: o ativo está fisicamente com o
+#: beneficiário, e trocar a unidade responsável no meio do empréstimo
+#: tornaria ambíguo quem responde pela devolução. `BAIXADO`, `INATIVO` e
+#: `EXTRAVIADO` também ficam de fora — não há o que transferir.
+_ESTADOS_TRANSFERIVEIS = {S.DISPONIVEL, S.RESERVADO, S.MANUTENCAO, S.HIGIENIZACAO}
+
 # Transições "simples": (status_atual, tipo) -> status_novo, sem ambiguidade de destino.
 _TRANSICOES_SIMPLES = {
     (S.DISPONIVEL, T.EMPRESTIMO): S.EMPRESTADO,
     (S.DISPONIVEL, T.RESERVA): S.RESERVADO,
     (S.DISPONIVEL, T.MANUTENCAO): S.MANUTENCAO,
     (S.DISPONIVEL, T.BAIXA): S.BAIXADO,
+    # Um ativo pode ser dado por extraviado sem estar emprestado — é o caso
+    # do inventário que não encontra o item na prateleira.
+    (S.DISPONIVEL, T.EXTRAVIO): S.EXTRAVIADO,
     (S.RESERVADO, T.EMPRESTIMO): S.EMPRESTADO,
     (S.RESERVADO, T.RESERVA): S.DISPONIVEL,  # cancelamento da reserva
     (S.EMPRESTADO, T.RENOVACAO): S.EMPRESTADO,  # não muda o status, mas é registrado
@@ -30,7 +42,11 @@ _TRANSICOES_SIMPLES = {
     (S.HIGIENIZACAO, T.HIGIENIZACAO): S.DISPONIVEL,  # conclusão da higienização
     (S.MANUTENCAO, T.RETORNO_MANUTENCAO): S.DISPONIVEL,
     (S.MANUTENCAO, T.BAIXA): S.BAIXADO,
-    (S.EXTRAVIADO, T.TRANSFERENCIA): S.DISPONIVEL,  # recuperação de ativo extraviado
+    (S.EXTRAVIADO, T.RECUPERACAO): S.DISPONIVEL,  # extraviado que foi encontrado
+    # Transferência entre unidades NÃO muda o estado operacional do ativo —
+    # muda a unidade responsável (registrada na própria Movimentacao). Por
+    # isso cada estado transferível mapeia para si mesmo.
+    **{(estado, T.TRANSFERENCIA): estado for estado in _ESTADOS_TRANSFERIVEIS},
 }
 
 # Transições em que o destino varia por decisão do operador no momento do evento.
@@ -89,6 +105,10 @@ def pode_transicionar(
 
 def pode_inativar(status_atual: StatusAtivo) -> bool:
     return status_atual in _ESTADOS_INATIVAVEIS
+
+
+def pode_transferir(status_atual: StatusAtivo) -> bool:
+    return status_atual in _ESTADOS_TRANSFERIVEIS
 
 
 def eh_estado_terminal(status_atual: StatusAtivo) -> bool:

@@ -13,7 +13,7 @@ from django.urls import reverse
 from ativos.models import Ativo, CategoriaAtivo
 from ativos.patrimonio import gerar_codigo_patrimonial
 from contas.models import Papel, Usuario
-from core.models import Tenant
+from core.models import Tenant, Unidade
 
 SENHA = "senha-bem-longa-2026"
 
@@ -21,6 +21,13 @@ SENHA = "senha-bem-longa-2026"
 class GerarCodigoPatrimonialTest(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(nome="Prefeitura Patrimonio", slug="pref-patrim")
+        # Unidade é obrigatória no Ativo (docs/business-rules/unidades.md).
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
+
+    def _criar(self, categoria, patrimonio):
+        return Ativo.objects.all_tenants().create(
+            tenant=self.tenant, unidade=self.unidade, categoria=categoria, patrimonio=patrimonio
+        )
 
     def test_usa_prefixo_cadastrado_na_categoria(self):
         categoria = CategoriaAtivo.objects.all_tenants().create(
@@ -36,8 +43,8 @@ class GerarCodigoPatrimonialTest(TestCase):
         categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Andador", prefixo="AND"
         )
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=categoria, patrimonio="AND-000001")
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=categoria, patrimonio="AND-000005")
+        self._criar(categoria, "AND-000001")
+        self._criar(categoria, "AND-000005")
         self.assertEqual("AND-000006", gerar_codigo_patrimonial(categoria))
 
     def test_reaproveita_numero_apos_exclusao_do_ultimo_ativo(self):
@@ -53,10 +60,8 @@ class GerarCodigoPatrimonialTest(TestCase):
         categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Muletas Excluir", prefixo="MUX"
         )
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=categoria, patrimonio="MUX-000001")
-        ativo_2 = Ativo.objects.all_tenants().create(
-            tenant=self.tenant, categoria=categoria, patrimonio="MUX-000002"
-        )
+        self._criar(categoria, "MUX-000001")
+        ativo_2 = self._criar(categoria, "MUX-000002")
         ativo_2.delete()
         self.assertEqual("MUX-000002", gerar_codigo_patrimonial(categoria))
 
@@ -67,8 +72,8 @@ class GerarCodigoPatrimonialTest(TestCase):
         muleta = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Muleta Seq", prefixo="MUL"
         )
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=cadeira, patrimonio="CAD-000001")
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=cadeira, patrimonio="CAD-000002")
+        self._criar(cadeira, "CAD-000001")
+        self._criar(cadeira, "CAD-000002")
         self.assertEqual("MUL-000001", gerar_codigo_patrimonial(muleta))
 
     def test_codigo_personalizado_de_outra_categoria_nao_atrapalha_a_sequencia(self):
@@ -76,7 +81,7 @@ class GerarCodigoPatrimonialTest(TestCase):
         categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Cadeira Custom", prefixo="CAD"
         )
-        Ativo.objects.all_tenants().create(tenant=self.tenant, categoria=categoria, patrimonio="PMSJC-2548")
+        self._criar(categoria, "PMSJC-2548")
         self.assertEqual("CAD-000001", gerar_codigo_patrimonial(categoria))
 
 
@@ -85,6 +90,7 @@ class CriarAtivoComCodigoAutomaticoTest(TestCase):
 
     def setUp(self):
         self.tenant = Tenant.objects.create(nome="Prefeitura Ativo Patrim", slug="pref-ativo-patrim")
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
         self.gestor = Usuario.objects.create_user(
             username="gestor_patrim",
             password=SENHA,
@@ -94,12 +100,15 @@ class CriarAtivoComCodigoAutomaticoTest(TestCase):
         self.categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Cadeira de Rodas", prefixo="CAD"
         )
+        # Gestor precisa da unidade atribuída para operá-la — sem isso a view
+        # de cadastro nem oferece o formulário (docs/business-rules/unidades.md).
+        self.gestor.unidades.add(self.unidade)
 
     def test_deixar_patrimonio_em_branco_gera_o_codigo(self):
         self.client.login(username="gestor_patrim", password=SENHA)
         self.client.post(
             reverse("app:ativos:criar"),
-            {"patrimonio": "", "categoria": self.categoria.pk},
+            {"patrimonio": "", "categoria": self.categoria.pk, "unidade": self.unidade.pk},
         )
         ativo = Ativo.objects.all_tenants().filter(tenant=self.tenant, categoria=self.categoria).first()
         self.assertIsNotNone(ativo)
@@ -109,7 +118,7 @@ class CriarAtivoComCodigoAutomaticoTest(TestCase):
         self.client.login(username="gestor_patrim", password=SENHA)
         self.client.post(
             reverse("app:ativos:criar"),
-            {"patrimonio": "PMSJC-2548", "categoria": self.categoria.pk},
+            {"patrimonio": "PMSJC-2548", "categoria": self.categoria.pk, "unidade": self.unidade.pk},
         )
         self.assertTrue(
             Ativo.objects.all_tenants().filter(tenant=self.tenant, patrimonio="PMSJC-2548").exists()
@@ -117,12 +126,12 @@ class CriarAtivoComCodigoAutomaticoTest(TestCase):
 
     def test_codigo_personalizado_duplicado_e_erro_de_formulario_nao_500(self):
         Ativo.objects.all_tenants().create(
-            tenant=self.tenant, categoria=self.categoria, patrimonio="PMSJC-9999"
+            tenant=self.tenant, unidade=self.unidade, categoria=self.categoria, patrimonio="PMSJC-9999"
         )
         self.client.login(username="gestor_patrim", password=SENHA)
         resposta = self.client.post(
             reverse("app:ativos:criar"),
-            {"patrimonio": "PMSJC-9999", "categoria": self.categoria.pk},
+            {"patrimonio": "PMSJC-9999", "categoria": self.categoria.pk, "unidade": self.unidade.pk},
         )
         self.assertEqual(200, resposta.status_code)
         self.assertEqual(
@@ -133,10 +142,12 @@ class CriarAtivoComCodigoAutomaticoTest(TestCase):
     def test_cada_ativo_cadastrado_sem_codigo_recebe_o_proximo_numero(self):
         self.client.login(username="gestor_patrim", password=SENHA)
         self.client.post(
-            reverse("app:ativos:criar"), {"patrimonio": "", "categoria": self.categoria.pk}
+            reverse("app:ativos:criar"),
+            {"patrimonio": "", "categoria": self.categoria.pk, "unidade": self.unidade.pk},
         )
         self.client.post(
-            reverse("app:ativos:criar"), {"patrimonio": "", "categoria": self.categoria.pk}
+            reverse("app:ativos:criar"),
+            {"patrimonio": "", "categoria": self.categoria.pk, "unidade": self.unidade.pk},
         )
         codigos = set(
             Ativo.objects.all_tenants()

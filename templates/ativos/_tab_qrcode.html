@@ -4,3 +4,56 @@
   <div class="faint" style="font-size:11.5px;">{{ ativo.qr_token }}</div>
   <a class="btn btn-secondary mt-2" href="{% url 'app:ativos:qrcode_imagem' ativo.pk %}" download="qrcode-{{ ativo.patrimonio }}.png">⭳ Baixar etiqueta (PNG)</a>
 </div>
+
+{# Etiqueta patrimonial — docs/business-rules/etiquetas.md #}
+<div style="border-top:1px solid var(--card-border);padding-top:16px;">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Etiqueta patrimonial</div>
+
+  <div class="grid-2" style="gap:12px;margin-bottom:14px;">
+    <div>
+      <div class="faint" style="font-size:11.5px;">Última impressão</div>
+      <div style="font-size:13px;">
+        {% if ultima_impressao %}
+          {{ ultima_impressao|date:"d/m/Y H:i" }}
+        {% else %}
+          <span class="badge badge-cor-azul">Nunca impressa — está na fila</span>
+        {% endif %}
+      </div>
+    </div>
+    <div>
+      <div class="faint" style="font-size:11.5px;">Quantidade de impressões</div>
+      <div style="font-size:13px;">{{ total_impressoes }}</div>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'app:ativos:etiquetas_folha' %}" target="_blank"
+        style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+    {% csrf_token %}
+    <input type="hidden" name="ativos" value="{{ ativo.pk }}">
+    <label style="font-size:12.5px;">
+      Tamanho
+      <select name="layout">
+        {% for valor, rotulo in layouts_etiqueta %}
+          <option value="{{ valor }}" {% if valor == "medio" %}selected{% endif %}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">
+      {% if ultima_impressao %}Reimprimir etiqueta{% else %}Imprimir etiqueta{% endif %}
+    </button>
+    <a class="btn btn-ghost" href="{% url 'app:ativos:etiquetas_centro' %}">Centro de Etiquetas</a>
+  </form>
+
+  {% if impressoes %}
+    <div style="margin-top:16px;">
+      <div class="faint" style="font-size:11.5px;margin-bottom:6px;">Histórico deste ativo</div>
+      {% for impressao in impressoes %}
+        <div style="font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--card-border);">
+          {{ impressao.impresso_em|date:"d/m/Y H:i" }} ·
+          {{ impressao.get_layout_display }} ·
+          {{ impressao.usuario.get_username|default:"—" }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

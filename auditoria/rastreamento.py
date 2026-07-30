@@ -17,6 +17,7 @@ se isso mudar, o ponto de escrita em massa precisa registrar explicitamente.
 
 from __future__ import annotations
 
+from django.apps import apps as registro_global_de_apps
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
@@ -39,7 +40,31 @@ def _rotulo(sender) -> str:
     return f"{sender._meta.app_label}.{sender._meta.model_name}"
 
 
+def _eh_modelo_historico(sender) -> bool:
+    """
+    `True` para os models reconstruídos pelo executor de migrations
+    (`apps.get_model()` dentro de uma `RunPython`).
+
+    Auditar esses é ao mesmo tempo inútil e perigoso: inútil porque uma
+    migration não tem requisição nem usuário — o registro sairia anônimo e sem
+    contexto; perigoso porque a tabela de auditoria pode ainda não existir no
+    ponto do grafo em que a migration roda, e aí o INSERT derruba o `migrate`
+    inteiro. Isso torna a ordem do grafo de migrations uma dependência oculta
+    de qualquer data migration que crie registro — foi exatamente o que
+    aconteceu ao introduzir o backfill de unidade obrigatória em
+    `ativos/migrations/0005_*`.
+
+    A detecção compara o registro de apps do model com o registro global: o
+    executor de migrations monta os models históricos num `Apps` próprio,
+    isolado. É mais estável que checar `sender.__module__ == "__fake__"`, que
+    depende do nome que o Django dá ao módulo sintético.
+    """
+    return sender._meta.apps is not registro_global_de_apps
+
+
 def _deve_auditar(sender) -> bool:
+    if _eh_modelo_historico(sender):
+        return False
     return sender._meta.app_label in _APPS_AUDITADAS and _rotulo(sender) not in _MODELOS_EXCLUIDOS
 
 

@@ -54,6 +54,13 @@ class TipoMovimentacao(str, Enum):
     HIGIENIZACAO = "higienizacao"
     BAIXA = "baixa"
     EXTRAVIO = "extravio"
+    #: Ativo extraviado que foi encontrado. Antes desta separação, a
+    #: recuperação era registrada como `transferencia` — o que deixava o
+    #: tipo com dois significados incompatíveis e impedia usá-lo para o que
+    #: o nome diz (mudança de unidade responsável). Ver a migration
+    #: `ativos/migrations/0005_*` para a reclassificação dos registros
+    #: históricos.
+    RECUPERACAO = "recuperacao"
 
     @property
     def rotulo(self) -> str:
@@ -64,11 +71,12 @@ _ROTULOS_TIPO = {
     TipoMovimentacao.EMPRESTIMO: "Empréstimo",
     TipoMovimentacao.DEVOLUCAO: "Devolução",
     TipoMovimentacao.RENOVACAO: "Renovação",
-    TipoMovimentacao.TRANSFERENCIA: "Transferência",
+    TipoMovimentacao.TRANSFERENCIA: "Transferência entre Unidades",
     TipoMovimentacao.RESERVA: "Reserva",
     TipoMovimentacao.MANUTENCAO: "Manutenção",
     TipoMovimentacao.RETORNO_MANUTENCAO: "Retorno de Manutenção",
     TipoMovimentacao.HIGIENIZACAO: "Higienização",
     TipoMovimentacao.BAIXA: "Baixa Patrimonial",
     TipoMovimentacao.EXTRAVIO: "Extravio",
+    TipoMovimentacao.RECUPERACAO: "Recuperação de Extravio",
 }

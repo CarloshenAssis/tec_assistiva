@@ -7,7 +7,7 @@ segmento. Ver docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md §7.
 
 from django.db import models
 
-from core.models import TenantModel
+from core.models import TenantModel, Unidade
 from core.validadores import validar_upload
 
 
@@ -34,6 +34,23 @@ class Beneficiario(TenantModel):
         TUTELA_SAUDE = "tutela_saude", "Tutela da saúde (Art. 11 II 'f')"
         EXECUCAO_CONTRATO = "execucao_contrato", "Execução de contrato (Art. 7º V)"
 
+    #: Unidade que atende este titular — define quais Gestores/Funcionários
+    #: o enxergam (docs/business-rules/unidades.md).
+    #:
+    #: Opcional de propósito, diferente de `Ativo.unidade` (que é
+    #: obrigatória): uma pessoa não "pertence" a uma unidade como um
+    #: equipamento pertence a um depósito — ela pode ser atendida por mais de
+    #: uma, ou ter sido cadastrada antes de o tenant organizar suas unidades.
+    #: Titular sem unidade é visível a toda a organização; ver
+    #: `core.unidades.filtrar_por_unidade(..., incluir_sem_unidade=True)`.
+    unidade = models.ForeignKey(
+        Unidade,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="beneficiarios",
+        help_text="Unidade que atende este titular. Em branco, fica visível a toda a organização.",
+    )
     tipo_relacao = models.CharField(
         max_length=20, choices=TipoRelacao.choices, default=TipoRelacao.BENEFICIARIO
     )

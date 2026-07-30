@@ -1,0 +1,85 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Etiquetas patrimoniais · {{ total }} etiqueta{{ total|pluralize }}</title>
+  {# Página autocontida de propósito: não estende base.html porque a sidebar,  #}
+  {# o topbar e o CSS do app não devem existir no que vai para a impressora.   #}
+  <style>
+    /* Cada tamanho de etiqueta é uma página do seu próprio tamanho — é assim
+       que rolo de etiqueta térmica funciona: uma etiqueta por "página", sem
+       margem. As medidas espelham ativos.models.LayoutEtiqueta. */
+    {% if layout == "pequeno" %}
+      @page { size: 33mm 22mm; margin: 0; }
+      .etiqueta { width: 33mm; height: 22mm; }
+      .qr { width: 15mm; height: 15mm; }
+      .patrimonio { font-size: 7pt; }
+    {% elif layout == "grande" %}
+      @page { size: 80mm 50mm; margin: 0; }
+      .etiqueta { width: 80mm; height: 50mm; }
+      .qr { width: 30mm; height: 30mm; }
+      .patrimonio { font-size: 13pt; }
+    {% else %}
+      @page { size: 50mm 30mm; margin: 0; }
+      .etiqueta { width: 50mm; height: 30mm; }
+      .qr { width: 20mm; height: 20mm; }
+      .patrimonio { font-size: 9pt; }
+    {% endif %}
+
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; }
+
+    .etiqueta {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      padding: 1.5mm;
+      page-break-after: always;
+      break-after: page;
+      overflow: hidden;
+    }
+    .etiqueta:last-child { page-break-after: auto; break-after: auto; }
+
+    .qr { flex: 0 0 auto; }
+    .qr img {
+      width: 100%;
+      height: 100%;
+      /* Sem suavização: QR redimensionado com interpolação perde nitidez de
+         módulo e o leitor falha. */
+      image-rendering: pixelated;
+    }
+
+    .dados { min-width: 0; line-height: 1.15; }
+    .patrimonio { font-weight: bold; font-family: "Courier New", monospace; letter-spacing: -0.2px; }
+    .categoria { font-size: 6.5pt; margin-top: 0.5mm; }
+    .instituicao { font-size: 6pt; margin-top: 0.8mm; text-transform: uppercase; }
+
+    /* Barra de apoio: existe só na tela, para quem abriu a aba e fechou a
+       caixa de impressão sem imprimir. Nunca sai no papel. */
+    .barra { padding: 12px 16px; background: #10403B; color: #fff; font-size: 13px; }
+    .barra button { margin-left: 10px; font-size: 13px; padding: 4px 12px; cursor: pointer; }
+    @media print { .barra { display: none; } }
+  </style>
+</head>
+<body>
+
+<div class="barra">
+  {{ total }} etiqueta{{ total|pluralize }} gerada{{ total|pluralize }}. Se a caixa de impressão
+  não abriu, use o botão.
+  <button type="button" id="imprimir-agora">Imprimir</button>
+</div>
+
+{% for etiqueta in etiquetas %}
+  <div class="etiqueta">
+    <div class="qr"><img src="{{ etiqueta.qr }}" alt="QR Code de {{ etiqueta.patrimonio }}"></div>
+    <div class="dados">
+      <div class="patrimonio">{{ etiqueta.patrimonio }}</div>
+      {% if etiqueta.categoria %}<div class="categoria">{{ etiqueta.categoria }}</div>{% endif %}
+      {% if etiqueta.instituicao %}<div class="instituicao">{{ etiqueta.instituicao }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+
+<script src="{% static 'js/etiquetas-folha.js' %}"></script>
+</body>
+</html>

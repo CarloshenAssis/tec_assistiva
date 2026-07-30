@@ -90,9 +90,14 @@ class Ativo(TenantModel):
     status = models.CharField(
         max_length=20, choices=_choices(StatusAtivo), default=StatusAtivo.DISPONIVEL.value
     )
-    unidade = models.ForeignKey(
-        Unidade, null=True, blank=True, on_delete=models.SET_NULL, related_name="ativos"
-    )
+    #: Unidade responsável pelo ativo — OBRIGATÓRIA (regra de negócio
+    #: "nenhum ativo existe sem unidade, mesmo que exista apenas uma":
+    #: docs/business-rules/unidades.md). `PROTECT` em vez de `SET_NULL`
+    #: porque uma unidade com ativos não pode ser apagada sem antes
+    #: transferi-los — apagar deixaria o ativo órfão, exatamente o estado
+    #: que a obrigatoriedade existe para impedir. Para tirar uma unidade de
+    #: operação use o campo `Unidade.ativo` (desativar), não exclusão.
+    unidade = models.ForeignKey(Unidade, on_delete=models.PROTECT, related_name="ativos")
     fornecedor = models.ForeignKey(
         Fornecedor, null=True, blank=True, on_delete=models.SET_NULL, related_name="ativos"
     )
@@ -113,6 +118,25 @@ class Ativo(TenantModel):
     @property
     def status_enum(self) -> StatusAtivo:
         return StatusAtivo(self.status)
+
+    @property
+    def ultima_impressao(self):
+        """
+        Data/hora da última etiqueta impressa, ou `None` se nunca foi
+        impressa (o ativo está na "fila de impressão" —
+        docs/business-rules/etiquetas.md).
+
+        Derivado de `ImpressaoEtiqueta` em vez de um contador desnormalizado
+        no próprio Ativo: o histórico é a fonte de verdade única e não pode
+        divergir do total. Em listagens, use a anotação de
+        `ativos.selectors.anotar_impressoes` para não gerar N+1.
+        """
+        impressao = self.impressoes.order_by("-impresso_em").first()
+        return impressao.impresso_em if impressao else None
+
+    @property
+    def total_impressoes(self) -> int:
+        return self.impressoes.count()
 
     def __str__(self) -> str:
         return f"{self.patrimonio} · {self.categoria.nome}"
@@ -239,6 +263,59 @@ class DetalheEmprestimo(TenantModel):
     class Meta:
         verbose_name = "Detalhe de Empréstimo"
         verbose_name_plural = "Detalhes de Empréstimo"
+
+
+class LayoutEtiqueta(models.TextChoices):
+    """
+    Tamanhos de etiqueta suportados pelo Centro de Etiquetas.
+
+    As medidas são as de rolos de etiqueta térmica comuns no mercado
+    brasileiro — o CSS de impressão (`templates/ativos/etiquetas_folha.html`)
+    usa exatamente estes valores em `@page`, então mudar um valor aqui exige
+    mudar o CSS correspondente.
+    """
+
+    PEQUENO = "pequeno", "Pequeno — 33×22 mm (só QR + patrimônio)"
+    MEDIO = "medio", "Médio — 50×30 mm (QR + patrimônio + categoria)"
+    GRANDE = "grande", "Grande — 80×50 mm (QR + patrimônio + categoria + instituição)"
+
+
+class ImpressaoEtiqueta(TenantModel):
+    """
+    Histórico de impressão de etiquetas patrimoniais
+    (docs/business-rules/etiquetas.md).
+
+    Existe para responder três perguntas do dia a dia do inventário: quais
+    ativos ainda não têm etiqueta impressa (a "fila"), quando a etiqueta de
+    um ativo foi impressa pela última vez, e quem imprimiu. Como qualquer
+    histórico do produto, é append-only — `delete()` é bloqueado.
+    """
+
+    ativo = models.ForeignKey(Ativo, on_delete=models.CASCADE, related_name="impressoes")
+    layout = models.CharField(max_length=10, choices=LayoutEtiqueta.choices)
+    usuario = models.ForeignKey(
+        "contas.Usuario", null=True, on_delete=models.SET_NULL, related_name="impressoes_etiqueta"
+    )
+    impresso_em = models.DateTimeField(auto_now_add=True)
+    #: Agrupa as etiquetas geradas numa mesma folha/lote. Permite mostrar o
+    #: histórico como "lote de 40 etiquetas em 12/03" em vez de 40 linhas
+    #: soltas, e reimprimir exatamente o mesmo lote.
+    lote = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    class Meta:
+        verbose_name = "Impressão de Etiqueta"
+        verbose_name_plural = "Impressões de Etiqueta"
+        ordering = ["-impresso_em"]
+        indexes = [models.Index(fields=["tenant", "lote"])]
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError(
+            "ImpressaoEtiqueta é histórico append-only — nunca deve ser excluída "
+            "(ver docs/business-rules/etiquetas.md)."
+        )
+
+    def __str__(self) -> str:
+        return f"{self.ativo.patrimonio} · {self.get_layout_display()} · {self.impresso_em:%d/%m/%Y %H:%M}"
 
 
 class DetalheManutencao(TenantModel):

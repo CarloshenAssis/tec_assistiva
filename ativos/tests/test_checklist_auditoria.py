@@ -17,7 +17,7 @@ from ativos.models import Ativo, CategoriaAtivo
 from ativos.selectors import checklist_detalhado
 from beneficiarios.models import Beneficiario
 from contas.models import Papel, Usuario
-from core.models import Tenant
+from core.models import Tenant, Unidade
 
 SENHA = "senha-bem-longa-2026"
 
@@ -30,8 +30,12 @@ class ChecklistDetalhadoTest(TestCase):
         self.categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Cadeira de Rodas"
         )
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
         self.ativo = Ativo.objects.all_tenants().create(
-            tenant=self.tenant, patrimonio="CAD-CHK-01", categoria=self.categoria
+            tenant=self.tenant,
+            patrimonio="CAD-CHK-01",
+            categoria=self.categoria,
+            unidade=self.unidade,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant, nome="Maria Silva", cpf="123.456.789-09"
@@ -100,8 +104,12 @@ class TimelineDaFichaMostraQuemFezOCheckinTest(TestCase):
         self.categoria = CategoriaAtivo.objects.all_tenants().create(
             tenant=self.tenant, nome="Cadeira de Rodas"
         )
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
         self.ativo = Ativo.objects.all_tenants().create(
-            tenant=self.tenant, patrimonio="CAD-CHK-02", categoria=self.categoria
+            tenant=self.tenant,
+            patrimonio="CAD-CHK-02",
+            categoria=self.categoria,
+            unidade=self.unidade,
         )
         self.beneficiario = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant, nome="João Pedro", cpf="234.567.891-73"
@@ -118,6 +126,9 @@ class TimelineDaFichaMostraQuemFezOCheckinTest(TestCase):
             tenant=self.tenant,
             papel=Papel.objects.get(codigo="funcionario"),
         )
+        # Gestor só enxerga ativo de unidade atribuída a ele
+        # (docs/business-rules/unidades.md) — sem isto, a ficha responde 404.
+        self.gestor.unidades.add(self.unidade)
         services.emprestar(
             self.ativo,
             self.beneficiario,

@@ -32,6 +32,15 @@ class DestinoObrigatorioError(DominioAtivoError):
     """Levantada quando uma movimentação exige `destino` e ele não foi informado."""
 
 
+class TransferenciaInvalidaError(DominioAtivoError):
+    """
+    Levantada quando a transferência de unidade não faz sentido de negócio
+    mesmo que o estado do ativo a permita — hoje, o caso de transferir para
+    a unidade em que o ativo já está (registraria uma movimentação sem
+    nenhuma mudança real, poluindo a timeline).
+    """
+
+
 class AcaoAdministrativaInvalidaError(DominioAtivoError):
     """
     Levantada por `inativar`/`reativar` — ações administrativas que não

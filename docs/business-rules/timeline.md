@@ -20,6 +20,10 @@ Renovou
 
 ↓
 
+Transferiu de unidade
+
+↓
+
 Devolveu (→ Disponível / Higienização / Manutenção)
 
 ↓
@@ -77,6 +81,11 @@ Não aplicável — a Timeline reflete os estados do Ativo (ver
   ativo em si, por ser baseada em `Movimentacao`, só é alimentada pelos
   serviços de negócio (`ativos/services.py`), que sempre criam o registro
   explicitamente.
+- **Correções de metadado não entram na Timeline.** Editar motivo/fornecedor/
+  valor de uma manutenção em curso não muda o estado do ativo, então não gera
+  `Movimentacao` — a alteração fica na trilha de auditoria, com quem alterou
+  e quais campos. A divisão é: Timeline conta *o que aconteceu com o ativo*;
+  Auditoria conta *quem mexeu em qual dado*.
 
 ## Impactos em outros módulos
 
