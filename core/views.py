@@ -9,6 +9,11 @@ from ativos.selectors import (
 )
 from beneficiarios.models import Beneficiario
 from core.decorators import tenant_required
+from core.relatorios_export import (
+    exportar_ativos_csv,
+    exportar_beneficiarios_csv,
+    exportar_movimentacoes_csv,
+)
 from core.unidades import filtrar_por_unidade, unidades_visiveis
 from notificacoes.models import NotificacaoEnviada
 
@@ -143,3 +148,23 @@ def relatorios(request):
             "por_unidade": resumo_por_unidade(ativos_qs),
         },
     )
+
+
+@tenant_required
+def relatorios_exportar_ativos(request):
+    return exportar_ativos_csv(filtrar_por_unidade(Ativo.objects.all(), request.user))
+
+
+@tenant_required
+def relatorios_exportar_beneficiarios(request):
+    beneficiarios_qs = filtrar_por_unidade(
+        Beneficiario.objects.all(), request.user, incluir_sem_unidade=True
+    )
+    return exportar_beneficiarios_csv(beneficiarios_qs, request.tenant.rotulo_beneficiario_singular)
+
+
+@tenant_required
+def relatorios_exportar_movimentacoes(request):
+    ativos_qs = filtrar_por_unidade(Ativo.objects.all(), request.user)
+    movimentacoes_qs = Movimentacao.objects.filter(ativo__in=ativos_qs)
+    return exportar_movimentacoes_csv(movimentacoes_qs)

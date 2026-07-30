@@ -21,5 +21,14 @@
       {% endfor %}
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-title">Exportar (CSV)</div>
+    <div class="flex gap-2" style="flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{% url 'app:relatorios_exportar_ativos' %}">Ativos</a>
+      <a class="btn btn-secondary" href="{% url 'app:relatorios_exportar_beneficiarios' %}">{{ rotulo_beneficiario_plural }}</a>
+      <a class="btn btn-secondary" href="{% url 'app:relatorios_exportar_movimentacoes' %}">Movimentações</a>
+    </div>
+  </div>
 </div>
 {% endblock %}
