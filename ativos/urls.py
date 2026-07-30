@@ -1,12 +1,15 @@
 from django.urls import path
 
-from ativos import views
+from ativos import views, views_categorias
 
 app_name = "ativos"
 
 urlpatterns = [
     path("", views.lista, name="lista"),
     path("novo/", views.criar, name="criar"),
+    path("categorias/", views_categorias.categorias_lista, name="categorias_lista"),
+    path("categorias/nova/", views_categorias.categorias_criar, name="categorias_criar"),
+    path("categorias/<int:pk>/editar/", views_categorias.categorias_editar, name="categorias_editar"),
     path("localizar/", views.localizar, name="localizar"),
     path("scan/", views.scan, name="scan"),
     path("qr/<str:token>/", views.resolver_qr, name="resolver_qr"),

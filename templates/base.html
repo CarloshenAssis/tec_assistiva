@@ -94,6 +94,11 @@
           <a class="nav-item {% if nav_atual == 'ativos' %}active{% endif %}" href="{% url 'app:ativos:lista' %}">
             <span class="dot"></span> Ativos
           </a>
+          {% if pode_gerenciar_usuarios %}
+          <a class="nav-item {% if nav_atual == 'categorias' %}active{% endif %}" href="{% url 'app:ativos:categorias_lista' %}">
+            <span class="dot"></span> Categorias
+          </a>
+          {% endif %}
           <a class="nav-item {% if nav_atual == 'etiquetas' %}active{% endif %}" href="{% url 'app:ativos:etiquetas_centro' %}">
             <span class="dot"></span> Centro de Etiquetas
           </a>

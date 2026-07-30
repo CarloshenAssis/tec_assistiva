@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Cadastrar ativo · Ciclartech{% endblock %}
+{% block page_title %}Cadastrar ativo{% endblock %}
+{% block content %}
+<div class="card" style="border-left:3px solid var(--cor-amarelo);">
+  <div style="font-size:14px;font-weight:600;">É preciso ter uma categoria antes de cadastrar ativos</div>
+  <div style="font-size:13px;color:var(--text-faint);margin-top:8px;line-height:1.5;">
+    Todo ativo pertence obrigatoriamente a uma categoria (ex.: Cadeira de Rodas,
+    Andador) — é o que define o prefixo do código patrimonial gerado automaticamente.
+    Cadastre a primeira categoria para começar.
+  </div>
+  <div style="margin-top:14px;">
+    <a class="btn btn-primary" href="{% url 'app:ativos:categorias_criar' %}">Cadastrar categoria</a>
+  </div>
+</div>
+{% endblock %}

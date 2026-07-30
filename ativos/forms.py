@@ -228,3 +228,31 @@ class FiltroEtiquetasForm(forms.Form):
         self.fields["status"].choices = [("", "Todos")] + [
             (status.value, status.rotulo) for status in StatusAtivo
         ]
+
+
+class CategoriaAtivoForm(forms.ModelForm):
+    """
+    Mesmo motivo do `clean_nome` de `core.forms.UnidadeForm`: a instância só
+    recebe `tenant` depois de `is_valid()` (a view faz `commit=False`), então
+    a validação automática de `UniqueConstraint(tenant, nome)` do Django
+    ainda não vê o tenant e não pega o conflito — sem isto, cadastrar uma
+    categoria com nome já usado no tenant vira `IntegrityError` (500) em vez
+    de erro de formulário.
+    """
+
+    class Meta:
+        model = CategoriaAtivo
+        fields = ["nome", "prefixo"]
+
+    def __init__(self, *args, tenant=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tenant = tenant or getattr(self.instance, "tenant", None)
+
+    def clean_nome(self):
+        nome = self.cleaned_data["nome"].strip()
+        conflito = CategoriaAtivo.objects.filter(nome__iexact=nome)
+        if self.instance.pk:
+            conflito = conflito.exclude(pk=self.instance.pk)
+        if self._tenant and conflito.exists():
+            raise forms.ValidationError("Já existe uma categoria com este nome.")
+        return nome

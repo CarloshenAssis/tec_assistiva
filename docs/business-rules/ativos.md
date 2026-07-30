@@ -69,6 +69,7 @@ categoria antes de qualquer outra operação ser possível.
 |---|---|
 | Cadastrar ativo | Gestor |
 | Editar ativo | Gestor |
+| Cadastrar / editar categoria de ativo | Gestor |
 | Consultar ativo / localizar por QR | Funcionário |
 | Imprimir / reimprimir etiqueta | Funcionário |
 | Transferir de unidade | Gestor |
@@ -93,7 +94,8 @@ Ver a tabela consolidada de transições em
 
 - Se a organização ainda não tem nenhuma unidade cadastrada, a tela de
   cadastro de ativo orienta a criar a primeira em vez de exibir um
-  formulário cujo campo obrigatório não tem opção nenhuma.
+  formulário cujo campo obrigatório não tem opção nenhuma. O mesmo vale para
+  categoria (Cadastros → Categorias, Gestor+).
 - QR Code apontando para um ativo de outro tenant, de unidade que o usuário
   não opera, ou inexistente, sempre responde com a mesma página de "não
   encontrado" — nunca revela se o ativo existe fora do escopo de quem leu.
