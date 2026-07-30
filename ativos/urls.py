@@ -10,6 +10,21 @@ urlpatterns = [
     path("categorias/", views_categorias.categorias_lista, name="categorias_lista"),
     path("categorias/nova/", views_categorias.categorias_criar, name="categorias_criar"),
     path("categorias/<int:pk>/editar/", views_categorias.categorias_editar, name="categorias_editar"),
+    path(
+        "categorias/<int:categoria_pk>/subcategorias/",
+        views_categorias.subcategorias_lista,
+        name="subcategorias_lista",
+    ),
+    path(
+        "categorias/<int:categoria_pk>/subcategorias/nova/",
+        views_categorias.subcategorias_criar,
+        name="subcategorias_criar",
+    ),
+    path(
+        "subcategorias/<int:pk>/editar/",
+        views_categorias.subcategorias_editar,
+        name="subcategorias_editar",
+    ),
     path("localizar/", views.localizar, name="localizar"),
     path("scan/", views.scan, name="scan"),
     path("qr/<str:token>/", views.resolver_qr, name="resolver_qr"),

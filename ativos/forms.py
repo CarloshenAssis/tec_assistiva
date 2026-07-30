@@ -256,3 +256,29 @@ class CategoriaAtivoForm(forms.ModelForm):
         if self._tenant and conflito.exists():
             raise forms.ValidationError("Já existe uma categoria com este nome.")
         return nome
+
+
+class SubcategoriaAtivoForm(forms.ModelForm):
+    """
+    Mesmo motivo do `clean_nome` de `CategoriaAtivoForm` acima, mas a
+    unicidade de `SubcategoriaAtivo` é por categoria (`UniqueConstraint
+    (categoria, nome)`), não por tenant — daí `categoria` explícito no
+    `__init__` em vez de `tenant`.
+    """
+
+    class Meta:
+        model = SubcategoriaAtivo
+        fields = ["nome"]
+
+    def __init__(self, *args, categoria=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._categoria = categoria or getattr(self.instance, "categoria", None)
+
+    def clean_nome(self):
+        nome = self.cleaned_data["nome"].strip()
+        conflito = SubcategoriaAtivo.objects.filter(nome__iexact=nome, categoria=self._categoria)
+        if self.instance.pk:
+            conflito = conflito.exclude(pk=self.instance.pk)
+        if self._categoria and conflito.exists():
+            raise forms.ValidationError("Já existe uma subcategoria com este nome nesta categoria.")
+        return nome

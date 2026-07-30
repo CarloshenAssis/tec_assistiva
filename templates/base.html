@@ -98,6 +98,9 @@
           <a class="nav-item {% if nav_atual == 'categorias' %}active{% endif %}" href="{% url 'app:ativos:categorias_lista' %}">
             <span class="dot"></span> Categorias
           </a>
+          <a class="nav-item {% if nav_atual == 'fornecedores' %}active{% endif %}" href="{% url 'app:fornecedores:lista' %}">
+            <span class="dot"></span> Fornecedores
+          </a>
           {% endif %}
           <a class="nav-item {% if nav_atual == 'etiquetas' %}active{% endif %}" href="{% url 'app:ativos:etiquetas_centro' %}">
             <span class="dot"></span> Centro de Etiquetas

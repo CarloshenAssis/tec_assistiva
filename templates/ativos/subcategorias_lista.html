@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Subcategorias de {{ categoria.nome }} · Ciclartech{% endblock %}
+{% block page_title %}Subcategorias · {{ categoria.nome }}{% endblock %}
+{% block header_actions %}
+<a class="btn btn-ghost" href="{% url 'app:ativos:categorias_lista' %}">← Categorias</a>
+<a class="btn btn-primary" href="{% url 'app:ativos:subcategorias_criar' categoria.pk %}">Nova subcategoria</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:1fr 80px;">
+      <div>Nome</div><div></div>
+    </div>
+    {% for subcategoria in subcategorias %}
+      <div class="table-row" style="grid-template-columns:1fr 80px;">
+        <div style="font-size:13px;font-weight:600;">{{ subcategoria.nome }}</div>
+        <div>
+          <a href="{% url 'app:ativos:subcategorias_editar' subcategoria.pk %}" style="font-size:12px;">Editar</a>
+        </div>
+      </div>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">
+        Nenhuma subcategoria cadastrada em {{ categoria.nome }} ainda. Subcategoria é opcional no cadastro de ativo.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

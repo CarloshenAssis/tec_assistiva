@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} · Ciclartech{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_nome">Nome</label>
+      {{ form.nome }}
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Salvar</button>
+  </form>
+</div>
+{% endblock %}

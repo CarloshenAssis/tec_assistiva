@@ -1,6 +1,6 @@
 from django import forms
 
-from core.models import Unidade
+from core.models import Fornecedor, Unidade
 
 
 class UnidadeForm(forms.ModelForm):
@@ -49,4 +49,25 @@ class UnidadeForm(forms.ModelForm):
             conflito = conflito.exclude(pk=self.instance.pk)
         if self._tenant and conflito.exists():
             raise forms.ValidationError("Já existe uma unidade com este nome.")
+        return nome
+
+
+class FornecedorForm(forms.ModelForm):
+    """Mesmo motivo do `clean_nome` de `UnidadeForm` acima."""
+
+    class Meta:
+        model = Fornecedor
+        fields = ["nome", "contato", "telefone"]
+
+    def __init__(self, *args, tenant=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tenant = tenant or getattr(self.instance, "tenant", None)
+
+    def clean_nome(self):
+        nome = self.cleaned_data["nome"].strip()
+        conflito = Fornecedor.objects.filter(nome__iexact=nome)
+        if self.instance.pk:
+            conflito = conflito.exclude(pk=self.instance.pk)
+        if self._tenant and conflito.exists():
+            raise forms.ValidationError("Já existe um fornecedor com este nome.")
         return nome

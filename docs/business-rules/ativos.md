@@ -70,6 +70,8 @@ categoria antes de qualquer outra operação ser possível.
 | Cadastrar ativo | Gestor |
 | Editar ativo | Gestor |
 | Cadastrar / editar categoria de ativo | Admin |
+| Cadastrar / editar subcategoria de ativo | Admin |
+| Cadastrar / editar fornecedor | Admin |
 | Consultar ativo / localizar por QR | Funcionário |
 | Imprimir / reimprimir etiqueta | Funcionário |
 | Transferir de unidade | Gestor |

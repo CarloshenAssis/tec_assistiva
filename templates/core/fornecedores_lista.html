@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Fornecedores · Ciclartech{% endblock %}
+{% block page_title %}Fornecedores{% endblock %}
+{% block header_actions %}
+<a class="btn btn-primary" href="{% url 'app:fornecedores:criar' %}">Novo fornecedor</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table">
+    <div class="table-head" style="grid-template-columns:1.5fr 1fr 1fr 80px;">
+      <div>Nome</div><div>Contato</div><div>Telefone</div><div></div>
+    </div>
+    {% for fornecedor in fornecedores %}
+      <div class="table-row" style="grid-template-columns:1.5fr 1fr 1fr 80px;">
+        <div style="font-size:13px;font-weight:600;">{{ fornecedor.nome }}</div>
+        <div style="font-size:12.5px;">{{ fornecedor.contato|default:"—" }}</div>
+        <div style="font-size:12.5px;">{{ fornecedor.telefone|default:"—" }}</div>
+        <div>
+          <a href="{% url 'app:fornecedores:editar' fornecedor.pk %}" style="font-size:12px;">Editar</a>
+        </div>
+      </div>
+    {% empty %}
+      <div style="padding:20px;font-size:13px;color:var(--text-faint);">
+        Nenhum fornecedor cadastrado ainda. Fornecedor é opcional no cadastro de ativo e na manutenção.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
