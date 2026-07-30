@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Ciclartech{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/brand/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/ciclartech.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   {% block extra_head %}{% endblock %}
@@ -13,7 +14,7 @@
 <div class="shell">
   <nav class="sidebar">
     <div class="brand">
-      <div class="name">Ciclartech</div>
+      <img src="{% static 'img/brand/lockup-dark.svg' %}" alt="Ciclartech" height="26" style="display:block;">
       <div class="sub">Plataforma</div>
     </div>
     <div class="nav-group">
@@ -61,7 +62,7 @@
 <div class="shell">
   <nav class="sidebar">
     <div class="brand">
-      <div class="name">Ciclartech</div>
+      <img src="{% static 'img/brand/lockup-dark.svg' %}" alt="Ciclartech" height="26" style="display:block;">
       <div class="sub">{{ user.tenant.nome }}</div>
     </div>
     <div class="nav-group">

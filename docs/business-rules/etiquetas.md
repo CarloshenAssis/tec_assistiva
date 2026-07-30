@@ -49,7 +49,9 @@ Histórico de impressão registrado
 - Três tamanhos de etiqueta, com conteúdo crescente:
   - **Pequeno (33×22 mm)**: QR Code + código patrimonial.
   - **Médio (50×30 mm)**: + categoria.
-  - **Grande (80×50 mm)**: + nome da instituição.
+  - **Grande (80×50 mm)**: + nome da instituição, com o símbolo Ciclartech
+    (traço único, `symbol-black.svg` inline — sem chamada de rede extra,
+    pela mesma razão do QR embutido: a folha continua autocontida).
 - Impressão em lote com filtros por categoria, unidade, status, e a opção
   "somente ativos sem etiqueta impressa". "Selecionar todos" marca apenas o
   que está visível na lista já filtrada — nunca o acervo inteiro.

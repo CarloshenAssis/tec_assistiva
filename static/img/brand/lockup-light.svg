@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160">
+  <g transform="translate(20,10) scale(0.6)">
+    <path d="M110,14 A96,96 0 1 1 37,49.5" stroke="#155E5A" stroke-width="26" stroke-linecap="round" fill="none"></path>
+    <polygon points="69.2,11.0 53.8,69.8 13.2,36.2" fill="#155E5A"></polygon>
+  </g>
+  <text x="160" y="98" font-family="Public Sans, sans-serif" font-weight="700" font-size="56" letter-spacing="-1" fill="#1c2624">Ciclartech</text>
+</svg>

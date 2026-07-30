@@ -52,7 +52,11 @@
     .dados { min-width: 0; line-height: 1.15; }
     .patrimonio { font-weight: bold; font-family: "Courier New", monospace; letter-spacing: -0.2px; }
     .categoria { font-size: 6.5pt; margin-top: 0.5mm; }
-    .instituicao { font-size: 6pt; margin-top: 0.8mm; text-transform: uppercase; }
+    .instituicao {
+      font-size: 6pt; margin-top: 0.8mm; text-transform: uppercase;
+      display: flex; align-items: center; gap: 1mm;
+    }
+    .instituicao .marca { width: 2.4mm; height: 2.4mm; flex: 0 0 auto; }
 
     /* Barra de apoio: existe só na tela, para quem abriu a aba e fechou a
        caixa de impressão sem imprimir. Nunca sai no papel. */
@@ -75,7 +79,15 @@
     <div class="dados">
       <div class="patrimonio">{{ etiqueta.patrimonio }}</div>
       {% if etiqueta.categoria %}<div class="categoria">{{ etiqueta.categoria }}</div>{% endif %}
-      {% if etiqueta.instituicao %}<div class="instituicao">{{ etiqueta.instituicao }}</div>{% endif %}
+      {% if etiqueta.instituicao %}
+        <div class="instituicao">
+          <svg class="marca" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M110,14 A96,96 0 1 1 37,49.5" stroke="#111813" stroke-width="26" stroke-linecap="round" fill="none"></path>
+            <polygon points="69.2,11.0 53.8,69.8 13.2,36.2" fill="#111813"></polygon>
+          </svg>
+          {{ etiqueta.instituicao }}
+        </div>
+      {% endif %}
     </div>
   </div>
 {% endfor %}

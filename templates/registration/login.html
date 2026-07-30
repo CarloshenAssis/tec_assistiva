@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Entrar · Ciclartech{% endblock %}
 {% block full_content %}
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--sidebar-bg);">
   <div class="card" style="width:340px;max-width:90vw;">
-    <div style="font-size:20px;font-weight:800;color:var(--text-strong);margin-bottom:2px;">Ciclartech</div>
+    <img src="{% static 'img/brand/lockup-light.svg' %}" alt="Ciclartech" height="28" style="display:block;margin-bottom:10px;">
     <div class="muted" style="font-size:12.5px;margin-bottom:20px;">Plataforma de Gestão de Ativos Assistivos</div>
     <form method="post">
       {% csrf_token %}
