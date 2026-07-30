@@ -122,6 +122,12 @@ main.content { flex: 1; overflow-y: auto; padding: 28px; padding-bottom: 28px; }
 .btn {
   all: unset; cursor: pointer; font-size: 13px; font-weight: 600; padding: 9px 16px;
   border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;
+  /* `all: unset` não remove a aparência nativa de <button> em todo
+     navegador (Safari é o caso conhecido) — sem isto, o canto arredondado
+     do controle nativo do sistema fica visível por baixo do border-radius
+     acima, deixando os dois lados do botão com curvatura diferente. */
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  box-sizing: border-box;
 }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-secondary { background: #fff; border: 1px solid #CFE0DD; color: var(--accent); }

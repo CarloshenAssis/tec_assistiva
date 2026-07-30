@@ -48,6 +48,14 @@ def _exigir_gestor_ou_admin(request) -> None:
 def usuarios_lista(request):
     _exigir_gestor_ou_admin(request)
     usuarios = Usuario.objects.filter(tenant=request.tenant).order_by("username")
+    # Anotado aqui (não recalculado no template) porque `pode_gerenciar`
+    # recebe o outro usuário como argumento — um template não chama método
+    # com parâmetro. Sem isto, o botão "Desativar" aparecia para qualquer
+    # usuário (só escondido para o próprio logado), inclusive um Gestor
+    # vendo o botão no Admin: clicar nele já era bloqueado no servidor
+    # (`pode_gerenciar` nega, 403), mas o botão não deveria nem aparecer.
+    for usuario in usuarios:
+        usuario.pode_ser_gerenciado = request.user.pode_gerenciar(usuario)
     return render(
         request,
         "contas/usuarios_lista.html",

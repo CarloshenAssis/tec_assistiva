@@ -73,16 +73,21 @@ class CriarUsuarioForm(forms.Form):
     first_name = forms.CharField(max_length=150, required=False, label="Nome")
     last_name = forms.CharField(max_length=150, required=False, label="Sobrenome")
     papel = forms.ModelChoiceField(queryset=Papel.objects.none(), label="Papel")
-    #: Unidades que a pessoa poderá operar (docs/features/identificacao-
-    #: patrimonial-e-unidades.md — unidade é permissão, não atributo fixo).
-    #: Sem efeito para Admin (ele sempre enxerga todas, ver
-    #: core.unidades.unidades_visiveis), mas o campo continua disponível
-    #: mesmo nesse caso — atribuir não faz mal, só não muda nada.
+    #: Unidades que a pessoa poderá operar (docs/business-rules/unidades.md
+    #: — unidade é permissão, não atributo fixo). **Obrigatório**: este
+    #: formulário só cria Gestor ou Funcionário (nunca Admin — ver docstring
+    #: da classe), e ambos os papéis são restritos por unidade
+    #: (`core.unidades.unidades_visiveis`). Sem ao menos uma unidade
+    #: marcada, a pessoa recém-criada não enxergaria nenhum ativo/
+    #: beneficiário até alguém editar o cadastro dela depois — melhor
+    #: barrar isso na criação do que deixar o usuário logar num sistema
+    #: vazio sem saber por quê.
     unidades = forms.ModelMultipleChoiceField(
         queryset=Unidade.objects.none(),
-        required=False,
-        label="Unidades",
+        required=True,
+        label="Unidades permitidas",
         widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Selecione ao menos uma unidade."},
     )
 
     def __init__(self, *args, nivel_criador: int, **kwargs):

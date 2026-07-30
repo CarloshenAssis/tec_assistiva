@@ -36,9 +36,10 @@
       {{ form.papel }}
     </div>
     <div class="field">
-      <label>Unidades</label>
+      <label>Unidades permitidas</label>
       <div class="faint" style="font-size:11px;margin-bottom:6px;">
-        Só tem efeito para Gestor/Funcionário — Admin sempre enxerga todas as unidades.
+        Obrigatório marcar ao menos uma — é o que define quais ativos e
+        beneficiários esta pessoa vai enxergar.
       </div>
       <div class="flex-col gap-1">
         {% for checkbox in form.unidades %}

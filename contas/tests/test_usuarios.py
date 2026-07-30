@@ -69,6 +69,11 @@ class CriarUsuarioTest(TestCase):
             tenant=self.tenant,
             papel=Papel.objects.get(codigo="gestor"),
         )
+        # Unidade é obrigatória na criação de Gestor/Funcionário
+        # (docs/business-rules/unidades.md) — os testes abaixo que só
+        # verificam outro comportamento (auditoria, tenant, senha) usam esta
+        # unidade só para o form validar.
+        self.unidade = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sede")
 
     def test_admin_cria_gestor(self):
         self.client.login(username="admin_cria_usr", password=SENHA)
@@ -78,6 +83,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "novo_gestor_criado",
                 "email": "gestor@prefeitura.gov.br",
                 "papel": Papel.objects.get(codigo="gestor").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         usuario = Usuario.objects.get(username="novo_gestor_criado")
@@ -92,6 +98,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "novo_func_criado",
                 "email": "func@prefeitura.gov.br",
                 "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         self.assertTrue(Usuario.objects.filter(username="novo_func_criado").exists())
@@ -121,6 +128,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "func_criado_por_gestor",
                 "email": "y@y.com",
                 "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         self.assertTrue(Usuario.objects.filter(username="func_criado_por_gestor").exists())
@@ -148,6 +156,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "usuario_tenant_correto",
                 "email": "w@w.com",
                 "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         usuario = Usuario.objects.get(username="usuario_tenant_correto")
@@ -163,6 +172,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "usuario_login_ok",
                 "email": "login-ok@x.com",
                 "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         usuario = Usuario.objects.get(username="usuario_login_ok")
@@ -178,6 +188,7 @@ class CriarUsuarioTest(TestCase):
                 "username": "usuario_auditado",
                 "email": "audit@x.com",
                 "papel": Papel.objects.get(codigo="funcionario").pk,
+                "unidades": [self.unidade.pk],
             },
         )
         usuario = Usuario.objects.get(username="usuario_auditado")
@@ -210,8 +221,13 @@ class CriarUsuarioTest(TestCase):
         # resetado pelo TenantMiddleware — ver core/unidades.py.
         self.assertEqual({centro, sul}, set(unidades_do_usuario(usuario)))
 
-    def test_criar_usuario_sem_marcar_unidade_nenhuma_e_permitido(self):
-        """Unidade continua opcional no formulário — nada obriga a marcar uma no ato da criação."""
+    def test_criar_usuario_sem_marcar_unidade_e_erro_de_formulario(self):
+        """
+        Unidade é obrigatória na criação de Gestor/Funcionário
+        (docs/business-rules/unidades.md) — sem ela, a pessoa recém-criada
+        logaria num sistema sem nenhum ativo/beneficiário visível, sem saber
+        por quê. Melhor barrar aqui do que deixar isso pra descobrir depois.
+        """
         self.client.login(username="admin_cria_usr", password=SENHA)
         resposta = self.client.post(
             reverse("app:usuarios:criar"),
@@ -222,8 +238,8 @@ class CriarUsuarioTest(TestCase):
             },
         )
         self.assertEqual(200, resposta.status_code)
-        usuario = Usuario.objects.get(username="func_sem_unidade_nenhuma")
-        self.assertEqual(0, unidades_do_usuario(usuario).count())
+        self.assertIn("unidades", resposta.context["form"].errors)
+        self.assertFalse(Usuario.objects.filter(username="func_sem_unidade_nenhuma").exists())
 
 
 class AlternarAtivoTest(TestCase):
@@ -235,11 +251,44 @@ class AlternarAtivoTest(TestCase):
             tenant=self.tenant,
             papel=Papel.objects.get(codigo="admin"),
         )
+        self.gestor = Usuario.objects.create_user(
+            username="gestor_alt_usr",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="gestor"),
+        )
         self.funcionario = Usuario.objects.create_user(
             username="func_alt_usr",
             password=SENHA,
             tenant=self.tenant,
             papel=Papel.objects.get(codigo="funcionario"),
+        )
+
+    def test_gestor_nao_pode_desativar_admin(self):
+        """Hierarquia: Gestor (20) não gerencia Admin (30) — `pode_gerenciar` nega."""
+        self.client.login(username="gestor_alt_usr", password=SENHA)
+        resposta = self.client.post(reverse("app:usuarios:alternar_ativo", args=[self.admin.pk]))
+        self.assertEqual(403, resposta.status_code)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_botao_desativar_nao_aparece_pro_gestor_na_linha_do_admin(self):
+        """
+        Bloquear só no servidor não bastava: a lista mostrava o botão
+        "Desativar" na linha do Admin pra qualquer Gestor, mesmo sabendo que
+        clicar resultaria em 403 — a UI oferecia uma ação que nunca teria
+        efeito.
+        """
+        self.client.login(username="gestor_alt_usr", password=SENHA)
+        resposta = self.client.get(reverse("app:usuarios:lista"))
+        conteudo = resposta.content.decode()
+        # A linha do Admin não deve conter o form de alternar-ativo dele.
+        self.assertNotIn(
+            reverse("app:usuarios:alternar_ativo", args=[self.admin.pk]), conteudo
+        )
+        # Mas a do Funcionário (que o Gestor pode gerenciar) continua lá.
+        self.assertIn(
+            reverse("app:usuarios:alternar_ativo", args=[self.funcionario.pk]), conteudo
         )
 
     def test_admin_desativa_funcionario(self):

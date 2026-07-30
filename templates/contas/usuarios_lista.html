@@ -29,7 +29,7 @@
           <a href="{% url 'app:usuarios:auditoria' %}?usuario={{ usuario.get_username }}" style="font-size:12px;">Ver log</a>
         </div>
         <div>
-          {% if usuario.pk != request.user.pk %}
+          {% if usuario.pk != request.user.pk and usuario.pode_ser_gerenciado %}
             <form method="post" action="{% url 'app:usuarios:alternar_ativo' usuario.pk %}">
               {% csrf_token %}
               <button class="btn btn-ghost" style="font-size:12px;" type="submit">
