@@ -49,6 +49,7 @@ class BeneficiarioForm(forms.ModelForm):
 
     def __init__(self, *args, usuario=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._tenant = usuario.tenant if usuario is not None else getattr(self.instance, "tenant", None)
         self.fields["unidade"].required = False
         self.fields["unidade"].empty_label = "Toda a organização"
         self.fields["documento"].label = "CPF"
@@ -90,6 +91,19 @@ class BeneficiarioForm(forms.ModelForm):
                 validar_documento(documento, tipo_documento)
             except forms.ValidationError as exc:
                 self.add_error("documento", exc)
+            else:
+                # `UniqueConstraint(tenant, documento)` do model só aparece na hora
+                # do `save()`, como `IntegrityError` (500) — sem isto, cadastrar um
+                # documento já usado no tenant nunca vira erro de formulário.
+                if self._tenant:
+                    conflito = Beneficiario.objects.filter(tenant=self._tenant, documento=documento)
+                    if self.instance.pk:
+                        conflito = conflito.exclude(pk=self.instance.pk)
+                    if conflito.exists():
+                        rotulo = self._tenant.rotulo_beneficiario_singular.lower()
+                        self.add_error(
+                            "documento", f"Já existe um {rotulo} cadastrado com este documento."
+                        )
 
         # Base legal "consentimento" sem o consentimento registrado é
         # tratamento sem amparo. Marcamos o momento aqui, no cadastro, que é
