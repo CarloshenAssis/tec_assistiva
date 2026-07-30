@@ -21,9 +21,11 @@
           </span>
         </div>
         <div>
-          {# Auditoria já filtrada por este usuário — o motivo direto deste
-             pedido: o Admin precisa ver o que Gestor/Funcionário fez, sem
-             ter que caçar na lista geral. #}
+          {% comment %}
+          Auditoria já filtrada por este usuário — o motivo direto deste
+          pedido: o Admin precisa ver o que Gestor/Funcionário fez, sem
+          ter que caçar na lista geral.
+          {% endcomment %}
           <a href="{% url 'app:usuarios:auditoria' %}?usuario={{ usuario.get_username }}" style="font-size:12px;">Ver log</a>
         </div>
         <div>

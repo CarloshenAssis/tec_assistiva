@@ -9,9 +9,11 @@
       <div>
         <div style="font-size:12.5px;">{{ m.get_status_anterior_display }} → {{ m.get_status_novo_display }}</div>
         {% if m.checklist %}
-          {# Quem marcou o quê no check-in/devolução — o registro que
-             responde "o funcionário confirmou boa condição, mas não
-             estava" com nome e data, não só um JSON cru. #}
+          {% comment %}
+          Quem marcou o quê no check-in/devolução — o registro que
+          responde "o funcionário confirmou boa condição, mas não
+          estava" com nome e data, não só um JSON cru.
+          {% endcomment %}
           <div class="flex" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px;">
             {% for item in m.checklist %}
               <span style="font-size:11px;{% if item.marcado %}color:var(--cor-verde-text);{% else %}color:var(--cor-vermelho-medio-text);font-weight:600;{% endif %}">
