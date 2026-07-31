@@ -283,20 +283,36 @@ retornou o hash de senha do usuário `admin` da tabela `contas_usuario`.
 Com pacientes cadastrados, `beneficiarios_beneficiario` (nome, CPF,
 endereço, telefone) estaria igualmente exposta.
 
-Correção aplicada no banco:
+Correção aplicada no banco — hoje versionada em
+[`scripts/supabase_hardening.sql`](scripts/supabase_hardening.sql), depois
+de ter sido aplicada manualmente uma vez direto no SQL Editor do Supabase e
+**não** ter ficado registrada em lugar nenhum do repositório (ou seja:
+qualquer projeto Supabase novo — staging, uma cópia de teste, um restore de
+backup — nascia exposto até alguém lembrar de repetir os comandos na mão):
 
 1. `REVOKE` de todos os privilégios de `anon` e `authenticated` sobre
    tabelas, sequences e funções do schema `public`, além do `USAGE` do
    próprio schema.
 2. `ALTER DEFAULT PRIVILEGES` para que a **próxima migration do Django não
    recrie o problema** — sem isso, cada tabela nova nasceria exposta de novo.
-3. `ENABLE ROW LEVEL SECURITY` nas 26 tabelas, sem nenhuma policy. RLS sem
-   policy nega tudo para quem não é dono da tabela; é a segunda barreira,
-   caso um `GRANT` seja reconcedido por engano no futuro.
+3. `ENABLE ROW LEVEL SECURITY` em toda tabela do schema `public`, sem
+   nenhuma policy. RLS sem policy nega tudo para quem não é dono da tabela;
+   é a segunda barreira, caso um `GRANT` seja reconcedido por engano no
+   futuro.
 
 O Django não é afetado: ele conecta como `postgres`, que é dono das tabelas
 e tem `BYPASSRLS`. Isso foi confirmado com login real na aplicação em
 produção depois da mudança.
 
-> Ao criar tabelas novas fora das migrations do Django (SQL direto, painel
-> do Supabase), confira se nasceram com RLS ligado e sem grants para `anon`.
+**Rode `scripts/supabase_hardening.sql` uma vez em qualquer projeto
+Supabase novo desta aplicação**, logo após o primeiro `manage.py migrate`:
+
+```bash
+psql "$DATABASE_URL" -f scripts/supabase_hardening.sql
+```
+
+É idempotente (pode rodar de novo num projeto já protegido sem efeito
+colateral) e cobre tabela criada depois do script (percorre `pg_tables` em
+vez de listar tabela por tabela) — mas não substitui rodá-lo de novo após
+uma migration que cria tabela nova, porque o passo 3 (RLS) só alcança o que
+existe no banco no momento da execução.
