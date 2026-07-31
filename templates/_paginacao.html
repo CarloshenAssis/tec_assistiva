@@ -1,0 +1,33 @@
+{% load static querystring_extras paginacao_extras %}
+{% if pagina.paginator.count %}
+<div class="paginacao">
+  <div class="resumo">
+    {{ pagina.paginator.count }} registro{{ pagina.paginator.count|pluralize }} · página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
+  </div>
+  <div class="controles">
+    <form method="get" class="tamanho-pagina">
+      {% for chave, valor in request.GET.items %}
+        {% if chave != "por_pagina" and chave != "pagina" %}
+          <input type="hidden" name="{{ chave }}" value="{{ valor }}">
+        {% endif %}
+      {% endfor %}
+      <label for="id_por_pagina">Linhas por página</label>
+      <select name="por_pagina" id="id_por_pagina">
+        {% tamanhos_de_pagina as tamanhos_disponiveis %}
+        {% for tamanho in tamanhos_disponiveis %}
+          <option value="{{ tamanho }}" {% if tamanho == pagina.paginator.per_page %}selected{% endif %}>{{ tamanho }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <div class="paginas">
+      {% if pagina.has_previous %}
+        <a class="btn btn-ghost" href="?{% querystring_trocando pagina=pagina.previous_page_number %}">← Anterior</a>
+      {% endif %}
+      {% if pagina.has_next %}
+        <a class="btn btn-ghost" href="?{% querystring_trocando pagina=pagina.next_page_number %}">Próxima →</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<script src="{% static 'js/paginacao.js' %}" defer></script>
+{% endif %}

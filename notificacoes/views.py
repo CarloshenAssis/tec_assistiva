@@ -1,10 +1,16 @@
 from django.shortcuts import render
 
 from core.decorators import tenant_required
+from core.paginacao import paginar
 from notificacoes.models import NotificacaoEnviada
 
 
 @tenant_required
 def lista(request):
-    notificacoes = NotificacaoEnviada.objects.select_related("beneficiario", "template")[:200]
-    return render(request, "notificacoes/lista.html", {"nav_atual": "notificacoes", "notificacoes": notificacoes})
+    qs = NotificacaoEnviada.objects.select_related("beneficiario", "template")
+    pagina = paginar(request, qs)
+    return render(
+        request,
+        "notificacoes/lista.html",
+        {"nav_atual": "notificacoes", "notificacoes": pagina.object_list, "pagina": pagina},
+    )

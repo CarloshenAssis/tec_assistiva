@@ -16,6 +16,7 @@ from ativos.domain.acoes import NIVEL_ADMIN
 from core.decorators import nivel_hierarquico, tenant_required
 from core.forms import FornecedorForm
 from core.models import Fornecedor
+from core.paginacao import paginar
 
 
 def _exigir_admin(request) -> None:
@@ -26,11 +27,12 @@ def _exigir_admin(request) -> None:
 @tenant_required
 def fornecedores_lista(request):
     _exigir_admin(request)
-    fornecedores = Fornecedor.objects.all().order_by("nome")
+    fornecedores_qs = Fornecedor.objects.all().order_by("nome")
+    pagina = paginar(request, fornecedores_qs)
     return render(
         request,
         "core/fornecedores_lista.html",
-        {"nav_atual": "fornecedores", "fornecedores": fornecedores},
+        {"nav_atual": "fornecedores", "fornecedores": pagina.object_list, "pagina": pagina},
     )
 
 

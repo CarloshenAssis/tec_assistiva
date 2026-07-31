@@ -22,21 +22,24 @@ from contas.models import Papel, Usuario
 from contas.senhas import gerar_senha_temporaria
 from core import features
 from core.models import Modulo, Tenant
+from core.paginacao import paginar
 from owner.decorators import owner_required
 from owner.forms import CriarAdministradorForm, TenantForm
 
 
 @owner_required
 def dashboard(request):
-    tenants = Tenant.objects.all().order_by("nome")
+    tenants_qs = Tenant.objects.all().order_by("nome")
+    pagina = paginar(request, tenants_qs)
     return render(
         request,
         "owner/dashboard.html",
         {
             "nav_atual": "owner_dashboard",
-            "tenants": tenants,
-            "total_tenants": tenants.count(),
-            "total_ativos": tenants.filter(ativo=True).count(),
+            "tenants": pagina.object_list,
+            "pagina": pagina,
+            "total_tenants": tenants_qs.count(),
+            "total_ativos": tenants_qs.filter(ativo=True).count(),
         },
     )
 
@@ -177,6 +180,7 @@ def auditoria(request):
         usuario=request.GET.get("usuario", ""),
         somente_sensivel=request.GET.get("sensivel") == "1",
         pagina=request.GET.get("pagina"),
+        por_pagina=request.GET.get("por_pagina"),
     )
     return render(
         request,

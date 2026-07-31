@@ -57,6 +57,7 @@ from beneficiarios.models import Beneficiario
 from core import features
 from core.decorators import nivel_hierarquico, tenant_required
 from core.models import Unidade
+from core.paginacao import paginar
 from core.unidades import enxerga_todas_as_unidades, filtrar_por_unidade, unidades_visiveis
 
 TABS_FICHA = [
@@ -140,7 +141,8 @@ def lista(request):
             | Q(fabricante__icontains=busca)
         )
 
-    ativos = list(ativos_qs[:200])
+    pagina = paginar(request, ativos_qs)
+    ativos = list(pagina.object_list)
     contexto_emprestimo = datas_previstas_por_ativo([a.id for a in ativos])
     for ativo in ativos:
         ativo.cor_operacional = cor_de(ativo, contexto_emprestimo.get(ativo.id)).value
@@ -152,6 +154,7 @@ def lista(request):
             "nav_atual": "ativos",
             "resumo_categorias": resumo_categorias,
             "ativos": ativos,
+            "pagina": pagina,
             "categoria_filtro": int(categoria_filtro) if categoria_filtro else None,
             "busca": busca,
             "sem_unidade_atribuida": _sem_unidade_atribuida(request),
@@ -990,14 +993,21 @@ def mapa(request):
 
 @tenant_required
 def manutencao_lista(request):
-    itens = []
-    for ativo in _ativos_no_escopo(request).filter(
+    ativos_qs = _ativos_no_escopo(request).filter(
         status=StatusAtivo.MANUTENCAO.value
-    ).select_related("categoria"):
+    ).select_related("categoria")
+    pagina = paginar(request, ativos_qs)
+
+    itens = []
+    for ativo in pagina.object_list:
         mov = Movimentacao.objects.mais_recente_do_tipo(ativo, TipoMovimentacao.MANUTENCAO)
         detalhe = getattr(mov, "detalhe_manutencao", None) if mov is not None else None
         itens.append({"ativo": ativo, "movimentacao": mov, "detalhe": detalhe})
-    return render(request, "ativos/manutencao_lista.html", {"nav_atual": "manutencao", "itens": itens})
+    return render(
+        request,
+        "ativos/manutencao_lista.html",
+        {"nav_atual": "manutencao", "itens": itens, "pagina": pagina},
+    )
 
 
 # ------------------------------------------------ Centro de Etiquetas ----
@@ -1116,9 +1126,13 @@ def etiquetas_historico(request):
     registros = (
         ImpressaoEtiqueta.objects.filter(ativo__in=_ativos_no_escopo(request))
         .select_related("usuario", "ativo")
-        .order_by("-impresso_em")[:500]
+        .order_by("-impresso_em")
     )
 
+    # Agrupado por lote antes de paginar (não depois): um corte fixo em cima
+    # dos registros individuais partiria um lote ao meio sem avisar. `lotes`
+    # já sai ordenado (dict preserva ordem de inserção, e `registros` já
+    # está do mais recente para o mais antigo).
     lotes = {}
     for registro in registros:
         bucket = lotes.setdefault(
@@ -1133,8 +1147,10 @@ def etiquetas_historico(request):
         )
         bucket["ativos"].append(registro.ativo)
 
+    pagina = paginar(request, list(lotes.values()))
+
     return render(
         request,
         "ativos/etiquetas_historico.html",
-        {"nav_atual": "etiquetas", "lotes": list(lotes.values())},
+        {"nav_atual": "etiquetas", "lotes": pagina.object_list, "pagina": pagina},
     )

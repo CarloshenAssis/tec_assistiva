@@ -15,6 +15,7 @@ from beneficiarios.lgpd import anonimizar, exportar_dados
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from core.arquivos import resposta_de_download
 from core.decorators import nivel_hierarquico, tenant_required
+from core.paginacao import paginar
 from core.unidades import filtrar_por_unidade
 
 #: Exportar e anonimizar são operações sobre a totalidade dos dados de uma
@@ -47,10 +48,11 @@ def lista(request):
     qs = _no_escopo(request)
     if busca:
         qs = qs.filter(Q(nome__icontains=busca) | Q(documento__icontains=busca) | Q(telefone__icontains=busca))
+    pagina = paginar(request, qs)
     return render(
         request,
         "beneficiarios/lista.html",
-        {"nav_atual": "beneficiarios", "beneficiarios": qs[:200], "busca": busca},
+        {"nav_atual": "beneficiarios", "beneficiarios": pagina.object_list, "pagina": pagina, "busca": busca},
     )
 
 

@@ -62,16 +62,6 @@
     {% endfor %}
   </div>
 
-  {% if pagina.has_other_pages %}
-    <div class="flex gap-2 mt-2">
-      {% if pagina.has_previous %}
-        <a class="btn btn-ghost" href="?pagina={{ pagina.previous_page_number }}&tenant={{ tenant_filtro|default:'' }}&acao={{ acao_filtro }}&usuario={{ usuario_filtro }}">← Anterior</a>
-      {% endif %}
-      <span class="faint" style="align-self:center;font-size:12px;">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-      {% if pagina.has_next %}
-        <a class="btn btn-ghost" href="?pagina={{ pagina.next_page_number }}&tenant={{ tenant_filtro|default:'' }}&acao={{ acao_filtro }}&usuario={{ usuario_filtro }}">Próxima →</a>
-      {% endif %}
-    </div>
-  {% endif %}
+  {% include "_paginacao.html" %}
 </div>
 {% endblock %}

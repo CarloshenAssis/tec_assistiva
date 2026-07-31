@@ -79,6 +79,15 @@ a:hover { color: var(--accent-hover); }
   flex-direction: column;
   padding: 24px 16px;
   gap: 24px;
+  /* Sem isto, a sidebar é só mais um item do flex `.shell` — esticado pelo
+     `align-items: stretch` padrão até a altura de `.main-col`. Numa lista
+     longa isso faz a barra inteira (logo, menu, rodapé) rolar junto com o
+     conteúdo, em vez de ficar fixa enquanto só o conteúdo rola. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
 }
 .sidebar .brand { padding: 0 8px; }
 .sidebar .brand .name { font-size: 17px; font-weight: 800; color: #fff; }
@@ -197,6 +206,18 @@ main.content { flex: 1; overflow-y: auto; padding: 28px; padding-bottom: 28px; }
 }
 .table-row.clickable { cursor: pointer; }
 .table-row.clickable:hover { background: var(--card-alt-bg); }
+
+/* ---------- Paginação ---------- */
+.paginacao {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 4px 4px; flex-wrap: wrap; border-top: 1px solid var(--card-border); margin-top: 4px;
+}
+.paginacao .resumo { font-size: 12.5px; color: var(--text-faint); }
+.paginacao .controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.paginacao .tamanho-pagina { display: flex; align-items: center; gap: 6px; margin: 0; }
+.paginacao .tamanho-pagina label { font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+.paginacao .tamanho-pagina select { width: auto; padding: 6px 10px; font-size: 12.5px; }
+.paginacao .paginas { display: flex; gap: 6px; }
 
 /* ---------- Forms ---------- */
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }

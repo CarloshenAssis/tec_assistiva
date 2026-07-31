@@ -14,8 +14,9 @@ from typing import Optional
 from django.core.paginator import Page, Paginator
 
 from auditoria.models import RegistroAuditoria
+from core.paginacao import TAMANHOS_DISPONIVEIS
 
-_ITENS_POR_PAGINA = 50
+_ITENS_POR_PAGINA_PADRAO = 50
 
 
 def listar_registros(
@@ -25,6 +26,7 @@ def listar_registros(
     usuario: str = "",
     somente_sensivel: bool = False,
     pagina=None,
+    por_pagina=None,
 ) -> Page:
     """
     Página de `RegistroAuditoria`, mais recente primeiro.
@@ -34,6 +36,9 @@ def listar_registros(
     ao próprio contrato. `RegistroAuditoria` usa manager padrão do Django
     (não é `TenantModel`, de propósito — ver auditoria/models.py), então o
     filtro por tenant aqui é explícito, não automático.
+
+    `por_pagina` segue a mesma lista fechada de `core.paginacao` — valor
+    ausente ou fora dela cai no padrão de 50, nunca vira "sem limite".
     """
     qs = RegistroAuditoria.objects.select_related("tenant", "usuario").all()
 
@@ -46,4 +51,11 @@ def listar_registros(
     if somente_sensivel:
         qs = qs.filter(envolve_dado_sensivel=True)
 
-    return Paginator(qs, _ITENS_POR_PAGINA).get_page(pagina)
+    try:
+        tamanho = int(por_pagina)
+    except (TypeError, ValueError):
+        tamanho = _ITENS_POR_PAGINA_PADRAO
+    if tamanho not in TAMANHOS_DISPONIVEIS:
+        tamanho = _ITENS_POR_PAGINA_PADRAO
+
+    return Paginator(qs, tamanho).get_page(pagina)

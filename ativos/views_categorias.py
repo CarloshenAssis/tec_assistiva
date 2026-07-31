@@ -19,6 +19,7 @@ from ativos.domain.acoes import NIVEL_ADMIN
 from ativos.forms import CategoriaAtivoForm, SubcategoriaAtivoForm
 from ativos.models import CategoriaAtivo, SubcategoriaAtivo
 from core.decorators import nivel_hierarquico, tenant_required
+from core.paginacao import paginar
 
 
 def _exigir_admin(request) -> None:
@@ -29,11 +30,12 @@ def _exigir_admin(request) -> None:
 @tenant_required
 def categorias_lista(request):
     _exigir_admin(request)
-    categorias = CategoriaAtivo.objects.all().order_by("nome")
+    categorias_qs = CategoriaAtivo.objects.all().order_by("nome")
+    pagina = paginar(request, categorias_qs)
     return render(
         request,
         "ativos/categorias_lista.html",
-        {"nav_atual": "categorias", "categorias": categorias},
+        {"nav_atual": "categorias", "categorias": pagina.object_list, "pagina": pagina},
     )
 
 
@@ -80,11 +82,17 @@ def categorias_editar(request, pk):
 def subcategorias_lista(request, categoria_pk):
     _exigir_admin(request)
     categoria = get_object_or_404(CategoriaAtivo, pk=categoria_pk)
-    subcategorias = categoria.subcategorias.all().order_by("nome")
+    subcategorias_qs = categoria.subcategorias.all().order_by("nome")
+    pagina = paginar(request, subcategorias_qs)
     return render(
         request,
         "ativos/subcategorias_lista.html",
-        {"nav_atual": "categorias", "categoria": categoria, "subcategorias": subcategorias},
+        {
+            "nav_atual": "categorias",
+            "categoria": categoria,
+            "subcategorias": pagina.object_list,
+            "pagina": pagina,
+        },
     )
 
 

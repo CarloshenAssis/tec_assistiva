@@ -16,6 +16,7 @@ from ativos.domain.acoes import NIVEL_ADMIN
 from core.decorators import nivel_hierarquico, tenant_required
 from core.forms import UnidadeForm
 from core.models import Unidade
+from core.paginacao import paginar
 
 
 def _exigir_admin(request) -> None:
@@ -26,11 +27,12 @@ def _exigir_admin(request) -> None:
 @tenant_required
 def unidades_lista(request):
     _exigir_admin(request)
-    unidades = Unidade.objects.all().order_by("nome")
+    unidades_qs = Unidade.objects.all().order_by("nome")
+    pagina = paginar(request, unidades_qs)
     return render(
         request,
         "core/unidades_lista.html",
-        {"nav_atual": "unidades", "unidades": unidades},
+        {"nav_atual": "unidades", "unidades": pagina.object_list, "pagina": pagina},
     )
 
 
