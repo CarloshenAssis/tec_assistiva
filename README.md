@@ -212,16 +212,9 @@ por isso o host do storage é liberado dinamicamente na CSP
 |---|---|
 | `DJANGO_STORAGE_S3_ACCESS_KEY_ID` | Access Key ID gerado no painel |
 | `DJANGO_STORAGE_S3_SECRET_ACCESS_KEY` | Secret Access Key gerado no painel |
-| `DJANGO_STORAGE_S3_BUCKET_NAME` | **obrigatória** assim que as chaves acima estiverem presentes — nome do bucket deste projeto, ex. `ciclartech-media` |
-| `DJANGO_STORAGE_S3_ENDPOINT_URL` | **obrigatória** assim que as chaves acima estiverem presentes — ex. `https://<ref-do-projeto>.storage.supabase.co/storage/v1/s3` |
+| `DJANGO_STORAGE_S3_BUCKET_NAME` | opcional, padrão `ciclartech-media` |
+| `DJANGO_STORAGE_S3_ENDPOINT_URL` | opcional, padrão `https://tuqecavtmbkriwhnqzfu.storage.supabase.co/storage/v1/s3` |
 | `DJANGO_STORAGE_S3_REGION_NAME` | opcional, padrão `sa-east-1` |
-
-Bucket e endpoint **não têm mais valor padrão** de propósito: até esta
-correção, o `settings.py` caía para o endpoint/bucket de **produção** se a
-env var faltasse — um ambiente novo com as chaves S3 configuradas mas sem
-essas duas variáveis escreveria silenciosamente no storage de produção em
-vez de falhar. Agora a aplicação recusa subir (`ImproperlyConfigured`) se
-as chaves estiverem presentes sem endpoint/bucket explícitos.
 
 As chaves são S3 access keys (não a `anon`/`service_role` key da API) —
 elas **ignoram RLS por completo** e são feitas exclusivamente para uso de

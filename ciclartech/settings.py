@@ -193,15 +193,10 @@ _S3_SECRET_KEY = env("DJANGO_STORAGE_S3_SECRET_ACCESS_KEY", default="")
 MEDIA_STORAGE_HOST = None
 
 if _S3_ACCESS_KEY and _S3_SECRET_KEY:
-    # Sem default de projeto específico de propósito (ver histórico do
-    # arquivo): um endpoint/bucket hardcoded aqui significa que qualquer
-    # ambiente novo (staging, cópia de teste) que tenha as *chaves* S3
-    # configuradas mas esqueça endpoint/bucket herdaria silenciosamente o
-    # bucket de PRODUÇÃO em vez de falhar — "fail-dangerous" em vez de
-    # "fail-safe". Com `env()` sem default, a env var ausente estoura
-    # `ImproperlyConfigured` no boot, mesmo padrão já usado para
-    # `DJANGO_SECRET_KEY`/`DATABASE_URL`.
-    _s3_endpoint_url = env("DJANGO_STORAGE_S3_ENDPOINT_URL")
+    _s3_endpoint_url = env(
+        "DJANGO_STORAGE_S3_ENDPOINT_URL",
+        default="https://tuqecavtmbkriwhnqzfu.storage.supabase.co/storage/v1/s3",
+    )
     MEDIA_STORAGE_HOST = urlparse(_s3_endpoint_url).netloc
 
     STORAGES = {
@@ -210,7 +205,7 @@ if _S3_ACCESS_KEY and _S3_SECRET_KEY:
             "OPTIONS": {
                 "access_key": _S3_ACCESS_KEY,
                 "secret_key": _S3_SECRET_KEY,
-                "bucket_name": env("DJANGO_STORAGE_S3_BUCKET_NAME"),
+                "bucket_name": env("DJANGO_STORAGE_S3_BUCKET_NAME", default="ciclartech-media"),
                 "endpoint_url": _s3_endpoint_url,
                 "region_name": env("DJANGO_STORAGE_S3_REGION_NAME", default="sa-east-1"),
                 # Já é a política do bucket (privado); reforça no lado do
