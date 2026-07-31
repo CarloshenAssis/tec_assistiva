@@ -1,5 +1,5 @@
 """
-Limite de taxa para ações autenticadas sensíveis (transferir, dar baixa,
+Limite de taxa para ações autenticadas sensíveis (movimentar ativo,
 exportar dados de um titular, anonimizar).
 
 Mesmo raciocínio de `contas/bloqueio.py` (bloqueio de login), reaproveitado
@@ -41,12 +41,24 @@ def limite_atingido(
 ) -> bool:
     """
     `True` se `usuario` já produziu `limite` ou mais eventos `acao` sobre
-    `objeto_tipo` (ex.: `"ativos.movimentacao"`) nos últimos `janela_minutos`.
+    `objeto_tipo` nos últimos `janela_minutos`.
 
-    Conta pela trilha automática (`auditoria/rastreamento.py`), que já
-    registra toda criação/alteração de model de domínio — não é preciso
-    instrumentar cada view que quer se proteger, só consultar o que a
-    trilha já grava.
+    `objeto_tipo` é `f"{app_label}.{NomeDaClasse}"` — **preserva a
+    capitalização do model** (ex.: `Movimentacao._meta.label`, que vale
+    `"ativos.Movimentacao"`, não `"ativos.movimentacao"`). É o mesmo formato
+    que `auditoria.services._rotulo_do_objeto` grava (usa `_meta.object_name`,
+    não `_meta.model_name`). Sempre passe `Model._meta.label` no lugar de
+    escrever a string à mão — foi exatamente esse descasamento de maiúscula
+    que fez a primeira versão deste limitador nunca contar nada.
+
+    Conta pela trilha automática (`auditoria/rastreamento.py`) ou pelos
+    eventos explícitos de LGPD (`EXPORTACAO_DADOS`/`ANONIMIZACAO`) — não é
+    preciso instrumentar um contador novo por fora: a auditoria já grava, o
+    limitador só consulta o que já existe.
+
+    Usuário anônimo nunca é limitado por aqui — toda view protegida por
+    este limitador já exige login antes (`@tenant_required`); quem não
+    autenticou é outro problema (bloqueio de login, `contas/bloqueio.py`).
     """
     if usuario is None or not getattr(usuario, "is_authenticated", False):
         return False
@@ -58,14 +70,30 @@ def limite_atingido(
     return total >= limite
 
 
-def registrar_limite_atingido(*, request, descricao: str) -> None:
+def registrar_limite_atingido(
+    *, request, objeto_tipo: str, limite: int, janela_minutos: int, descricao: str
+) -> None:
     """
-    Uma linha por bloqueio (não por tentativa recusada) — mesmo motivo do
-    `bloqueio_tentativas` de login: quem está abusando controla o volume de
-    tentativas, então logar cada uma seria o próprio vetor de inundação da
-    trilha. `ACESSO_NEGADO` já existe no catálogo fechado de eventos; não é
-    caso para um código novo.
+    Grava o bloqueio na trilha — **uma vez por janela**, não a cada
+    tentativa recusada. Mesmo motivo do `bloqueio_tentativas` de login: quem
+    está abusando controla o volume de tentativas bloqueadas, então logar
+    cada uma seria o próprio vetor de inundação da trilha que a auditoria
+    deveria detectar, não alimentar.
+
+    A deduplicação usa a mesma `descricao` (ela já identifica objeto_tipo +
+    limiar, ver chamadores) dentro da janela corrente — se já existe um
+    registro de bloqueio igual e recente, não grava de novo.
     """
     from auditoria.services import registrar  # import tardio: evita ciclo
+
+    desde = timezone.now() - timezone.timedelta(minutes=janela_minutos)
+    ja_registrado = RegistroAuditoria.objects.filter(
+        usuario=request.user,
+        acao=AcaoAuditada.ACESSO_NEGADO,
+        descricao=descricao,
+        criado_em__gte=desde,
+    ).exists()
+    if ja_registrado:
+        return
 
     registrar(AcaoAuditada.ACESSO_NEGADO, request=request, descricao=descricao)

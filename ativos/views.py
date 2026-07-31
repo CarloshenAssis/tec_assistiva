@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from ativos import services
 from ativos.domain.acoes import NIVEL_ADMIN, NIVEL_GESTOR, acoes_disponiveis
+from auditoria import limitador
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
 from ativos.domain.exceptions import DominioAtivoError
 from ativos.etiquetas import montar_etiquetas
@@ -542,6 +543,15 @@ def _redirecionar_pos_acao(ativo, origem):
     return redirect("app:ativos:ficha", pk=ativo.pk)
 
 
+#: Quantas movimentações (emprestar, devolver, transferir, dar baixa etc.)
+#: uma mesma conta pode gerar numa janela de tempo — barreira contra conta
+#: comprometida ou script em loop, não contra uso humano de balcão (ver
+#: auditoria/limitador.py). Generoso de propósito: um posto corrido não
+#: chega perto disso num atendimento normal.
+_LIMITE_MOVIMENTACOES = 60
+_LIMITE_MOVIMENTACOES_JANELA_MINUTOS = 5
+
+
 @tenant_required
 def executar_acao(request, pk, codigo):
     """
@@ -564,6 +574,29 @@ def executar_acao(request, pk, codigo):
         raise PermissionDenied("Ação não disponível para o estado atual do ativo ou para o seu perfil.")
 
     origem = request.GET.get("origem") or request.POST.get("origem") or "ficha"
+
+    if request.method == "POST" and limitador.limite_atingido(
+        usuario=request.user,
+        objeto_tipo=Movimentacao._meta.label,
+        limite=_LIMITE_MOVIMENTACOES,
+        janela_minutos=_LIMITE_MOVIMENTACOES_JANELA_MINUTOS,
+    ):
+        descricao = (
+            f"Limite de movimentações atingido "
+            f"({_LIMITE_MOVIMENTACOES}/{_LIMITE_MOVIMENTACOES_JANELA_MINUTOS}min)"
+        )
+        limitador.registrar_limite_atingido(
+            request=request,
+            objeto_tipo=Movimentacao._meta.label,
+            limite=_LIMITE_MOVIMENTACOES,
+            janela_minutos=_LIMITE_MOVIMENTACOES_JANELA_MINUTOS,
+            descricao=descricao,
+        )
+        messages.error(
+            request,
+            "Muitas ações em pouco tempo nesta conta. Aguarde alguns minutos e tente de novo.",
+        )
+        return _redirecionar_pos_acao(ativo, origem)
 
     if codigo in ACOES_COM_FORM:
         FormClass = ACOES_COM_FORM[codigo]

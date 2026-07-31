@@ -84,3 +84,15 @@ objeto com ciclo de vida.
   (`docs/business-rules/timeline.md`): a Timeline responde "o que aconteceu
   com este ativo"; a Auditoria responde "quem alterou o quê no sistema,
   quando, e de onde".
+- É a fonte de dados do **limite de taxa** (`auditoria/limitador.py`):
+  login já tinha bloqueio por tentativa (`contas/bloqueio.py`), mas uma
+  conta autenticada (legítima ou comprometida) não tinha nenhuma barreira
+  contra gerar movimentação/exportação/anonimização em volume. O limitador
+  conta eventos já gravados aqui, nos últimos N minutos, por usuário — não
+  é uma tabela nova, é uma consulta sobre a trilha existente. Limiares
+  hoje: 60 movimentações de ativo / 5 min, 20 exportações / hora, 5
+  anonimizações / hora (todos por conta, generosos o bastante para não
+  afetar uso humano normal de balcão). Bloqueio grava uma única linha de
+  `ACESSO_NEGADO` por janela, não uma por tentativa recusada — mesmo
+  motivo do bloqueio de login: quem abusa controla o volume de tentativas,
+  logar cada uma inundaria a própria trilha que deveria detectar o abuso.

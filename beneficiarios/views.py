@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 
+from auditoria import limitador
 from auditoria.models import AcaoAuditada
 from auditoria.services import registrar, registrar_acesso_dado_pessoal
 from beneficiarios.forms import BeneficiarioForm
@@ -20,6 +21,14 @@ from core.unidades import filtrar_por_unidade
 #: pessoa — ficam restritas a Admin (nível 30). Um funcionário de balcão
 #: precisa ver a ficha para atender, não baixar o dossiê completo.
 NIVEL_ADMIN = 30
+
+#: Limites de taxa (auditoria/limitador.py) — bem mais apertados que o de
+#: movimentação de ativo: exportar e anonimizar não são operação de balcão,
+#: são exceção rara pedida pelo titular. Ninguém legítimo faz isso em lote.
+_LIMITE_EXPORTACOES = 20
+_LIMITE_EXPORTACOES_JANELA_MINUTOS = 60
+_LIMITE_ANONIMIZACOES = 5
+_LIMITE_ANONIMIZACOES_JANELA_MINUTOS = 60
 
 
 def _no_escopo(request):
@@ -135,6 +144,28 @@ def exportar(request, pk):
         raise PermissionDenied("Somente Admin pode exportar os dados de um titular.")
 
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
+
+    if limitador.limite_atingido(
+        usuario=request.user,
+        objeto_tipo=Beneficiario._meta.label,
+        acao=AcaoAuditada.EXPORTACAO_DADOS,
+        limite=_LIMITE_EXPORTACOES,
+        janela_minutos=_LIMITE_EXPORTACOES_JANELA_MINUTOS,
+    ):
+        descricao = (
+            f"Limite de exportações atingido "
+            f"({_LIMITE_EXPORTACOES}/{_LIMITE_EXPORTACOES_JANELA_MINUTOS}min)"
+        )
+        limitador.registrar_limite_atingido(
+            request=request,
+            objeto_tipo=Beneficiario._meta.label,
+            limite=_LIMITE_EXPORTACOES,
+            janela_minutos=_LIMITE_EXPORTACOES_JANELA_MINUTOS,
+            descricao=descricao,
+        )
+        messages.error(request, "Muitas exportações em pouco tempo nesta conta. Aguarde e tente de novo.")
+        return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
+
     dados = exportar_dados(beneficiario)
 
     registrar(
@@ -170,6 +201,27 @@ def anonimizar_titular(request, pk):
 
     if request.method != "POST":
         raise PermissionDenied("Esta operação é irreversível e exige confirmação (POST).")
+
+    if limitador.limite_atingido(
+        usuario=request.user,
+        objeto_tipo=Beneficiario._meta.label,
+        acao=AcaoAuditada.ANONIMIZACAO,
+        limite=_LIMITE_ANONIMIZACOES,
+        janela_minutos=_LIMITE_ANONIMIZACOES_JANELA_MINUTOS,
+    ):
+        descricao = (
+            f"Limite de anonimizações atingido "
+            f"({_LIMITE_ANONIMIZACOES}/{_LIMITE_ANONIMIZACOES_JANELA_MINUTOS}min)"
+        )
+        limitador.registrar_limite_atingido(
+            request=request,
+            objeto_tipo=Beneficiario._meta.label,
+            limite=_LIMITE_ANONIMIZACOES,
+            janela_minutos=_LIMITE_ANONIMIZACOES_JANELA_MINUTOS,
+            descricao=descricao,
+        )
+        messages.error(request, "Muitas anonimizações em pouco tempo nesta conta. Aguarde e tente de novo.")
+        return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
 
     anonimizar(beneficiario, request=request, usuario=request.user)
     messages.success(
