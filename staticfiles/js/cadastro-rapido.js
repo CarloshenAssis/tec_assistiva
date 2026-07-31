@@ -26,6 +26,9 @@ document.addEventListener("submit", function (evento) {
   if (!form.matches("[data-cadastro-rapido]")) return;
   evento.preventDefault();
 
+  const botaoSalvar = form.querySelector('button[type="submit"]');
+  if (botaoSalvar.disabled) return;
+
   const erroEl = form.querySelector("[data-erro]");
   erroEl.hidden = true;
 
@@ -40,6 +43,8 @@ document.addEventListener("submit", function (evento) {
     }
     dados.set("categoria_id", categoriaSelect.value);
   }
+
+  botaoSalvar.disabled = true;
 
   fetch(form.action, {
     method: "POST",
@@ -69,5 +74,8 @@ document.addEventListener("submit", function (evento) {
     .catch(function () {
       erroEl.textContent = "Falha de conexão. Tente novamente.";
       erroEl.hidden = false;
+    })
+    .finally(function () {
+      botaoSalvar.disabled = false;
     });
 });
