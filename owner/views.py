@@ -16,13 +16,14 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
 from auditoria.models import AcaoAuditada
-from auditoria.selectors import listar_registros
+from auditoria.selectors import filtrar_registros, listar_registros
 from auditoria.services import registrar
 from contas.models import Papel, Usuario
 from contas.senhas import gerar_senha_temporaria
 from core import features
 from core.models import Modulo, Tenant
 from core.paginacao import paginar
+from core.relatorios_export import exportar_auditoria_csv
 from owner.decorators import owner_required
 from owner.forms import CriarAdministradorForm, TenantForm
 
@@ -196,3 +197,19 @@ def auditoria(request):
             "somente_sensivel": request.GET.get("sensivel") == "1",
         },
     )
+
+
+@owner_required
+def auditoria_exportar(request):
+    """
+    Mesmo filtro da tela (`auditoria`, acima), mas em CSV e sem paginar —
+    exporta todos os registros do filtro aplicado, não só a página em tela.
+    """
+    tenant_filtro = request.GET.get("tenant") or None
+    registros_qs = filtrar_registros(
+        tenant_id=tenant_filtro,
+        acao=request.GET.get("acao", ""),
+        usuario=request.GET.get("usuario", ""),
+        somente_sensivel=request.GET.get("sensivel") == "1",
+    )
+    return exportar_auditoria_csv(registros_qs, incluir_tenant=True)

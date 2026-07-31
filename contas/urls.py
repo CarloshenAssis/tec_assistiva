@@ -9,4 +9,5 @@ urlpatterns = [
     path("novo/", views.usuarios_criar, name="criar"),
     path("<int:pk>/alternar-ativo/", views.usuarios_alternar_ativo, name="alternar_ativo"),
     path("auditoria/", views.auditoria_lista, name="auditoria"),
+    path("auditoria/exportar/", views.auditoria_exportar, name="auditoria_exportar"),
 ]

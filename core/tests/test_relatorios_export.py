@@ -51,7 +51,7 @@ class ExportarRelatoriosTest(TestCase):
         self.client.login(username="func_export", password=SENHA)
         resposta = self.client.get(reverse("app:relatorios_exportar_ativos"))
         self.assertEqual(200, resposta.status_code)
-        self.assertEqual("text/csv; charset=utf-8-sig", resposta["Content-Type"])
+        self.assertEqual("text/csv; charset=utf-8", resposta["Content-Type"])
         conteudo = resposta.content.decode("utf-8-sig")
         self.assertIn("CAD-0001", conteudo)
         self.assertNotIn("CAD-9999", conteudo)

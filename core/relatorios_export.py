@@ -16,9 +16,16 @@ from django.http import HttpResponse
 
 
 def _resposta_csv(nome_arquivo: str) -> tuple[HttpResponse, "csv._writer"]:
-    resposta = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    # Charset "utf-8" na resposta, não "utf-8-sig": o codec `utf-8-sig`
+    # insere um BOM a CADA chamada de `.encode()`, e `HttpResponse.write()`
+    # recodifica a cada chamada — como `csv.writer` faz um `write()` por
+    # linha, declarar a resposta como utf-8-sig contaminava toda linha
+    # (menos a primeira) com um BOM extra no meio do arquivo. O BOM correto
+    # é só no início, escrito uma única vez abaixo como bytes crus — que
+    # `HttpResponse` grava sem recodificar.
+    resposta = HttpResponse(content_type="text/csv; charset=utf-8")
     resposta["Content-Disposition"] = f'attachment; filename="{nome_arquivo}"'
-    resposta.write("﻿")
+    resposta.write(b"\xef\xbb\xbf")
     escritor = csv.writer(resposta, delimiter=";")
     return resposta, escritor
 
@@ -88,4 +95,35 @@ def exportar_movimentacoes_csv(movimentacoes_qs) -> HttpResponse:
             detalhe.data_prevista_devolucao.isoformat() if detalhe else "",
             mov.observacoes,
         ])
+    return resposta
+
+
+def exportar_auditoria_csv(registros_qs, *, incluir_tenant: bool = False) -> HttpResponse:
+    """
+    `incluir_tenant=True` na visão cross-tenant do Owner — na visão por
+    tenant do Admin/Gestor a coluna seria sempre o mesmo valor, então nem
+    aparece (docs/business-rules/auditoria.md).
+    """
+    resposta, escritor = _resposta_csv("auditoria.csv")
+    cabecalho = ["Quando", "Usuário", "Ação", "Objeto", "Sensível", "Descrição", "IP"]
+    if incluir_tenant:
+        cabecalho.insert(1, "Organização")
+    escritor.writerow(cabecalho)
+
+    for registro in registros_qs:
+        objeto = registro.objeto_tipo
+        if registro.objeto_id:
+            objeto = f"{objeto} #{registro.objeto_id}"
+        linha = [
+            registro.criado_em.strftime("%d/%m/%Y %H:%M"),
+            registro.usuario_identificacao,
+            registro.get_acao_display(),
+            objeto,
+            "Sim" if registro.envolve_dado_sensivel else "Não",
+            registro.descricao,
+            registro.ip or "",
+        ]
+        if incluir_tenant:
+            linha.insert(1, registro.tenant.nome if registro.tenant_id else "—")
+        escritor.writerow(linha)
     return resposta

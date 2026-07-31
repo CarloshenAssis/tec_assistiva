@@ -16,4 +16,5 @@ urlpatterns = [
         name="criar_administrador",
     ),
     path("auditoria/", views.auditoria, name="auditoria"),
+    path("auditoria/exportar/", views.auditoria_exportar, name="auditoria_exportar"),
 ]

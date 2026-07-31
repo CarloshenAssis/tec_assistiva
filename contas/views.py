@@ -13,13 +13,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from ativos.domain.acoes import NIVEL_GESTOR
 from auditoria.models import AcaoAuditada
-from auditoria.selectors import listar_registros
+from auditoria.selectors import filtrar_registros, listar_registros
 from auditoria.services import registrar
 from contas.forms import CriarUsuarioForm
 from contas.models import Usuario
 from contas.senhas import gerar_senha_temporaria
 from core.decorators import nivel_hierarquico, tenant_required
 from core.paginacao import paginar
+from core.relatorios_export import exportar_auditoria_csv
 
 
 class AlterarSenhaView(auth_views.PasswordChangeView):
@@ -162,3 +163,16 @@ def auditoria_lista(request):
             "somente_sensivel": request.GET.get("sensivel") == "1",
         },
     )
+
+
+@tenant_required
+def auditoria_exportar(request):
+    """Mesmo filtro de `auditoria_lista`, em CSV e sem paginar — ver owner/views.py::auditoria_exportar."""
+    _exigir_gestor_ou_admin(request)
+    registros_qs = filtrar_registros(
+        tenant_id=request.tenant.pk,
+        acao=request.GET.get("acao", ""),
+        usuario=request.GET.get("usuario", ""),
+        somente_sensivel=request.GET.get("sensivel") == "1",
+    )
+    return exportar_auditoria_csv(registros_qs, incluir_tenant=False)

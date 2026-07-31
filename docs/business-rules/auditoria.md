@@ -63,6 +63,7 @@ Owner consulta a trilha cross-tenant
 |---|---|
 | Consultar auditoria do próprio tenant | Gestor ou Admin |
 | Consultar auditoria de todos os tenants | Owner |
+| Exportar auditoria em CSV (mesmo filtro da tela, sem paginar) | mesmo nível de quem consulta a tela |
 
 ## Estados possíveis
 

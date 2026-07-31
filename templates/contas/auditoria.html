@@ -23,7 +23,12 @@
         Só dado sensível
       </label>
     </div>
-    <button class="btn btn-primary" type="submit" style="grid-column:1/-1;justify-self:start;">Filtrar</button>
+    <div style="grid-column:1/-1;display:flex;gap:10px;">
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      <a class="btn btn-ghost" href="{% url 'app:usuarios:auditoria_exportar' %}?{{ request.GET.urlencode }}">
+        ⬇ Baixar em Excel
+      </a>
+    </div>
   </form>
 </div>
 
