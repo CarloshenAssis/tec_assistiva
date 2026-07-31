@@ -62,6 +62,11 @@ class AtivoForm(forms.ModelForm):
         self.fields["fornecedor"].queryset = Fornecedor.objects.all()
         self.fields["subcategoria"].required = False
         self.fields["fornecedor"].required = False
+        # "N/I" explícito em vez do "---------" padrão do Django: os dois
+        # campos já eram opcionais, isto só deixa claro na tela que não
+        # informar é uma opção válida, não um campo esquecido.
+        self.fields["subcategoria"].empty_label = "N/I — Não informado"
+        self.fields["fornecedor"].empty_label = "N/I — Não informado"
         self.fields["patrimonio"].required = False
         self.fields["patrimonio"].help_text = "Deixe em branco para gerar automaticamente."
 

@@ -8,4 +8,5 @@ urlpatterns = [
     path("", views.fornecedores_lista, name="lista"),
     path("novo/", views.fornecedores_criar, name="criar"),
     path("<int:pk>/editar/", views.fornecedores_editar, name="editar"),
+    path("rapido/", views.fornecedor_criar_rapido, name="criar_rapido"),
 ]

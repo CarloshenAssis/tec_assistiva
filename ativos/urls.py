@@ -25,6 +25,11 @@ urlpatterns = [
         views_categorias.subcategorias_editar,
         name="subcategorias_editar",
     ),
+    path(
+        "categorias/subcategoria-rapida/",
+        views_categorias.subcategoria_criar_rapida,
+        name="subcategoria_criar_rapida",
+    ),
     path("localizar/", views.localizar, name="localizar"),
     path("scan/", views.scan, name="scan"),
     path("qr/<str:token>/", views.resolver_qr, name="resolver_qr"),

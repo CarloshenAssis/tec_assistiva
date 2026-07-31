@@ -98,9 +98,10 @@
           <a class="nav-item {% if nav_atual == 'categorias' %}active{% endif %}" href="{% url 'app:ativos:categorias_lista' %}">
             <span class="dot"></span> Categorias
           </a>
-          <a class="nav-item {% if nav_atual == 'fornecedores' %}active{% endif %}" href="{% url 'app:fornecedores:lista' %}">
-            <span class="dot"></span> Fornecedores
-          </a>
+          {# Link de "Fornecedores" retirado de propósito — o cadastro rápido #}
+          {# embutido no formulário de Ativo cobre o uso do dia a dia. A tela  #}
+          {# cheia (core/views_fornecedores.py) continua no código, alcançável #}
+          {# por URL direta, para editar contato/telefone de um já existente.  #}
           {% endif %}
           <a class="nav-item {% if nav_atual == 'etiquetas' %}active{% endif %}" href="{% url 'app:ativos:etiquetas_centro' %}">
             <span class="dot"></span> Centro de Etiquetas

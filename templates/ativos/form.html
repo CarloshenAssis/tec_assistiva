@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ titulo }} · Ciclartech{% endblock %}
 {% block page_title %}{{ titulo }}{% endblock %}
 {% block content %}
@@ -8,7 +9,19 @@
     {% for field in form %}
       <div class="field">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
+        {% if field.name == "subcategoria" %}
+          <div class="campo-com-acao">
+            {{ field }}
+            <button type="button" class="btn btn-ghost" data-abrir-modal="modal-subcategoria">+ Cadastrar</button>
+          </div>
+        {% elif field.name == "fornecedor" %}
+          <div class="campo-com-acao">
+            {{ field }}
+            <button type="button" class="btn btn-ghost" data-abrir-modal="modal-fornecedor">+ Cadastrar</button>
+          </div>
+        {% else %}
+          {{ field }}
+        {% endif %}
         {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
         {{ field.errors }}
       </div>
@@ -28,4 +41,37 @@
     </div>
   </form>
 </div>
+
+<dialog id="modal-subcategoria" class="modal-rapido">
+  <h3>Nova subcategoria</h3>
+  <form data-cadastro-rapido data-alvo-select="id_subcategoria" data-categoria-origem="id_categoria"
+        action="{% url 'app:ativos:subcategoria_criar_rapida' %}">
+    <div class="field">
+      <label for="id_nome_subcategoria_rapida">Nome</label>
+      <input type="text" id="id_nome_subcategoria_rapida" name="nome" required autofocus>
+    </div>
+    <div class="erro" data-erro hidden></div>
+    <div class="flex gap-2">
+      <button class="btn btn-primary" type="submit">Salvar</button>
+      <button class="btn btn-secondary" type="button" data-fechar-modal>Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-fornecedor" class="modal-rapido">
+  <h3>Novo fornecedor</h3>
+  <form data-cadastro-rapido data-alvo-select="id_fornecedor" action="{% url 'app:fornecedores:criar_rapido' %}">
+    <div class="field">
+      <label for="id_nome_fornecedor_rapido">Nome</label>
+      <input type="text" id="id_nome_fornecedor_rapido" name="nome" required autofocus>
+    </div>
+    <div class="erro" data-erro hidden></div>
+    <div class="flex gap-2">
+      <button class="btn btn-primary" type="submit">Salvar</button>
+      <button class="btn btn-secondary" type="button" data-fechar-modal>Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="{% static 'js/cadastro-rapido.js' %}" defer></script>
 {% endblock %}

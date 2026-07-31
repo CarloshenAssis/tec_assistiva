@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from ativos.domain.acoes import NIVEL_ADMIN
+from ativos.domain.acoes import NIVEL_ADMIN, NIVEL_GESTOR
 from ativos.forms import CategoriaAtivoForm, SubcategoriaAtivoForm
 from ativos.models import CategoriaAtivo, SubcategoriaAtivo
 from core.decorators import nivel_hierarquico, tenant_required
@@ -140,3 +141,37 @@ def subcategorias_editar(request, pk):
             "titulo": f"Editar {subcategoria.nome}",
         },
     )
+
+
+@tenant_required
+def subcategoria_criar_rapida(request):
+    """
+    Cadastro rápido (só o nome), embutido no formulário de Ativo — em vez
+    de obrigar quem está cadastrando um ativo a sair para Cadastros →
+    Categorias → Subcategorias no meio do fluxo.
+
+    Nível de permissão: Gestor+, o mesmo de cadastrar ativo — diferente da
+    tela cheia acima (`subcategorias_criar`, Admin-only). A gestão completa
+    de taxonomia continua restrita a Admin; incluir uma opção nova enquanto
+    se cadastra um ativo é parte do mesmo fluxo operacional do Gestor.
+
+    Reaproveita subcategoria já existente com o mesmo nome (comparação sem
+    diferenciar maiúsculas) em vez de duplicar — nome duplicado nunca é a
+    intenção de quem só quer "adicionar uma opção que falta".
+    """
+    if nivel_hierarquico(request) < NIVEL_GESTOR:
+        raise PermissionDenied("Somente Gestor ou Admin podem cadastrar ativos.")
+    if request.method != "POST":
+        raise PermissionDenied("Esta operação exige confirmação (POST).")
+
+    categoria = get_object_or_404(CategoriaAtivo, pk=request.POST.get("categoria_id"))
+    nome = (request.POST.get("nome") or "").strip()
+    if not nome:
+        return JsonResponse({"erro": "Informe um nome."}, status=400)
+
+    subcategoria = SubcategoriaAtivo.objects.filter(categoria=categoria, nome__iexact=nome).first()
+    if subcategoria is None:
+        subcategoria = SubcategoriaAtivo.objects.create(
+            tenant=request.tenant, categoria=categoria, nome=nome
+        )
+    return JsonResponse({"id": subcategoria.pk, "nome": subcategoria.nome})
