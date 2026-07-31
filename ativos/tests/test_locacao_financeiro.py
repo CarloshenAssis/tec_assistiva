@@ -2,13 +2,14 @@
 Dados financeiros de locação em DetalheEmprestimo (docs/business-rules/modulos.md).
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.test import TestCase
 from django.urls import reverse
 
 from ativos import services
 from ativos.models import Ativo, CategoriaAtivo, DetalheEmprestimo
+from ativos.views import _texto_decimal_ou_none
 from beneficiarios.models import Beneficiario
 from contas.models import Papel, Usuario
 from core import features
@@ -16,6 +17,46 @@ from core.models import Tenant, Unidade
 from core.tenancy import reset_current_tenant_id, set_current_tenant_id
 
 SENHA = "senha-bem-longa-2026"
+
+
+class TextoDecimalOuNoneTest(TestCase):
+    """
+    Formato brasileiro no campo monetário do wizard: "," é decimal, "." é
+    milhar. Ver ativos/views.py::_texto_decimal_ou_none.
+    """
+
+    def test_vazio_e_none(self):
+        self.assertIsNone(_texto_decimal_ou_none(""))
+        self.assertIsNone(_texto_decimal_ou_none("   "))
+        self.assertIsNone(_texto_decimal_ou_none(None))
+
+    def test_decimal_com_virgula_sem_milhar(self):
+        self.assertEqual(Decimal("80.50"), Decimal(_texto_decimal_ou_none("80,50")))
+
+    def test_inteiro_sem_separador_nenhum(self):
+        self.assertEqual(Decimal("200"), Decimal(_texto_decimal_ou_none("200")))
+
+    def test_milhar_com_virgula_decimal(self):
+        # O bug original: "1.500,00".replace(",", ".") vira "1.500.00", que
+        # Decimal() rejeita.
+        self.assertEqual(Decimal("1500.00"), Decimal(_texto_decimal_ou_none("1.500,00")))
+
+    def test_milhar_sem_centavos_nao_vira_um_real(self):
+        # O bug mais grave: sem checar o tamanho do que vem depois do ponto,
+        # "1.000" (mil reais) virava silenciosamente Decimal('1.000') == 1.
+        self.assertEqual(Decimal("1000"), Decimal(_texto_decimal_ou_none("1.000")))
+
+    def test_ponto_como_decimal_quando_nao_e_grupo_de_tres(self):
+        # Um único ponto com 1 ou 2 dígitos depois é decimal, não milhar.
+        self.assertEqual(Decimal("1.5"), Decimal(_texto_decimal_ou_none("1.5")))
+        self.assertEqual(Decimal("1.50"), Decimal(_texto_decimal_ou_none("1.50")))
+
+    def test_varios_pontos_sao_sempre_milhar(self):
+        self.assertEqual(Decimal("1234567"), Decimal(_texto_decimal_ou_none("1.234.567")))
+
+    def test_texto_invalido_continua_levantando_erro(self):
+        with self.assertRaises(InvalidOperation):
+            _texto_decimal_ou_none("abc")
 
 
 class ValorMultaAtrasoTest(TestCase):

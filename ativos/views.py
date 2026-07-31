@@ -621,11 +621,30 @@ def _texto_decimal_ou_none(valor: str):
     (`django.contrib.sessions` usa JSON por padrão). Levanta
     `InvalidOperation` se o texto não for um número (não silencia o erro:
     quem chama decide a mensagem).
+
+    Formato brasileiro: "," é o separador decimal, "." é o de milhar (ex.:
+    "1.500,00"). Um `.replace(",", ".")` ingênuo tanto rejeita esse caso
+    (vira "1.500.00", que `Decimal` recusa) quanto corrompe silenciosamente
+    "1.000" (mil reais sem centavos) para 1 real — mesma heurística que o
+    Django usa em `django.utils.formats.sanitize_separators` (ticket #22171):
+    um único ponto seguido de exatamente 3 dígitos é separador de milhar;
+    caso contrário, é separador decimal.
     """
     valor = (valor or "").strip()
     if not valor:
         return None
-    return str(Decimal(valor.replace(",", ".")))
+
+    if "," in valor:
+        parte_inteira, parte_decimal = valor.rsplit(",", 1)
+        valor = f"{parte_inteira.replace('.', '')}.{parte_decimal}"
+    elif valor.count(".") > 1:
+        valor = valor.replace(".", "")
+    elif "." in valor:
+        parte_inteira, parte_decimal = valor.split(".")
+        if len(parte_decimal) == 3:
+            valor = parte_inteira + parte_decimal
+
+    return str(Decimal(valor))
 
 
 def _decimal_da_sessao(valor):
