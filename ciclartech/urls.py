@@ -6,6 +6,7 @@ from django.urls import include, path
 from contas.forms import FormularioLoginSeguro
 from contas.views import AlterarSenhaView
 from core.views import raiz
+from core.views_cron import notificacoes_diarias
 from core.views_saude import saude
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     path("owner/", include("owner.urls")),
     path("saude/", saude, name="saude"),
+    path("cron/notificacoes-diarias/", notificacoes_diarias, name="cron_notificacoes_diarias"),
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(

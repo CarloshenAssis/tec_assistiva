@@ -257,6 +257,11 @@ LOGOUT_REDIRECT_URL = "login"
 # /admin/ gera tentativas que consomem o bloqueio de contas legítimas.
 ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/").lstrip("/")
 
+# Segredo do endpoint de cron (core/views_cron.py). Sem valor configurado, o
+# endpoint recusa qualquer chamada — nunca fica aberto por omissão. Gere com
+# o mesmo comando sugerido para DJANGO_SECRET_KEY.
+CRON_SECRET = env("CRON_SECRET", default="")
+
 # ===================================================================
 # E-mail
 # ===================================================================
