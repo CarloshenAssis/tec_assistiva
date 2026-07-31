@@ -321,6 +321,98 @@ class AlternarAtivoTest(TestCase):
         self.assertTrue(outro_usuario.is_active)
 
 
+class GerarNovaSenhaTest(TestCase):
+    """
+    Caso real que motivou a tela: usuário criado, senha temporária mostrada
+    uma única vez, pessoa erra ao digitar/retransmitir e não há como "ver de
+    novo" — o Admin/Gestor precisa poder gerar outra sem recriar a conta
+    (recriar nem seria possível, `username` é único — ver CriarUsuarioForm).
+    """
+
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nome="Prefeitura Nova Senha", slug="pref-nova-senha")
+        self.admin = Usuario.objects.create_user(
+            username="admin_nova_senha",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="admin"),
+        )
+        self.gestor = Usuario.objects.create_user(
+            username="gestor_nova_senha",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="gestor"),
+        )
+        self.funcionario = Usuario.objects.create_user(
+            username="func_nova_senha",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.senha_antiga_hash = self.funcionario.password
+
+    def test_exige_post(self):
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        resposta = self.client.get(reverse("app:usuarios:gerar_nova_senha", args=[self.funcionario.pk]))
+        self.assertEqual(403, resposta.status_code)
+
+    def test_admin_gera_nova_senha_para_funcionario(self):
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        resposta = self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[self.funcionario.pk]))
+        self.assertEqual(200, resposta.status_code)
+
+        self.funcionario.refresh_from_db()
+        self.assertNotEqual(self.senha_antiga_hash, self.funcionario.password)
+
+        nova_senha = resposta.context["senha"]
+        self.assertTrue(check_password(nova_senha, self.funcionario.password))
+
+    def test_senha_antiga_para_de_funcionar(self):
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[self.funcionario.pk]))
+        self.client.logout()
+
+        logou = self.client.login(username="func_nova_senha", password=SENHA)
+        self.assertFalse(logou)
+
+    def test_gestor_nao_pode_gerar_senha_do_admin(self):
+        hash_antigo = self.admin.password
+        self.client.login(username="gestor_nova_senha", password=SENHA)
+        resposta = self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[self.admin.pk]))
+        self.assertEqual(403, resposta.status_code)
+        self.admin.refresh_from_db()
+        self.assertEqual(hash_antigo, self.admin.password)
+
+    def test_nao_pode_gerar_a_propria_senha_por_aqui(self):
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        resposta = self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[self.admin.pk]))
+        self.assertEqual(403, resposta.status_code)
+
+    def test_nao_alcanca_usuario_de_outro_tenant(self):
+        outro_tenant = Tenant.objects.create(nome="Outra Nova Senha", slug="pref-outra-nova-senha")
+        outro_usuario = Usuario.objects.create_user(
+            username="func_outro_tenant_senha",
+            password=SENHA,
+            tenant=outro_tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        hash_antigo = outro_usuario.password
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        resposta = self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[outro_usuario.pk]))
+        self.assertEqual(404, resposta.status_code)
+        outro_usuario.refresh_from_db()
+        self.assertEqual(hash_antigo, outro_usuario.password)
+
+    def test_gera_evento_de_auditoria(self):
+        self.client.login(username="admin_nova_senha", password=SENHA)
+        self.client.post(reverse("app:usuarios:gerar_nova_senha", args=[self.funcionario.pk]))
+        self.assertTrue(
+            RegistroAuditoria.objects.filter(
+                acao=AcaoAuditada.SENHA_ALTERADA, usuario=self.funcionario
+            ).exists()
+        )
+
+
 class AuditoriaTenantTest(TestCase):
     def setUp(self):
         self.tenant_a = Tenant.objects.create(nome="Prefeitura Audit A", slug="pref-audit-a-usr")

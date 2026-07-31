@@ -140,6 +140,42 @@ def usuarios_alternar_ativo(request, pk):
 
 
 @tenant_required
+def usuarios_gerar_nova_senha(request, pk):
+    """
+    Redefine a senha de um usuário do próprio tenant, gerando outra
+    temporária — mesmo mecanismo de `usuarios_criar`, para o caso de a
+    pessoa ter perdido ou errado a senha recebida na criação (ela só é
+    mostrada uma vez, não há como "ver de novo"). Exige POST: invalida a
+    senha atual na hora, então não pode ser acionável por um link solto.
+    """
+    _exigir_gestor_ou_admin(request)
+    if request.method != "POST":
+        raise PermissionDenied("Esta operação exige confirmação (POST).")
+
+    usuario_alvo = get_object_or_404(Usuario, pk=pk, tenant=request.tenant)
+    if not request.user.pode_gerenciar(usuario_alvo):
+        raise PermissionDenied("Você não tem permissão para gerenciar este usuário.")
+    if usuario_alvo.pk == request.user.pk:
+        raise PermissionDenied("Para trocar a própria senha, use \"Alterar senha\".")
+
+    senha = gerar_senha_temporaria()
+    usuario_alvo.password = make_password(senha)
+    usuario_alvo.save(update_fields=["password"])
+    registrar(
+        AcaoAuditada.SENHA_ALTERADA,
+        request=request,
+        usuario=usuario_alvo,
+        tenant=request.tenant,
+        descricao=f"Nova senha gerada por {request.user.get_username()}",
+    )
+    return render(
+        request,
+        "contas/senha_redefinida.html",
+        {"nav_atual": "usuarios", "usuario": usuario_alvo, "senha": senha},
+    )
+
+
+@tenant_required
 def auditoria_lista(request):
     """Trilha de auditoria restrita ao próprio tenant — mesmo seletor da visão cross-tenant do Owner."""
     _exigir_gestor_ou_admin(request)

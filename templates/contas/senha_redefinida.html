@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Senha redefinida · Ciclartech{% endblock %}
+{% block page_title %}Senha redefinida{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Nova senha gerada.</div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:16px;">
+    A senha anterior de <strong>{{ usuario.get_username }}</strong> parou de funcionar agora.
+    Copie a nova abaixo e envie por um canal seguro. <strong>Ela não será exibida novamente.</strong>
+  </div>
+
+  <div style="background:var(--card-alt-bg);border-radius:10px;padding:14px;margin-bottom:16px;">
+    <div class="faint" style="font-size:11px;">Usuário</div>
+    <div style="font-family:monospace;font-size:14px;font-weight:700;margin-bottom:10px;">{{ usuario.get_username }}</div>
+    <div class="faint" style="font-size:11px;">Nova senha temporária</div>
+    <div style="font-family:monospace;font-size:14px;font-weight:700;">{{ senha }}</div>
+  </div>
+
+  <div class="faint" style="font-size:11px;margin-bottom:16px;">
+    A pessoa deve trocar essa senha assim que entrar, em "Alterar senha".
+  </div>
+
+  <a class="btn btn-primary btn-block" href="{% url 'app:usuarios:lista' %}">Voltar para Usuários</a>
+</div>
+{% endblock %}
