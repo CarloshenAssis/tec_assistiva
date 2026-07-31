@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static nav_extras %}<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -71,8 +71,8 @@
           <span class="dot"></span> Painel
         </a>
       </div>
-      <div>
-        <div class="nav-group-title">Operações</div>
+      <details class="nav-section" {% if nav_atual in "emprestimo,devolucao,manutencao,localizar"|split:"," %}open{% endif %}>
+        <summary>Operações<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'emprestimo' %}active{% endif %}" href="{% url 'app:ativos:wizard_emprestimo' %}">
             <span class="dot"></span> Emprestar
@@ -87,9 +87,9 @@
             <span class="dot"></span> Localizar Ativo
           </a>
         </div>
-      </div>
-      <div>
-        <div class="nav-group-title">Cadastros</div>
+      </details>
+      <details class="nav-section" {% if nav_atual in "ativos,categorias,fornecedores,etiquetas,beneficiarios"|split:"," %}open{% endif %}>
+        <summary>Cadastros<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'ativos' %}active{% endif %}" href="{% url 'app:ativos:lista' %}">
             <span class="dot"></span> Ativos
@@ -109,9 +109,9 @@
             <span class="dot"></span> {{ rotulo_beneficiario_plural }}
           </a>
         </div>
-      </div>
-      <div>
-        <div class="nav-group-title">Agenda</div>
+      </details>
+      <details class="nav-section" {% if nav_atual in "agenda,mapa"|split:"," %}open{% endif %}>
+        <summary>Agenda<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'agenda' %}active{% endif %}" href="{% url 'app:ativos:agenda' %}">
             <span class="dot"></span> Devoluções e atrasos
@@ -120,9 +120,9 @@
             <span class="dot"></span> Mapa Operacional
           </a>
         </div>
-      </div>
-      <div>
-        <div class="nav-group-title">Relatórios</div>
+      </details>
+      <details class="nav-section" {% if nav_atual in "relatorios,notificacoes"|split:"," %}open{% endif %}>
+        <summary>Relatórios<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'relatorios' %}active{% endif %}" href="{% url 'app:relatorios' %}">
             <span class="dot"></span> Relatórios
@@ -131,10 +131,10 @@
             <span class="dot"></span> Notificações
           </a>
         </div>
-      </div>
+      </details>
       {% if pode_gerenciar_usuarios %}
-      <div>
-        <div class="nav-group-title">Administração</div>
+      <details class="nav-section" {% if nav_atual in "usuarios,auditoria,unidades"|split:"," %}open{% endif %}>
+        <summary>Administração<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'usuarios' %}active{% endif %}" href="{% url 'app:usuarios:lista' %}">
             <span class="dot"></span> Usuários
@@ -148,7 +148,7 @@
           </a>
           {% endif %}
         </div>
-      </div>
+      </details>
       {% endif %}
     </div>
     <div class="sidebar-footer">
