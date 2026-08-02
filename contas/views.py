@@ -15,12 +15,13 @@ from ativos.domain.acoes import NIVEL_GESTOR
 from auditoria.models import AcaoAuditada
 from auditoria.selectors import filtrar_registros, listar_registros
 from auditoria.services import registrar
-from contas.forms import CriarUsuarioForm
+from contas.forms import CriarUsuarioForm, EditarUsuarioForm
 from contas.models import Usuario
 from contas.senhas import gerar_senha_temporaria
 from core.decorators import nivel_hierarquico, tenant_required
 from core.paginacao import paginar
 from core.relatorios_export import exportar_auditoria_csv
+from core.unidades import unidades_do_usuario
 
 
 class AlterarSenhaView(auth_views.PasswordChangeView):
@@ -114,6 +115,59 @@ def usuarios_criar(request):
         request,
         "contas/usuarios_form.html",
         {"nav_atual": "usuarios", "form": form, "titulo": "Novo usuário"},
+    )
+
+
+@tenant_required
+def usuarios_editar(request, pk):
+    """
+    Edita e-mail, nome, papel e unidades de um usuário já existente.
+
+    Mesma regra de autorização de `usuarios_alternar_ativo`/
+    `usuarios_gerar_nova_senha` (`pode_gerenciar`, não a mais restrita de
+    `usuarios_criar`): permite editar um par de mesmo nível já existente
+    (ex.: Gestor editando outro Gestor), só não permite criar um novo nem
+    promover alguém para o próprio nível ou acima — ver `EditarUsuarioForm`.
+    """
+    _exigir_gestor_ou_admin(request)
+    usuario_alvo = get_object_or_404(Usuario, pk=pk, tenant=request.tenant)
+    if not request.user.pode_gerenciar(usuario_alvo):
+        raise PermissionDenied("Você não tem permissão para gerenciar este usuário.")
+    if usuario_alvo.pk == request.user.pk:
+        raise PermissionDenied("Para editar o próprio cadastro, peça a outro Gestor/Admin.")
+
+    nivel_editor = nivel_hierarquico(request)
+
+    if request.method == "POST":
+        form = EditarUsuarioForm(
+            request.POST, nivel_editor=nivel_editor, papel_atual_id=usuario_alvo.papel_id
+        )
+        if form.is_valid():
+            usuario_alvo.email = form.cleaned_data["email"]
+            usuario_alvo.first_name = form.cleaned_data["first_name"]
+            usuario_alvo.last_name = form.cleaned_data["last_name"]
+            usuario_alvo.papel = form.cleaned_data["papel"]
+            usuario_alvo.save()
+            usuario_alvo.unidades.set(form.cleaned_data["unidades"])
+            messages.success(request, f"Usuário {usuario_alvo.get_username()} atualizado.")
+            return redirect("app:usuarios:lista")
+    else:
+        form = EditarUsuarioForm(
+            nivel_editor=nivel_editor,
+            papel_atual_id=usuario_alvo.papel_id,
+            initial={
+                "email": usuario_alvo.email,
+                "first_name": usuario_alvo.first_name,
+                "last_name": usuario_alvo.last_name,
+                "papel": usuario_alvo.papel_id,
+                "unidades": list(unidades_do_usuario(usuario_alvo).values_list("pk", flat=True)),
+            },
+        )
+
+    return render(
+        request,
+        "contas/usuarios_editar.html",
+        {"nav_atual": "usuarios", "form": form, "titulo": f"Editar {usuario_alvo.get_username()}", "usuario_alvo": usuario_alvo},
     )
 
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+from django.db import models
 
 from auditoria.services import ip_do_cliente
 from contas.bloqueio import esta_bloqueado
@@ -109,3 +110,43 @@ class CriarUsuarioForm(forms.Form):
         if Usuario.objects.filter(username=username).exists():
             raise forms.ValidationError("Já existe um usuário com este nome de login.")
         return username
+
+
+class EditarUsuarioForm(forms.Form):
+    """
+    Edita e-mail, nome, papel e unidades de um usuário já existente do
+    próprio tenant — login (`username`) não é editável aqui de propósito,
+    é o identificador usado em toda a trilha de auditoria e em logins já
+    feitos; renomear afetaria histórico e é operação rara o bastante para
+    não precisar de tela (recriar a conta cobre esse caso excepcional).
+
+    Sem campo de senha, mesmo motivo de `CriarUsuarioForm` — trocar senha
+    de terceiro é a tela "Gerar nova senha", não esta.
+
+    `papel`: quem edita nunca pode PROMOVER alguém a um nível igual ou
+    acima do próprio (mesmo teto de `CriarUsuarioForm`), mas precisa poder
+    salvar o formulário sem mudar o papel de um usuário que já gerencia
+    (ex.: Gestor editando o e-mail de outro Gestor, permitido por
+    `Usuario.pode_gerenciar` que usa `>=`) — por isso o papel atual do
+    usuário editado sempre entra na lista de opções, mesmo quando está no
+    nível do próprio editor ou acima.
+    """
+
+    email = forms.EmailField(label="E-mail")
+    first_name = forms.CharField(max_length=150, required=False, label="Nome")
+    last_name = forms.CharField(max_length=150, required=False, label="Sobrenome")
+    papel = forms.ModelChoiceField(queryset=Papel.objects.none(), label="Papel")
+    unidades = forms.ModelMultipleChoiceField(
+        queryset=Unidade.objects.none(),
+        required=True,
+        label="Unidades permitidas",
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Selecione ao menos uma unidade."},
+    )
+
+    def __init__(self, *args, nivel_editor: int, papel_atual_id: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["papel"].queryset = Papel.objects.filter(
+            models.Q(nivel_hierarquico__lt=nivel_editor) | models.Q(pk=papel_atual_id)
+        ).order_by("-nivel_hierarquico")
+        self.fields["unidades"].queryset = Unidade.objects.filter(ativo=True).order_by("nome")

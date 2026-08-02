@@ -2,12 +2,26 @@ from django.shortcuts import render
 
 from core.decorators import tenant_required
 from core.paginacao import paginar
+from core.unidades import filtrar_por_unidade
 from notificacoes.models import NotificacaoEnviada
 
 
 @tenant_required
 def lista(request):
-    qs = NotificacaoEnviada.objects.select_related("beneficiario", "template")
+    """
+    Diferente de toda outra tela de listagem, esta não era filtrada por
+    unidade — um Gestor/Funcionário de uma unidade via o histórico de
+    notificação de beneficiários de outras unidades que ele nem enxerga em
+    Beneficiários. `campo="beneficiario__unidade"` porque a notificação em
+    si não tem unidade própria, quem tem é o beneficiário dela (mesma regra
+    de nulo inclusivo de `beneficiarios/views.py::_no_escopo`).
+    """
+    qs = filtrar_por_unidade(
+        NotificacaoEnviada.objects.select_related("beneficiario", "template"),
+        request.user,
+        campo="beneficiario__unidade",
+        incluir_sem_unidade=True,
+    )
     pagina = paginar(request, qs)
     return render(
         request,

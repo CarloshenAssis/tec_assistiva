@@ -30,6 +30,7 @@
         </div>
         <div class="flex-col gap-1">
           {% if usuario.pk != request.user.pk and usuario.pode_ser_gerenciado %}
+            <a class="btn btn-ghost" style="font-size:12px;" href="{% url 'app:usuarios:editar' usuario.pk %}">Editar</a>
             <form method="post" action="{% url 'app:usuarios:alternar_ativo' usuario.pk %}">
               {% csrf_token %}
               <button class="btn btn-ghost" style="font-size:12px;" type="submit">

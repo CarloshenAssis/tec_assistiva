@@ -1,9 +1,12 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from beneficiarios.models import Beneficiario
+from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from contas.models import Papel, Usuario
-from core.models import Tenant
+from core.models import Tenant, Unidade
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
 
 class BeneficiarioViewsTest(TestCase):
@@ -51,6 +54,66 @@ class BeneficiarioViewsTest(TestCase):
         self.assertTrue(
             Beneficiario.objects.all_tenants().filter(tenant=self.tenant_a, documento="456.789.123-64").exists()
         )
+
+
+class BaixarDocumentoEscopoPorUnidadeTest(TestCase):
+    """
+    `baixar_documento` era o único ponto de Beneficiário que só filtrava por
+    tenant, não por unidade — um Funcionário lotado numa unidade não
+    enxergava (404) a ficha de beneficiário de outra unidade, mas
+    conseguia baixar o documento dele sabendo/adivinhando o id, porque o
+    endpoint de download não aplicava o mesmo filtro.
+    """
+
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nome="Prefeitura Doc Unid", slug="pref-doc-unid")
+        self.centro = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Centro")
+        self.sul = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sul")
+
+        self.func_centro = Usuario.objects.create_user(
+            username="func_centro_doc",
+            password="senha-teste-123",
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.func_centro.unidades.add(self.centro)
+
+        self.beneficiario_sul = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant, nome="Beneficiário do Sul", documento="345.678.912-06", unidade=self.sul
+        )
+        self.documento_sul = DocumentoBeneficiario.objects.all_tenants().create(
+            tenant=self.tenant,
+            beneficiario=self.beneficiario_sul,
+            tipo=DocumentoBeneficiario.Tipo.LAUDO,
+            arquivo=SimpleUploadedFile("laudo.png", PNG),
+        )
+
+    def test_ficha_de_beneficiario_de_outra_unidade_e_404(self):
+        self.client.login(username="func_centro_doc", password="senha-teste-123")
+        resposta = self.client.get(
+            reverse("app:beneficiarios:ficha", args=[self.beneficiario_sul.pk])
+        )
+        self.assertEqual(404, resposta.status_code)
+
+    def test_download_de_documento_de_outra_unidade_tambem_e_404(self):
+        self.client.login(username="func_centro_doc", password="senha-teste-123")
+        resposta = self.client.get(
+            reverse("app:beneficiarios:baixar_documento", args=[self.documento_sul.pk])
+        )
+        self.assertEqual(404, resposta.status_code)
+
+    def test_admin_baixa_de_qualquer_unidade(self):
+        admin = Usuario.objects.create_user(
+            username="admin_doc_unid",
+            password="senha-teste-123",
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="admin"),
+        )
+        self.client.login(username="admin_doc_unid", password="senha-teste-123")
+        resposta = self.client.get(
+            reverse("app:beneficiarios:baixar_documento", args=[self.documento_sul.pk])
+        )
+        self.assertEqual(200, resposta.status_code)
 
 
 class DocumentoFlexivelPorModuloTest(TestCase):

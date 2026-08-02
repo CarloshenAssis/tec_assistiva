@@ -110,12 +110,17 @@ def baixar_documento(request, pk):
     """
     Entrega de documento anexado (RG, comprovante, laudo, receita médica).
 
-    O registro é resolvido pelo manager com escopo de tenant, então um
-    documento de outro tenant simplesmente não existe para esta consulta —
-    a autorização não depende de comparar caminhos de arquivo.
+    O documento só existe para esta consulta se o beneficiário dele estiver
+    no escopo de unidade do usuário — mesmo filtro de `ficha()`. Sem isso,
+    quem só devia enxergar uma unidade conseguia baixar dado sensível (RG,
+    laudo, receita) de beneficiário de outra unidade só sabendo o id do
+    documento, mesmo recebendo 404 ao tentar abrir a ficha dele.
     """
     documento = get_object_or_404(
-        DocumentoBeneficiario.objects.select_related("beneficiario"), pk=pk
+        DocumentoBeneficiario.objects.select_related("beneficiario").filter(
+            beneficiario__in=_no_escopo(request)
+        ),
+        pk=pk,
     )
 
     # Laudo e receita médica são dados sobre saúde: dado pessoal sensível

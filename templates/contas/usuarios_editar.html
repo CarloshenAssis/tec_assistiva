@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} · Ciclartech{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <div class="muted" style="font-size:12.5px;margin-bottom:16px;">
+    Login: <strong>{{ usuario_alvo.get_username }}</strong> — não é editável aqui. Para trocar a
+    senha, use "Gerar nova senha" na lista de usuários.
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_email">E-mail</label>
+      {{ form.email }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_first_name">Nome</label>
+        {{ form.first_name }}
+      </div>
+      <div class="field">
+        <label for="id_last_name">Sobrenome</label>
+        {{ form.last_name }}
+      </div>
+    </div>
+    <div class="field">
+      <label for="id_papel">Papel</label>
+      {{ form.papel }}
+    </div>
+    <div class="field">
+      <label>Unidades permitidas</label>
+      <div class="faint" style="font-size:11px;margin-bottom:6px;">
+        Obrigatório marcar ao menos uma — é o que define quais ativos e
+        beneficiários esta pessoa vai enxergar.
+      </div>
+      <div class="flex-col gap-1">
+        {% for checkbox in form.unidades %}
+          <label class="flex items-center gap-1" style="cursor:pointer;font-weight:400;">
+            {{ checkbox.tag }} <span style="font-size:13px;">{{ checkbox.choice_label }}</span>
+          </label>
+        {% empty %}
+          <div class="faint" style="font-size:12px;">Nenhuma unidade cadastrada ainda.</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="flex gap-2 mt-2">
+      <button class="btn btn-primary" type="submit">Salvar</button>
+      <a class="btn btn-secondary" href="{% url 'app:usuarios:lista' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -242,6 +242,157 @@ class CriarUsuarioTest(TestCase):
         self.assertFalse(Usuario.objects.filter(username="func_sem_unidade_nenhuma").exists())
 
 
+class EditarUsuarioTest(TestCase):
+    """
+    Tela nova: antes só dava pra ativar/desativar e gerar nova senha — sem
+    jeito de corrigir e-mail, nome, papel ou reatribuir unidade sem apagar
+    e recriar a conta.
+    """
+
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nome="Prefeitura Editar Usr", slug="pref-editar-usr")
+        self.admin = Usuario.objects.create_user(
+            username="admin_edita_usr",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="admin"),
+        )
+        self.gestor = Usuario.objects.create_user(
+            username="gestor_edita_usr",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="gestor"),
+        )
+        self.outro_gestor = Usuario.objects.create_user(
+            username="outro_gestor_edita_usr",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="gestor"),
+        )
+        self.funcionario = Usuario.objects.create_user(
+            username="func_edita_usr",
+            password=SENHA,
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.centro = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Centro")
+        self.sul = Unidade.objects.all_tenants().create(tenant=self.tenant, nome="Sul")
+        self.funcionario.unidades.add(self.centro)
+
+    def _payload(self, **overrides):
+        base = {
+            "email": "novo@x.com",
+            "first_name": "Novo",
+            "last_name": "Nome",
+            "papel": Papel.objects.get(codigo="funcionario").pk,
+            "unidades": [self.sul.pk],
+        }
+        base.update(overrides)
+        return base
+
+    def test_admin_edita_funcionario(self):
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.funcionario.pk]), self._payload()
+        )
+        self.assertRedirects(resposta, reverse("app:usuarios:lista"))
+        self.funcionario.refresh_from_db()
+        self.assertEqual("novo@x.com", self.funcionario.email)
+        self.assertEqual("Novo", self.funcionario.first_name)
+        self.assertEqual({self.sul}, set(unidades_do_usuario(self.funcionario)))
+
+    def test_gestor_nao_pode_editar_admin(self):
+        self.client.login(username="gestor_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.admin.pk]), self._payload()
+        )
+        self.assertEqual(403, resposta.status_code)
+
+    def test_gestor_pode_editar_outro_gestor_mas_nao_muda_papel_para_admin(self):
+        """`pode_gerenciar` usa `>=`: Gestor gerencia um par de mesmo nível já existente."""
+        self.client.login(username="gestor_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.outro_gestor.pk]),
+            self._payload(papel=Papel.objects.get(codigo="admin").pk),
+        )
+        self.assertEqual(200, resposta.status_code)  # reexibe com erro de validação
+        self.assertIn("papel", resposta.context["form"].errors)
+        self.outro_gestor.refresh_from_db()
+        self.assertEqual("gestor", self.outro_gestor.papel.codigo)
+
+    def test_gestor_edita_outro_gestor_mantendo_o_papel(self):
+        self.client.login(username="gestor_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.outro_gestor.pk]),
+            self._payload(papel=Papel.objects.get(codigo="gestor").pk),
+        )
+        self.assertRedirects(resposta, reverse("app:usuarios:lista"))
+        self.outro_gestor.refresh_from_db()
+        self.assertEqual("gestor", self.outro_gestor.papel.codigo)
+        self.assertEqual("novo@x.com", self.outro_gestor.email)
+
+    def test_gestor_pode_rebaixar_outro_gestor_para_funcionario(self):
+        self.client.login(username="gestor_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.outro_gestor.pk]),
+            self._payload(papel=Papel.objects.get(codigo="funcionario").pk),
+        )
+        self.assertRedirects(resposta, reverse("app:usuarios:lista"))
+        self.outro_gestor.refresh_from_db()
+        self.assertEqual("funcionario", self.outro_gestor.papel.codigo)
+
+    def test_nao_pode_editar_a_propria_conta_por_aqui(self):
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.admin.pk]), self._payload()
+        )
+        self.assertEqual(403, resposta.status_code)
+
+    def test_nao_alcanca_usuario_de_outro_tenant(self):
+        outro_tenant = Tenant.objects.create(nome="Outra Editar", slug="pref-outra-editar-usr")
+        outro_usuario = Usuario.objects.create_user(
+            username="func_outro_tenant_editar",
+            password=SENHA,
+            tenant=outro_tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[outro_usuario.pk]), self._payload()
+        )
+        self.assertEqual(404, resposta.status_code)
+
+    def test_username_nao_muda(self):
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        self.client.post(
+            reverse("app:usuarios:editar", args=[self.funcionario.pk]), self._payload()
+        )
+        self.funcionario.refresh_from_db()
+        self.assertEqual("func_edita_usr", self.funcionario.username)
+
+    def test_edicao_e_auditada(self):
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        self.client.post(
+            reverse("app:usuarios:editar", args=[self.funcionario.pk]), self._payload()
+        )
+        self.assertTrue(
+            RegistroAuditoria.objects.filter(
+                acao=AcaoAuditada.ALTERACAO,
+                objeto_tipo="contas.Usuario",
+                objeto_id=str(self.funcionario.pk),
+            ).exists()
+        )
+
+    def test_formulario_sem_unidade_e_erro(self):
+        self.client.login(username="admin_edita_usr", password=SENHA)
+        resposta = self.client.post(
+            reverse("app:usuarios:editar", args=[self.funcionario.pk]),
+            self._payload(unidades=[]),
+        )
+        self.assertEqual(200, resposta.status_code)
+        self.assertIn("unidades", resposta.context["form"].errors)
+
+
 class AlternarAtivoTest(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(nome="Prefeitura Alt Usr", slug="pref-alt-usr")
