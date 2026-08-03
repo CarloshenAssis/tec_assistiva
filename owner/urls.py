@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("contratos/novo/", views.criar_tenant, name="criar_tenant"),
     path("contratos/<int:pk>/", views.tenant_detalhe, name="tenant_detalhe"),
+    path("contratos/<int:pk>/editar/", views.editar_tenant, name="editar_tenant"),
     path("contratos/<int:pk>/alternar-ativo/", views.alternar_tenant_ativo, name="alternar_tenant_ativo"),
     path("contratos/<int:pk>/alternar-modulo/", views.alternar_modulo, name="alternar_modulo"),
     path(

@@ -2,10 +2,20 @@
 
 > **Este documento é um modelo técnico**, gerado a partir do que o sistema
 > efetivamente coleta, processa e retém — não é um parecer jurídico. Os
-> campos entre `[COLCHETES]` precisam ser preenchidos pela organização
-> operadora (Ciclartech ou, se o tenant publicar sua própria política, pelo
-> próprio tenant) antes da publicação. Recomenda-se revisão por advogado
-> especializado em proteção de dados antes de publicar.
+> campos entre `[COLCHETES]` precisam ser preenchidos por **cada tenant**
+> antes da publicação. Recomenda-se revisão por advogado especializado em
+> proteção de dados antes de publicar.
+>
+> **Decisão institucional adotada**: cada tenant é o **controlador** dos
+> dados dos seus próprios beneficiários (a Ciclartech é apenas a
+> **operadora** da plataforma que processa esses dados por conta do
+> tenant — distinção do Art. 5º, VI e VII). Por isso o Encarregado (DPO) é
+> configurado **por tenant**, não um único DPO da Ciclartech para toda a
+> plataforma. O campo é preenchido pelo próprio tenant em
+> `/owner/contratos/<id>/editar/` (`Tenant.dpo_nome`/`dpo_email`/
+> `dpo_telefone` — `core/models.py`) e pode ser usado para gerar esta
+> política automaticamente por tenant, em vez de um documento único
+> estático.
 
 **Última atualização**: [DATA]
 **Versão**: 1.0
@@ -22,13 +32,15 @@
 Nos termos do art. 41 da Lei nº 13.709/2018 (LGPD), esta organização
 designa como Encarregado(a):
 
-**Nome**: [NOME DO ENCARREGADO]
-**E-mail**: [E-MAIL DO DPO]
-**Telefone**: [TELEFONE, OPCIONAL]
+**Nome**: [NOME DO ENCARREGADO — cadastrado em `Tenant.dpo_nome`]
+**E-mail**: [E-MAIL DO DPO — `Tenant.dpo_email`]
+**Telefone**: [TELEFONE, OPCIONAL — `Tenant.dpo_telefone`]
 
-O Encarregado é o canal de comunicação entre o controlador, os titulares
-dos dados e a Autoridade Nacional de Proteção de Dados (ANPD), e pode ser
-contatado para qualquer dúvida ou solicitação relativa a esta política.
+O Encarregado é o canal de comunicação entre o controlador (esta
+organização, não a Ciclartech — ver nota institucional no topo deste
+documento), os titulares dos dados e a Autoridade Nacional de Proteção de
+Dados (ANPD), e pode ser contatado para qualquer dúvida ou solicitação
+relativa a esta política.
 
 ## 3. Quais dados coletamos
 
@@ -173,17 +185,18 @@ identificação do controlador (art. 9º), designação de encarregado (art.
 
 **Antes de publicar para um tenant real:**
 
-1. Preencher todos os campos `[ENTRE COLCHETES]` com dados reais da
-   organização operadora ou do tenant, conforme o modelo de negócio (uma
-   política única da Ciclartech como operadora, ou uma política por
-   tenant — decisão de produto ainda em aberto).
-2. Definir se cada tenant tem seu próprio Encarregado ou se a Ciclartech
-   atua como Encarregado para todos os tenants na condição de operadora —
-   isso muda o texto da seção 2 e tem implicação jurídica, não é só
-   preenchimento de campo.
+1. O Owner (equipe Ciclartech) ou o Admin do próprio tenant preenche o
+   Encarregado em `/owner/contratos/<id>/editar/` (campos `dpo_nome`/
+   `dpo_email`/`dpo_telefone` no model `Tenant`). A tela de detalhe do
+   tenant (`/owner/contratos/<id>/`) mostra um aviso enquanto isso não for
+   feito.
+2. Preencher os demais campos `[ENTRE COLCHETES]` (razão social, CNPJ,
+   endereço) com dados reais do tenant.
 3. Revisar com advogado especializado em proteção de dados antes de
    publicar.
 4. Publicar o documento final em local acessível ao titular (ex.: rodapé
    do sistema, link no formulário de cadastro de beneficiário) — hoje não
-   há link para esta política em nenhuma tela do sistema (ver
-   `docs/GUIA_OPERACOES.md` §12, pendência de hardening).
+   há link para esta política em nenhuma tela do sistema, e o texto ainda
+   é estático por tenant (não gerado automaticamente a partir do
+   `Tenant.dpo_nome` cadastrado) — próximo passo natural de evolução, não
+   incluído nesta entrega.

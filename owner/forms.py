@@ -7,7 +7,17 @@ from core.models import Tenant
 class TenantForm(forms.ModelForm):
     class Meta:
         model = Tenant
-        fields = ["nome", "slug", "segmento", "cidade", "uf", "ativo"]
+        fields = [
+            "nome",
+            "slug",
+            "segmento",
+            "cidade",
+            "uf",
+            "ativo",
+            "dpo_nome",
+            "dpo_email",
+            "dpo_telefone",
+        ]
         widgets = {
             "uf": forms.TextInput(attrs={"maxlength": 2, "style": "text-transform:uppercase;"}),
         }

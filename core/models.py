@@ -54,6 +54,20 @@ class Tenant(models.Model):
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
+    # --------------------------------------------------- LGPD (Art. 41) ----
+    #: Cada tenant é o controlador dos dados dos SEUS beneficiários (a
+    #: Ciclartech é operadora da plataforma, não controladora) — por isso o
+    #: Encarregado é por tenant, não um único DPO global. Ver
+    #: docs/POLITICA_PRIVACIDADE.md.
+    dpo_nome = models.CharField(
+        "Nome do Encarregado (DPO)",
+        max_length=150,
+        blank=True,
+        help_text="Pessoa responsável por atender solicitações de titulares deste tenant (LGPD Art. 41).",
+    )
+    dpo_email = models.EmailField("E-mail do Encarregado (DPO)", blank=True)
+    dpo_telefone = models.CharField("Telefone do Encarregado (DPO)", max_length=30, blank=True)
+
     class Meta:
         verbose_name = "Tenant"
         verbose_name_plural = "Tenants"

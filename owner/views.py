@@ -63,6 +63,24 @@ def criar_tenant(request):
 
 
 @owner_required
+def editar_tenant(request, pk):
+    tenant = get_object_or_404(Tenant, pk=pk)
+    if request.method == "POST":
+        form = TenantForm(request.POST, instance=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Contrato {tenant.nome} atualizado.")
+            return redirect("owner:tenant_detalhe", pk=tenant.pk)
+    else:
+        form = TenantForm(instance=tenant)
+    return render(
+        request,
+        "owner/tenant_form.html",
+        {"nav_atual": "owner_dashboard", "form": form, "titulo": f"Editar {tenant.nome}"},
+    )
+
+
+@owner_required
 def tenant_detalhe(request, pk):
     tenant = get_object_or_404(Tenant, pk=pk)
     # `Usuario.objects` já é cross-tenant por padrão — ver owner/forms.py.

@@ -178,11 +178,17 @@ ordem de risco:
    exfiltração por seletor). Eliminar exige migrar os estilos inline para
    classes no CSS.
 6. **Encarregado (DPO) e política de privacidade.** O Art. 41 exige indicar
-   um encarregado e o Art. 9º, transparência ao titular. O modelo do
-   documento já existe em `docs/POLITICA_PRIVACIDADE.md`, mas falta a
-   decisão institucional (quem é o Encarregado, se cada tenant tem o seu
-   ou se a Ciclartech responde por todos como operadora) e publicá-lo em
-   local acessível ao titular — não é item que o código resolve sozinho.
+   um encarregado e o Art. 9º, transparência ao titular. Decisão
+   institucional adotada: cada tenant é controlador dos dados dos seus
+   próprios beneficiários (a Ciclartech é operadora da plataforma, não
+   controladora), então o Encarregado é configurado por tenant —
+   `Tenant.dpo_nome`/`dpo_email`/`dpo_telefone`, editável em
+   `/owner/contratos/<id>/editar/`. O modelo do texto da política está em
+   `docs/POLITICA_PRIVACIDADE.md`. Falta ainda: publicar o documento em
+   local acessível ao titular dentro do próprio app (hoje só existe como
+   arquivo no repositório) e, idealmente, gerar o texto por tenant a
+   partir do `dpo_nome` cadastrado em vez de preenchimento manual do
+   `.md`.
 
 ## Deploy na Vercel
 

@@ -17,12 +17,29 @@
 
     <div class="flex gap-2 mt-3">
       <a class="btn btn-primary" href="{% url 'owner:criar_administrador' tenant.pk %}">Gerar acesso de administrador</a>
+      <a class="btn btn-secondary" href="{% url 'owner:editar_tenant' tenant.pk %}">Editar contrato</a>
       <form method="post" action="{% url 'owner:alternar_tenant_ativo' tenant.pk %}">
         {% csrf_token %}
         <button class="btn btn-secondary" type="submit">
           {% if tenant.ativo %}Suspender contrato{% else %}Reativar contrato{% endif %}
         </button>
       </form>
+    </div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #F0EDE5;">
+      <div style="font-size:12.5px;font-weight:700;">Encarregado (DPO)</div>
+      {% if tenant.dpo_nome %}
+        <div style="font-size:12.5px;margin-top:4px;">{{ tenant.dpo_nome }}</div>
+        <div class="faint" style="font-size:11.5px;">
+          {{ tenant.dpo_email|default:"—" }}{% if tenant.dpo_telefone %} · {{ tenant.dpo_telefone }}{% endif %}
+        </div>
+      {% else %}
+        <div class="faint" style="font-size:12px;margin-top:4px;">
+          Não configurado — este tenant ainda não indicou quem responde pelas
+          solicitações de titulares (LGPD Art. 41).
+          <a href="{% url 'owner:editar_tenant' tenant.pk %}">Configurar agora</a>.
+        </div>
+      {% endif %}
     </div>
   </div>
 

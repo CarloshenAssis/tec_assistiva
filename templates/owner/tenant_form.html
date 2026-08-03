@@ -38,6 +38,27 @@
         {{ form.ativo }} Contrato ativo
       </label>
     </div>
+    <hr>
+    <p class="text-muted" style="font-size:0.9em;">
+      Encarregado (DPO) deste tenant — responsável por atender solicitações
+      dos titulares (LGPD Art. 41). Cada tenant é controlador dos dados dos
+      seus próprios beneficiários; a Ciclartech atua apenas como operadora
+      da plataforma.
+    </p>
+    <div class="field">
+      <label for="id_dpo_nome">Nome do Encarregado (DPO)</label>
+      {{ form.dpo_nome }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_dpo_email">E-mail do Encarregado</label>
+        {{ form.dpo_email }}
+      </div>
+      <div class="field">
+        <label for="id_dpo_telefone">Telefone do Encarregado</label>
+        {{ form.dpo_telefone }}
+      </div>
+    </div>
     <button class="btn btn-primary btn-block" type="submit">Salvar</button>
   </form>
 </div>
