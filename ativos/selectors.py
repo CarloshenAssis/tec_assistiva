@@ -16,15 +16,25 @@ from ativos.models import Ativo, DetalheEmprestimo, Movimentacao
 
 
 def datas_previstas_por_ativo(ativos_ids=None) -> Dict[int, dict]:
-    """
-    Para cada ativo atualmente emprestado, a data prevista de devolução e
-    o beneficiário do empréstimo em aberto — uma única query, evitando
-    N+1 ao colorir uma lista inteira de ativos.
+    """Mapeia cada ativo emprestado à data prevista de devolução e ao beneficiário.
 
-    Como só existe um empréstimo "aberto" por ativo por vez (garantido
-    pela máquina de estados — docs/PLANO_DOMINIO_ATIVOS.md §5.2), a
-    primeira ocorrência ao iterar em ordem decrescente de data é a
-    vigente; por isso o loop só define a chave se ainda não existir.
+    Uma única query, evitando N+1 ao colorir uma lista inteira de
+    ativos.
+
+    Nota de implementação: como só existe um empréstimo "aberto" por
+    ativo por vez (garantido pela máquina de estados —
+    docs/PLANO_DOMINIO_ATIVOS.md §5.2), a primeira ocorrência ao iterar
+    em ordem decrescente de data é a vigente; por isso o loop só define a
+    chave se ainda não existir.
+
+    Args:
+        ativos_ids: Lista de PKs de `Ativo` a restringir a consulta. Se
+            `None`, considera todos os ativos emprestados.
+
+    Returns:
+        Dicionário `{ativo_id: {"data_prevista_devolucao": date,
+        "beneficiario": Beneficiario}}`, só com os ativos que têm
+        empréstimo em aberto.
     """
     qs = DetalheEmprestimo.objects.filter(
         movimentacao__ativo__status=StatusAtivo.EMPRESTADO.value
@@ -45,6 +55,19 @@ def datas_previstas_por_ativo(ativos_ids=None) -> Dict[int, dict]:
 
 
 def cor_de(ativo: Ativo, contexto_emprestimo: Optional[dict] = None, hoje=None) -> CorOperacional:
+    """Calcula a cor operacional de um ativo específico.
+
+    Args:
+        ativo: O `Ativo` a colorir.
+        contexto_emprestimo: Dicionário com `data_prevista_devolucao`,
+            no formato devolvido por `datas_previstas_por_ativo`. Só
+            relevante quando `ativo.status_enum` for `EMPRESTADO`.
+        hoje: Data de referência para o cálculo. Default a data corrente.
+
+    Returns:
+        A `CorOperacional` do ativo (ver
+        `ativos.domain.cores.cor_operacional`).
+    """
     hoje = hoje or timezone.now().date()
     data_prevista = None
     if contexto_emprestimo:
@@ -53,7 +76,18 @@ def cor_de(ativo: Ativo, contexto_emprestimo: Optional[dict] = None, hoje=None) 
 
 
 def resumo_cores(ativos_qs) -> Dict[str, int]:
-    """Contagem por cor operacional — usado no resumo colorido do Dashboard."""
+    """Conta os ativos de um queryset por cor operacional.
+
+    Usado no resumo colorido do Dashboard. Materializa o queryset
+    inteiro — para um dashboard com muitos ativos, prefira
+    `resumo_cores_agregado`.
+
+    Args:
+        ativos_qs: Queryset de `Ativo` a resumir.
+
+    Returns:
+        Dicionário `{cor.value: quantidade}`.
+    """
     ativos = list(ativos_qs)
     contexto = datas_previstas_por_ativo([a.id for a in ativos])
     hoje = timezone.now().date()
@@ -65,14 +99,22 @@ def resumo_cores(ativos_qs) -> Dict[str, int]:
 
 
 def mapa_operacional(ativos_qs):
-    """
-    Agrega os ativos filtrados em duas visões (docs — Módulo Mapa
-    Operacional de Ativos):
+    """Agrega os ativos filtrados em duas visões: por Unidade e por Bairro.
+
+    Ver docs — Módulo Mapa Operacional de Ativos.
 
     - por Unidade: onde o ativo está fisicamente alocado.
     - por Bairro: do beneficiário, apenas para ativos emprestados (não é
       geolocalização em tempo real — é o endereço cadastrado, conforme
       decisão explícita do módulo).
+
+    Args:
+        ativos_qs: Queryset de `Ativo` já filtrado pelo escopo desejado.
+
+    Returns:
+        Dicionário `{"por_unidade": [...], "por_bairro": [...]}`, cada
+        lista com itens `{"nome": ..., "total": ..., "cores":
+        {cor.value: quantidade}}`, ordenados por `total` decrescente.
     """
     ativos = list(ativos_qs.select_related("categoria", "unidade"))
     contexto = datas_previstas_por_ativo([a.id for a in ativos])
@@ -97,6 +139,15 @@ def mapa_operacional(ativos_qs):
             bucket_bairro["cores"][cor.value] += 1
 
     def _finalizar(buckets: dict) -> list:
+        """Converte os buckets acumulados em lista ordenada por total decrescente.
+
+        Args:
+            buckets: Dicionário intermediário `{chave: {"total": int,
+                "cores": dict}}`.
+
+        Returns:
+            Lista de `{"nome": ..., "total": ..., "cores": ...}`.
+        """
         itens = [{"nome": nome, "total": dados["total"], "cores": dict(dados["cores"])} for nome, dados in buckets.items()]
         return sorted(itens, key=lambda item: item["total"], reverse=True)
 
@@ -117,20 +168,24 @@ _ROTULOS_CHECKLIST_POR_TIPO = {
 
 
 def checklist_detalhado(movimentacao: Movimentacao) -> list[dict]:
-    """
-    Traduz o checklist bruto salvo em `dados_especificos` para uma lista de
-    `{"rotulo": ..., "marcado": bool}`, na ordem em que os itens aparecem no
-    formulário.
+    """Traduz o checklist bruto salvo em `dados_especificos` para exibição.
 
     Existe para responder exatamente o cenário que motivou o pedido: um
     funcionário confirma no check-in/devolução que o ativo "está em boas
-    condições", mas na prática não estava — e depois é preciso ver, ativo a
-    ativo, *quem* marcou *o quê* e *quando* (`movimentacao.usuario` e
+    condições", mas na prática não estava — e depois é preciso ver,
+    ativo a ativo, quem marcou o quê e quando (`movimentacao.usuario` e
     `movimentacao.data_hora` já existem no model; isto só decodifica o
-    conteúdo do checklist em si, que sem isso fica ilegível como JSON cru).
+    conteúdo do checklist em si, que sem isso fica ilegível como JSON
+    cru).
 
-    Devolve lista vazia para tipos de movimentação sem checklist (retorna
-    de manutenção, renovação etc.) — nada a mostrar, não é erro.
+    Args:
+        movimentacao: A `Movimentacao` cujo checklist será decodificado.
+
+    Returns:
+        Lista de `{"rotulo": str, "marcado": bool}`, na ordem em que os
+        itens aparecem no formulário. Lista vazia para tipos de
+        movimentação sem checklist (retorno de manutenção, renovação
+        etc.) — nada a mostrar, não é erro.
     """
     rotulos = _ROTULOS_CHECKLIST_POR_TIPO.get(movimentacao.tipo)
     if not rotulos:
@@ -154,14 +209,21 @@ _STATUS_DESTAQUE_UNIDADE = [
 
 
 def indicadores_por_status(ativos_qs) -> Dict[str, int]:
-    """
-    Contagem de ativos por status em UMA consulta agregada.
+    """Conta os ativos de um queryset por status, em uma única consulta agregada.
 
-    Substitui o padrão anterior de um `COUNT(*)` por status (8 queries para
-    montar o cabeçalho do dashboard). O ganho real não é o número de
-    round-trips: é que a contagem passa a ser resolvida pelo banco em cima
-    do índice, sem trazer linha nenhuma para a aplicação —
+    Substitui o padrão anterior de um `COUNT(*)` por status (8 queries
+    para montar o cabeçalho do dashboard). O ganho real não é o número de
+    round-trips: é que a contagem passa a ser resolvida pelo banco em
+    cima do índice, sem trazer linha nenhuma para a aplicação —
     docs/business-rules/dashboard.md.
+
+    Args:
+        ativos_qs: Queryset de `Ativo` a resumir.
+
+    Returns:
+        Dicionário `{status.value: quantidade}`, com todos os valores de
+        `StatusAtivo` presentes (zerados quando não há ativo naquele
+        status).
     """
     contagem = {status.value: 0 for status in StatusAtivo}
     for linha in ativos_qs.values("status").annotate(total=Count("id")):
@@ -170,13 +232,20 @@ def indicadores_por_status(ativos_qs) -> Dict[str, int]:
 
 
 def resumo_por_unidade(ativos_qs) -> list[dict]:
-    """
-    Total / disponíveis / emprestados / em manutenção por unidade, em UMA
-    consulta (docs/business-rules/dashboard.md — "Dashboard por Unidade").
+    """Resume total/disponíveis/emprestados/em manutenção por unidade.
 
-    Agrupa por `unidade` e `status` de uma vez e pivota em memória sobre o
-    resultado agregado (poucas dezenas de linhas), em vez de rodar uma
-    consulta por unidade × status.
+    Uma única consulta (docs/business-rules/dashboard.md — "Dashboard
+    por Unidade"). Agrupa por `unidade` e `status` de uma vez e pivota
+    em memória sobre o resultado agregado (poucas dezenas de linhas), em
+    vez de rodar uma consulta por unidade × status.
+
+    Args:
+        ativos_qs: Queryset de `Ativo` a resumir.
+
+    Returns:
+        Lista de dicionários, um por unidade, com `unidade_id`, `nome`,
+        `total` e a contagem para cada status em
+        `_STATUS_DESTAQUE_UNIDADE`, ordenada por `total` decrescente.
     """
     linhas = ativos_qs.values("unidade_id", "unidade__nome", "status").annotate(
         total=Count("id")
@@ -202,15 +271,21 @@ def resumo_por_unidade(ativos_qs) -> list[dict]:
 
 
 def resumo_cores_agregado(ativos_qs) -> Dict[str, int]:
-    """
-    Contagem por cor operacional sem carregar todos os ativos na memória.
+    """Conta os ativos por cor operacional sem carregar todos na memória.
 
-    `resumo_cores` (acima) materializa o queryset inteiro porque precisa do
-    objeto Ativo para colorir item a item — aceitável numa lista paginada,
-    caro no dashboard de um tenant com muitos ativos. Aqui a conta é feita
-    em duas consultas: uma agregação por status (que já resolve todas as
-    cores que não dependem de prazo) e uma varredura apenas dos ativos
-    EMPRESTADOS, cuja cor depende da data prevista de devolução.
+    `resumo_cores` (acima) materializa o queryset inteiro porque precisa
+    do objeto Ativo para colorir item a item — aceitável numa lista
+    paginada, caro no dashboard de um tenant com muitos ativos. Aqui a
+    conta é feita em duas consultas: uma agregação por status (que já
+    resolve todas as cores que não dependem de prazo) e uma varredura
+    apenas dos ativos EMPRESTADOS, cuja cor depende da data prevista de
+    devolução.
+
+    Args:
+        ativos_qs: Queryset de `Ativo` a resumir.
+
+    Returns:
+        Dicionário `{cor.value: quantidade}`.
     """
     por_status = indicadores_por_status(ativos_qs)
     hoje = timezone.now().date()
@@ -234,11 +309,18 @@ def resumo_cores_agregado(ativos_qs) -> Dict[str, int]:
 
 
 def anotar_impressoes(ativos_qs):
-    """
-    Anota `qtd_impressoes` e `impresso_em_ultima` para uso em listagem —
-    evita o N+1 que as properties `Ativo.total_impressoes`/
+    """Anota contagem e data da última impressão de etiqueta, em lote.
+
+    Evita o N+1 que as properties `Ativo.total_impressoes`/
     `ultima_impressao` causariam ao serem lidas dentro de um loop de
     template (docs/business-rules/etiquetas.md).
+
+    Args:
+        ativos_qs: Queryset de `Ativo` a anotar.
+
+    Returns:
+        O mesmo queryset, com as anotações `qtd_impressoes` (int) e
+        `impresso_em_ultima` (datetime ou `None`) acrescentadas.
     """
     return ativos_qs.annotate(
         qtd_impressoes=Count("impressoes", distinct=True),
@@ -247,12 +329,22 @@ def anotar_impressoes(ativos_qs):
 
 
 def resolver_busca_patrimonio(termo: str, ativos_qs=None):
-    """
-    Busca exata (case-insensitive) por patrimônio, para a caixa de pesquisa do Mapa.
+    """Busca um ativo por patrimônio exato (case-insensitive).
 
-    `ativos_qs` permite à view passar o queryset já restrito ao escopo de
-    unidade do usuário — sem isso, a pesquisa por patrimônio viraria uma porta
-    lateral para consultar um ativo de unidade que o usuário não opera.
+    Usado pela caixa de pesquisa do Mapa Operacional.
+
+    Args:
+        termo: O código patrimonial buscado.
+        ativos_qs: Queryset de `Ativo` já restrito ao escopo de unidade
+            do usuário. Se omitido, usa `Ativo.objects.all()` — sem essa
+            restrição pela view, a pesquisa por patrimônio viraria uma
+            porta lateral para consultar um ativo de unidade que o
+            usuário não opera.
+
+    Returns:
+        `None` se nenhum ativo corresponder a `termo`. Caso contrário,
+        dicionário com `ativo`, `cor` (`CorOperacional`), `beneficiario`,
+        `data_prevista_devolucao` e `ultima_movimentacao`.
     """
     base = ativos_qs if ativos_qs is not None else Ativo.objects.all()
     ativo = base.select_related("categoria", "unidade").filter(patrimonio__iexact=termo).first()
