@@ -28,12 +28,30 @@ _TIPO_NEUTRO = "application/octet-stream"
 
 
 def resposta_de_download(campo_arquivo, *, nome_sugerido: str = "") -> FileResponse:
-    """
-    Devolve o conteúdo de um `FileField`/`ImageField` como anexo.
+    """Devolve o conteúdo de um `FileField`/`ImageField` como anexo seguro.
 
-    Levanta `Http404` quando o arquivo não existe no storage — situação real
-    em ambiente serverless, onde o disco não persiste entre invocações e um
-    registro pode apontar para um arquivo que não está mais lá.
+    A entrega é sempre por objeto: quem chama já deve ter resolvido o
+    registro através de um manager com escopo de tenant, e passa o campo
+    de arquivo já autorizado — esta função só cuida da resposta HTTP.
+
+    Args:
+        campo_arquivo: Um `FieldFile` (valor de `FileField`/`ImageField`)
+            já resolvido e pertencente a um registro que o usuário tem
+            permissão de acessar.
+        nome_sugerido: Nome de arquivo a sugerir no cabeçalho
+            `Content-Disposition`. Se omitido, usa o nome original do
+            arquivo no storage.
+
+    Returns:
+        Uma `FileResponse` com `Content-Type` neutro
+        (`application/octet-stream`), sempre como anexo (nunca renderizado
+        inline) e sem cache compartilhado.
+
+    Raises:
+        django.http.Http404: Se `campo_arquivo` for vazio ou o arquivo não
+            existir mais no storage — situação real em ambiente
+            serverless, onde o disco não persiste entre invocações e um
+            registro pode apontar para um arquivo que não está mais lá.
     """
     if not campo_arquivo:
         raise Http404("Arquivo não encontrado.")

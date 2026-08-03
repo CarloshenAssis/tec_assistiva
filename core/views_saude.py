@@ -19,9 +19,16 @@ from django.views.decorators.cache import never_cache
 
 @never_cache
 def saude(request):
-    """
-    200 quando a aplicação responde e o banco aceita consulta; 503 caso
-    contrário. Sem detalhe do erro no corpo — ele vai para o log.
+    """Endpoint de health check, sem autenticação.
+
+    Args:
+        request: A requisição HTTP (não autenticada).
+
+    Returns:
+        `JsonResponse` com status HTTP 200 e `{"status": "ok"}` quando a
+        aplicação responde e o banco aceita consulta; HTTP 503 e
+        `{"status": "indisponivel"}` caso contrário. Sem detalhe do erro
+        no corpo — ele vai para o log.
     """
     try:
         with connection.cursor() as cursor:

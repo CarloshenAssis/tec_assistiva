@@ -29,6 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 def _autorizado(request) -> bool:
+    """Confere o segredo compartilhado enviado pela Vercel Cron.
+
+    Args:
+        request: A requisição HTTP recebida.
+
+    Returns:
+        `True` se `settings.CRON_SECRET` estiver configurado e o
+        cabeçalho `Authorization` da requisição corresponder a
+        `Bearer <CRON_SECRET>`. `False` caso contrário — inclusive
+        quando `CRON_SECRET` não está configurado, para nunca rodar
+        "aberto" por omissão de configuração.
+    """
     segredo = getattr(settings, "CRON_SECRET", "")
     if not segredo:
         return False
@@ -37,6 +49,17 @@ def _autorizado(request) -> bool:
 
 @require_GET
 def notificacoes_diarias(request):
+    """Endpoint acionado pelo cron da Vercel para o job diário de notificações.
+
+    Args:
+        request: A requisição GET enviada pela infraestrutura da Vercel.
+
+    Returns:
+        `HttpResponseForbidden` (403) se a requisição não trouxer o
+        segredo correto. Caso contrário, `JsonResponse` com
+        `{"notificacoes_enviadas": <total>}` após executar
+        `notificacoes.jobs.executar_verificacao_diaria`.
+    """
     if not _autorizado(request):
         return HttpResponseForbidden("Não autorizado.")
 

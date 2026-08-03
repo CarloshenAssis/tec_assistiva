@@ -21,27 +21,44 @@ from core.models import Unidade
 
 
 def nivel_do_usuario(usuario) -> int:
+    """Devolve o nível hierárquico do usuário.
+
+    Args:
+        usuario: Instância de `contas.models.Usuario`.
+
+    Returns:
+        `Papel.nivel_hierarquico` do usuário, ou `0` se ele não tiver
+        papel definido (ex.: usuário recém-criado, ainda sem atribuição).
+    """
     papel = getattr(usuario, "papel", None)
     return papel.nivel_hierarquico if papel else 0
 
 
 def unidades_visiveis(usuario) -> "models.QuerySet[Unidade]":  # noqa: F821 — anotação só documental
-    """
-    Unidades que `usuario` pode operar/visualizar.
+    """Devolve as unidades que `usuario` pode operar/visualizar.
 
     Admin (e superusuário) enxergam todas as unidades do próprio tenant —
     "visão completa da organização", conforme a especificação. Gestor e
     Funcionário enxergam só as unidades atribuídas a eles via
     `Usuario.unidades`.
 
-    Usa `all_tenants()` + filtro explícito por `usuario.tenant_id` (em vez
-    do `Unidade.objects` normal, que depende do ContextVar do tenant
-    corrente) de propósito: esta função recebe o usuário como argumento
-    explícito e precisa devolver o resultado certo independente de haver ou
-    não uma requisição HTTP em andamento — é chamada tanto de dentro de
-    views (`tenant_required`) quanto de testes/scripts que não passam pelo
-    `TenantMiddleware`. Por isso está na lista de exceções auditadas de
-    `core/tests/test_architecture.py`, junto com `core/admin.py`.
+    Nota de implementação: usa `all_tenants()` + filtro explícito por
+    `usuario.tenant_id` (em vez do `Unidade.objects` normal, que depende
+    do ContextVar do tenant corrente) de propósito — esta função recebe o
+    usuário como argumento explícito e precisa devolver o resultado certo
+    independente de haver ou não uma requisição HTTP em andamento, pois é
+    chamada tanto de dentro de views (`tenant_required`) quanto de
+    testes/scripts que não passam pelo `TenantMiddleware`. Por isso está
+    na lista de exceções auditadas de `core/tests/test_architecture.py`,
+    junto com `core/admin.py`.
+
+    Args:
+        usuario: Instância de `contas.models.Usuario` cujo escopo será
+            calculado.
+
+    Returns:
+        QuerySet de `Unidade` pertencentes ao tenant do usuário, já
+        filtrado pelo escopo dele.
     """
     base = Unidade.objects.all_tenants().filter(tenant_id=usuario.tenant_id)
 
@@ -52,24 +69,42 @@ def unidades_visiveis(usuario) -> "models.QuerySet[Unidade]":  # noqa: F821 — 
 
 
 def unidades_do_usuario(usuario) -> "models.QuerySet[Unidade]":  # noqa: F821
-    """
-    Unidades atribuídas a `usuario` (o M2M em si, sem a regra "Admin vê
-    tudo") — para exibir/editar a atribuição, diferente de
-    `unidades_visiveis()`, que é para decidir o que o usuário PODE VER.
+    """Devolve as unidades atribuídas a `usuario` (o M2M em si).
 
-    Não use `usuario.unidades.all()` diretamente fora de uma view protegida
-    por `tenant_required`: o acessor M2M do Django resolve através do
-    manager padrão de `Unidade` (`TenantManager`, fail-closed pelo
-    ContextVar de tenant corrente), então em teste/shell/management command
-    — onde não há requisição ativa — `usuario.unidades.all()` devolve vazio
-    mesmo com a linha existindo na tabela de junção. Esta função contorna
-    isso com `all_tenants()` + filtro explícito por `usuario`.
+    Diferente de `unidades_visiveis()` (que decide o que o usuário PODE
+    VER, incluindo a regra "Admin vê tudo"), esta função devolve
+    literalmente a atribuição — útil para exibir/editar quais unidades
+    estão marcadas para um Gestor/Funcionário na tela de usuários.
+
+    Nota de implementação: não use `usuario.unidades.all()` diretamente
+    fora de uma view protegida por `tenant_required`. O acessor M2M do
+    Django resolve através do manager padrão de `Unidade`
+    (`TenantManager`, fail-closed pelo ContextVar de tenant corrente),
+    então em teste/shell/management command — onde não há requisição
+    ativa — `usuario.unidades.all()` devolve vazio mesmo com a linha
+    existindo na tabela de junção. Esta função contorna isso com
+    `all_tenants()` + filtro explícito por `usuario`.
+
+    Args:
+        usuario: Instância de `contas.models.Usuario`.
+
+    Returns:
+        QuerySet de `Unidade` atribuídas a este usuário via M2M, sem
+        aplicar a regra "Admin vê tudo".
     """
     return Unidade.objects.all_tenants().filter(usuarios_permitidos=usuario)
 
 
 def enxerga_todas_as_unidades(usuario) -> bool:
-    """Admin, superusuário e Owner nunca são restritos por unidade."""
+    """Indica se `usuario` está isento do escopo de unidade.
+
+    Args:
+        usuario: Instância de `contas.models.Usuario`.
+
+    Returns:
+        `True` para Admin, superusuário e Owner — nunca são restritos por
+        unidade. `False` para Gestor e Funcionário.
+    """
     return bool(
         usuario.is_platform_staff
         or usuario.is_superuser
@@ -78,23 +113,32 @@ def enxerga_todas_as_unidades(usuario) -> bool:
 
 
 def filtrar_por_unidade(queryset, usuario, campo: str = "unidade", incluir_sem_unidade: bool = False):
-    """
-    Restringe `queryset` às unidades que `usuario` pode ver.
+    """Restringe `queryset` às unidades que `usuario` pode ver.
 
     É o ponto único que aplica o escopo de unidade nas telas de listagem —
     antes disso a permissão existia (`unidades_visiveis`) mas nenhuma tela a
     usava, então um Gestor de uma unidade via os ativos de todas
     (docs/business-rules/unidades.md).
 
-    Para Admin/Owner devolve o queryset intacto: a checagem sai do caminho
-    em vez de virar um `IN` gigante com todas as unidades do tenant.
+    Args:
+        queryset: QuerySet do model a filtrar (ex.: `Ativo.objects.all()`).
+        usuario: Instância de `contas.models.Usuario` cujo escopo será
+            aplicado.
+        campo: Nome do campo de FK para `Unidade` no model consultado.
+            Default `"unidade"`.
+        incluir_sem_unidade: Quando `True`, mantém visíveis também os
+            registros com `campo` nulo. Usado em Beneficiário (titular
+            sem unidade é da organização toda) e NÃO em Ativo, onde
+            unidade é obrigatória e um nulo só existiria como dado
+            corrompido — nesse caso é melhor desaparecer da lista
+            (fail-closed) do que vazar para quem não deveria ver.
 
-    `incluir_sem_unidade=True` mantém visíveis os registros com o campo
-    nulo. Usado em Beneficiário (titular sem unidade é da organização toda,
-    ver o comentário no model) e NÃO em Ativo, onde unidade é obrigatória e
-    um nulo só existiria como dado corrompido — nesse caso é melhor
-    desaparecer da lista (fail-closed) do que vazar para quem não deveria
-    ver.
+    Returns:
+        O `queryset` original, sem alteração, se `usuario` enxerga todas
+        as unidades (Admin/Owner/superusuário) — a checagem sai do
+        caminho em vez de virar um `IN` gigante com todas as unidades do
+        tenant. Caso contrário, o `queryset` filtrado pelo escopo do
+        usuário.
     """
     if enxerga_todas_as_unidades(usuario):
         return queryset
@@ -106,10 +150,19 @@ def filtrar_por_unidade(queryset, usuario, campo: str = "unidade", incluir_sem_u
 
 
 def usuario_pode_operar_unidade(usuario, unidade: Optional[Unidade]) -> bool:
-    """
-    `unidade=None` (ativo sem unidade definida) é sempre visível — não dá
-    para restringir acesso a um dado que não tem unidade nenhuma associada,
-    isso bloquearia até o Admin de ver o próprio cadastro incompleto.
+    """Verifica se `usuario` pode operar um registro associado a `unidade`.
+
+    Args:
+        usuario: Instância de `contas.models.Usuario`.
+        unidade: A `Unidade` do registro sendo acessado, ou `None` quando
+            o registro não tem unidade definida.
+
+    Returns:
+        `True` sempre que `unidade` for `None` — não dá para restringir
+        acesso a um dado que não tem unidade nenhuma associada; isso
+        bloquearia até o Admin de ver o próprio cadastro incompleto.
+        Caso contrário, `True` apenas se `unidade` estiver entre as
+        unidades visíveis a `usuario`.
     """
     if unidade is None:
         return True

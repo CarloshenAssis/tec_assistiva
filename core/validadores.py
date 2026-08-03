@@ -24,18 +24,34 @@ _APENAS_DIGITOS = re.compile(r"\D")
 
 
 def _digito_verificador(digitos: str, peso_inicial: int) -> str:
+    """Calcula um dígito verificador de CPF pelo algoritmo módulo 11.
+
+    Args:
+        digitos: Sequência de dígitos base do cálculo (sem o próprio
+            verificador).
+        peso_inicial: Peso do primeiro dígito da sequência; os pesos
+            seguintes decrescem em 1 a cada posição.
+
+    Returns:
+        O dígito verificador calculado, como caractere único (`"0"`–`"9"`).
+    """
     soma = sum(int(d) * (peso_inicial - i) for i, d in enumerate(digitos))
     resto = (soma * 10) % 11
     return "0" if resto == 10 else str(resto)
 
 
 def cpf_e_valido(valor: str) -> bool:
-    """
-    Confere os dois dígitos verificadores do CPF.
+    """Confere os dois dígitos verificadores do CPF.
 
     Rejeita também as sequências de dígito repetido (`111.111.111-11` e
     companhia): elas passam no cálculo do verificador mas não são CPFs
     emitidos, e são exatamente o que se digita para "preencher o campo".
+
+    Args:
+        valor: CPF em qualquer formatação (com ou sem máscara).
+
+    Returns:
+        `True` se `valor` for um CPF estruturalmente válido.
     """
     numeros = _APENAS_DIGITOS.sub("", valor or "")
 
@@ -50,13 +66,31 @@ def cpf_e_valido(valor: str) -> bool:
 
 
 def validar_cpf(valor: str) -> None:
-    """Validador no formato esperado pelo Django (levanta `ValidationError`)."""
+    """Validador de CPF no formato esperado pelo Django.
+
+    Args:
+        valor: CPF em qualquer formatação.
+
+    Raises:
+        django.core.exceptions.ValidationError: Se `valor` não for um CPF
+            válido (código `"cpf_invalido"`).
+    """
     if not cpf_e_valido(valor):
         raise ValidationError("CPF inválido — confira os números digitados.", code="cpf_invalido")
 
 
 def normalizar_cpf(valor: str) -> str:
-    """Reduz o CPF a 11 dígitos, para que a unicidade por tenant não dependa da máscara."""
+    """Reduz o CPF a 11 dígitos, sem máscara.
+
+    Necessário para que a unicidade por tenant não dependa da máscara
+    (`"123.456.789-00"` e `"12345678900"` precisam ser o mesmo registro).
+
+    Args:
+        valor: CPF em qualquer formatação.
+
+    Returns:
+        Apenas os dígitos de `valor`.
+    """
     return _APENAS_DIGITOS.sub("", valor or "")
 
 
@@ -70,7 +104,17 @@ _PESOS_CNPJ_SEGUNDO_DIGITO = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
 
 
 def cnpj_e_valido(valor: str) -> bool:
-    """Confere os dois dígitos verificadores do CNPJ, mesmo princípio de `cpf_e_valido`."""
+    """Confere os dois dígitos verificadores do CNPJ.
+
+    Mesmo princípio de `cpf_e_valido`: rejeita sequência de dígito
+    repetido além de validar o módulo 11.
+
+    Args:
+        valor: CNPJ em qualquer formatação (com ou sem máscara).
+
+    Returns:
+        `True` se `valor` for um CNPJ estruturalmente válido.
+    """
     numeros = _APENAS_DIGITOS.sub("", valor or "")
 
     if len(numeros) != 14:
@@ -91,20 +135,46 @@ def cnpj_e_valido(valor: str) -> bool:
 
 
 def validar_cnpj(valor: str) -> None:
+    """Validador de CNPJ no formato esperado pelo Django.
+
+    Args:
+        valor: CNPJ em qualquer formatação.
+
+    Raises:
+        django.core.exceptions.ValidationError: Se `valor` não for um
+            CNPJ válido (código `"cnpj_invalido"`).
+    """
     if not cnpj_e_valido(valor):
         raise ValidationError("CNPJ inválido — confira os números digitados.", code="cnpj_invalido")
 
 
 def normalizar_cnpj(valor: str) -> str:
+    """Reduz o CNPJ a 14 dígitos, sem máscara.
+
+    Args:
+        valor: CNPJ em qualquer formatação.
+
+    Returns:
+        Apenas os dígitos de `valor`.
+    """
     return _APENAS_DIGITOS.sub("", valor or "")
 
 
 def validar_documento(valor: str, tipo_documento: str) -> None:
-    """
+    """Valida um documento de identificação conforme o tipo declarado.
+
     Despacha para `validar_cpf`/`validar_cnpj` conforme `tipo_documento`
-    (`beneficiarios.models.Beneficiario.TipoDocumento`) — ponto único usado
-    pelo formulário de cadastro, para o CPF e o CNPJ nunca terem validação
-    divergente entre as duas telas que os usam.
+    (`beneficiarios.models.Beneficiario.TipoDocumento`) — ponto único
+    usado pelo formulário de cadastro, para o CPF e o CNPJ nunca terem
+    validação divergente entre as duas telas que os usam.
+
+    Args:
+        valor: Documento em qualquer formatação.
+        tipo_documento: `"cpf"` ou `"cnpj"`.
+
+    Raises:
+        django.core.exceptions.ValidationError: Se `valor` não for válido
+            para o tipo declarado.
     """
     if tipo_documento == "cnpj":
         validar_cnpj(valor)
@@ -135,12 +205,32 @@ _ASSINATURAS = {
 
 
 def _extensao(nome: str) -> str:
+    """Extrai a extensão de um nome de arquivo, em minúsculas.
+
+    Args:
+        nome: Nome do arquivo (ex.: `"laudo.PDF"`).
+
+    Returns:
+        A extensão com ponto, em minúsculas (ex.: `".pdf"`), ou string
+        vazia se `nome` não tiver extensão.
+    """
     _, _, ext = (nome or "").rpartition(".")
     return f".{ext.lower()}" if ext else ""
 
 
 def _conteudo_confere(arquivo) -> bool:
-    """Lê os primeiros bytes e verifica se batem com algum formato aceito."""
+    """Lê os primeiros bytes do arquivo e verifica o magic number.
+
+    Args:
+        arquivo: Objeto arquivo (Django `UploadedFile` ou similar),
+            posicionável via `seek`/`tell`.
+
+    Returns:
+        `True` se o conteúdo bater com alguma assinatura conhecida em
+        `_ASSINATURAS`, ou se o storage não permitir leitura antecipada
+        (nesse caso a validação de extensão e tamanho já ocorreu, e
+        seguimos sem o reforço do magic number).
+    """
     posicao = arquivo.tell() if hasattr(arquivo, "tell") else 0
     try:
         arquivo.seek(0)
@@ -159,13 +249,23 @@ def _conteudo_confere(arquivo) -> bool:
 
 
 def validar_upload(arquivo, *, extensoes_permitidas=EXTENSOES_DOCUMENTO_PERMITIDAS) -> None:
-    """
-    Valida extensão, tamanho e conteúdo real de um arquivo enviado.
+    """Valida extensão, tamanho e conteúdo real de um arquivo enviado.
 
     A verificação tripla é proposital: extensão barra o engano honesto,
     tamanho barra o abuso de recurso, e o magic number barra a renomeação
     maliciosa — que é o caso que realmente importa aqui, porque um SVG com
     script servido na origem da aplicação rouba a sessão de quem abrir.
+
+    Args:
+        arquivo: Objeto arquivo enviado (Django `UploadedFile` ou
+            `FieldFile`), ou `None`.
+        extensoes_permitidas: Conjunto de extensões aceitas (com ponto).
+            Default `EXTENSOES_DOCUMENTO_PERMITIDAS`.
+
+    Raises:
+        django.core.exceptions.ValidationError: Com código
+            `"extensao_nao_permitida"`, `"arquivo_muito_grande"` ou
+            `"conteudo_invalido"`, conforme a falha encontrada.
     """
     if arquivo is None:
         return
@@ -197,4 +297,15 @@ def validar_upload(arquivo, *, extensoes_permitidas=EXTENSOES_DOCUMENTO_PERMITID
 
 
 def validar_upload_imagem(arquivo) -> None:
+    """Valida um arquivo de imagem enviado.
+
+    Atalho para `validar_upload` restrito a `EXTENSOES_IMAGEM_PERMITIDAS`
+    (sem PDF) — usado por campos que só aceitam foto/logotipo.
+
+    Args:
+        arquivo: Objeto arquivo enviado, ou `None`.
+
+    Raises:
+        django.core.exceptions.ValidationError: Ver `validar_upload`.
+    """
     validar_upload(arquivo, extensoes_permitidas=EXTENSOES_IMAGEM_PERMITIDAS)

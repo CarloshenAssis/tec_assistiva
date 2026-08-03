@@ -1,3 +1,5 @@
+"""Rotas do namespace `/app/*` (produto voltado aos usuários do tenant)."""
+
 from django.urls import include, path
 
 from core import views, views_encarregado, views_instituicao

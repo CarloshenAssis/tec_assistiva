@@ -28,15 +28,26 @@ _MODULOS_PADRAO_POR_SEGMENTO: dict[str, set[str]] = {
 
 
 def modulo_habilitado(tenant: Tenant, codigo: str) -> bool:
-    """
-    `tenant=None` (Owner, usuário anônimo) nunca tem módulo de tenant
-    habilitado — não há tenant para se referir.
+    """Verifica se um módulo está habilitado para um tenant.
 
-    Usa `all_tenants()` + filtro explícito por `tenant.pk` (mesmo padrão de
-    `core.unidades.unidades_visiveis`): esta função recebe o tenant como
-    argumento explícito e precisa funcionar tanto dentro de uma requisição
-    (contexto do próprio tenant) quanto a partir do painel do Owner
-    (consultando o módulo de QUALQUER tenant, não o corrente).
+    Nota de implementação: usa `all_tenants()` + filtro explícito por
+    `tenant.pk` (mesmo padrão de `core.unidades.unidades_visiveis`) porque
+    esta função recebe o tenant como argumento explícito e precisa
+    funcionar tanto dentro de uma requisição (contexto do próprio tenant)
+    quanto a partir do painel do Owner (consultando o módulo de QUALQUER
+    tenant, não o corrente).
+
+    Args:
+        tenant: O `Tenant` a consultar, ou `None` quando não há tenant no
+            contexto (Owner, usuário anônimo).
+        codigo: Código do módulo (ver constantes deste módulo, ex.:
+            `LOCACAO_FINANCEIRO`).
+
+    Returns:
+        `False` se `tenant` for `None` — não há tenant para se referir.
+        Caso contrário, o valor explícito de `TenantModulo.ativo` se
+        existir uma exceção configurada para este tenant, ou o padrão do
+        segmento em `_MODULOS_PADRAO_POR_SEGMENTO`.
     """
     if tenant is None:
         return False
@@ -52,10 +63,23 @@ def modulo_habilitado(tenant: Tenant, codigo: str) -> bool:
 
 
 def modulos_do_tenant(tenant: Tenant) -> list[dict]:
-    """
-    Todo o catálogo de módulos e se cada um está ativo para `tenant` —
-    usado na tela do Owner para montar os toggles
+    """Monta o catálogo completo de módulos com o status de cada um para um tenant.
+
+    Usado na tela do Owner para montar os toggles
     (`templates/owner/tenant_detalhe.html`).
+
+    Args:
+        tenant: O `Tenant` cujo status de módulos será calculado.
+
+    Returns:
+        Lista de dicionários, um por módulo do catálogo, cada um com as
+        chaves:
+
+        - ``modulo``: a instância de `Modulo`.
+        - ``ativo``: `bool` indicando se está ligado para este tenant.
+        - ``e_o_padrao_do_segmento``: `bool` indicando se o valor de
+          ``ativo`` vem do padrão do segmento (sem `TenantModulo`
+          explícito) ou de uma exceção configurada manualmente.
     """
     padrao = _MODULOS_PADRAO_POR_SEGMENTO.get(tenant.segmento, set())
     overrides = {
@@ -76,16 +100,27 @@ def modulos_do_tenant(tenant: Tenant) -> list[dict]:
 
 
 def definir_modulo(tenant: Tenant, codigo: str, ativo: bool) -> None:
-    """
+    """Liga ou desliga um módulo para um tenant específico.
+
     Grava (ou atualiza) a exceção explícita — chamado só pela tela do Owner.
 
-    `all_tenants()` aqui pelo mesmo motivo do resto do módulo: o `update_or_
-    create` precisa localizar um `TenantModulo` já existente para QUALQUER
-    tenant, e o manager padrão (`TenantManager`, escopado pelo ContextVar do
-    tenant corrente) devolveria "não encontrado" sempre que chamado fora do
-    contexto de requisição daquele tenant — a tela do Owner nunca está no
-    contexto do tenant que está editando. Sem isto, cada chamada criaria uma
-    linha nova e a segunda batia na `UniqueConstraint`.
+    Nota de implementação: usa `all_tenants()` pelo mesmo motivo do resto
+    do módulo — o `update_or_create` precisa localizar um `TenantModulo`
+    já existente para QUALQUER tenant, e o manager padrão (`TenantManager`,
+    escopado pelo ContextVar do tenant corrente) devolveria "não
+    encontrado" sempre que chamado fora do contexto de requisição daquele
+    tenant, já que a tela do Owner nunca está no contexto do tenant que
+    está editando. Sem isto, cada chamada criaria uma linha nova e a
+    segunda bateria na `UniqueConstraint`.
+
+    Args:
+        tenant: O `Tenant` a configurar.
+        codigo: Código do módulo (ver constantes deste módulo).
+        ativo: Novo estado do módulo para este tenant.
+
+    Raises:
+        Modulo.DoesNotExist: Se `codigo` não corresponder a nenhum módulo
+            do catálogo.
     """
     modulo = Modulo.objects.get(codigo=codigo)
     TenantModulo.objects.all_tenants().update_or_create(

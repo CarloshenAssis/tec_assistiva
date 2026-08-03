@@ -22,6 +22,21 @@ from core.forms import EncarregadoForm
 
 @tenant_required
 def encarregado_editar(request):
+    """Formulário de configuração do Encarregado (DPO) do tenant, restrito a Admin.
+
+    Args:
+        request: A requisição GET (exibe o formulário) ou POST (submete).
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário preenchido com
+        os dados atuais do tenant. Em POST válido, redireciona de volta
+        para a mesma tela com mensagem de sucesso. Em POST inválido,
+        re-renderiza o formulário com os erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin.
+    """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode configurar o Encarregado (DPO).")
     tenant = request.tenant

@@ -29,6 +29,13 @@ from django.conf import settings
 #: foto de equipamento (que usa `.url` direto no `<img src>`, ver
 #: ativos/models.py::FotoAtivo) vem de outra origem e o navegador a bloqueia.
 def _diretiva_img_src() -> str:
+    """Monta a diretiva `img-src` da CSP, liberando o storage externo se configurado.
+
+    Returns:
+        A diretiva `img-src` pronta para compor a Content Security
+        Policy, incluindo o host de `settings.MEDIA_STORAGE_HOST` quando
+        definido.
+    """
     host = getattr(settings, "MEDIA_STORAGE_HOST", None)
     if host:
         return f"img-src 'self' data: https://{host}; "
@@ -36,6 +43,12 @@ def _diretiva_img_src() -> str:
 
 
 def _politica_csp() -> str:
+    """Monta a Content Security Policy completa da aplicação.
+
+    Returns:
+        A string de política CSP, pronta para o cabeçalho
+        `Content-Security-Policy`.
+    """
     return (
         "default-src 'self'; "
         "script-src 'self'; "
@@ -66,29 +79,55 @@ POLITICA_PERMISSOES = (
 
 
 class CabecalhosDeSegurancaMiddleware:
-    """Aplica CSP, Permissions-Policy e controle de cache de dado pessoal."""
+    """Aplica CSP, Permissions-Policy e controle de cache de dado pessoal.
+
+    Middleware de resposta — não interfere na requisição, só acrescenta
+    cabeçalhos de segurança à resposta já processada pela view.
+    """
 
     def __init__(self, get_response):
+        """Inicializa o middleware.
+
+        Args:
+            get_response: Callable padrão do Django que processa a
+                requisição e devolve a resposta.
+        """
         self.get_response = get_response
 
     def __call__(self, request):
+        """Processa a requisição, acrescentando os cabeçalhos de segurança.
+
+        Args:
+            request: A requisição HTTP corrente.
+
+        Returns:
+            A resposta HTTP, com `Content-Security-Policy`,
+            `Permissions-Policy` e, para usuário autenticado,
+            `Cache-Control: private, no-store, max-age=0` — página com
+            dado pessoal não pode ficar no cache do navegador: em
+            terminal compartilhado de posto de saúde, o botão "voltar"
+            após o logout exibiria a ficha do paciente anterior.
+        """
         resposta = self.get_response(request)
 
         resposta.setdefault("Content-Security-Policy", self._csp())
         resposta.setdefault("Permissions-Policy", POLITICA_PERMISSOES)
 
-        # Página de usuário autenticado carrega dado pessoal e não pode ficar
-        # no cache do navegador: em terminal compartilhado de posto de saúde,
-        # o botão "voltar" após o logout exibiria a ficha do paciente anterior.
         if getattr(request, "user", None) is not None and request.user.is_authenticated:
             resposta.setdefault("Cache-Control", "private, no-store, max-age=0")
 
         return resposta
 
     def _csp(self) -> str:
+        """Monta a CSP final, reforçada em produção.
+
+        Returns:
+            A política CSP, com `upgrade-insecure-requests` acrescentado
+            quando `settings.DEBUG` for `False` — força o navegador a
+            promover para HTTPS qualquer sub-recurso que tenha escapado
+            como `http://`.
+        """
         csp = _politica_csp()
         if not settings.DEBUG:
-            # Em produção, força o navegador a promover para HTTPS qualquer
-            # sub-recurso que tenha escapado como http://.
             csp += "; upgrade-insecure-requests"
         return csp

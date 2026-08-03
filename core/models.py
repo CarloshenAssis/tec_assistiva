@@ -14,15 +14,33 @@ from core.validadores import validar_upload_imagem
 
 
 class Tenant(models.Model):
-    """
-    Uma instituição cliente da plataforma (prefeitura, fundo social, home
-    care, locadora, hospital, ONG, ...).
+    """Uma instituição cliente da plataforma.
 
-    O campo `segmento` aqui é deliberadamente um CharField simples nesta
-    fase (não uma FK para uma tabela `Segmento`) — a modelagem completa de
-    Segmento/Módulo/FeatureFlag é conteúdo da Fase 2 do roadmap. Não
-    antecipamos essa tabela agora para não versionar um catálogo que ainda
-    pode mudar de nome/granularidade antes de ter um segundo tenant real.
+    Representa o cliente contratante (prefeitura, fundo social, serviço de
+    home care, locadora, hospital, ONG, ...) — é a raiz do isolamento
+    multi-tenant: todo `TenantModel` carrega uma FK para esta classe.
+
+    Nota de implementação: o campo `segmento` aqui é deliberadamente um
+    `CharField` simples nesta fase (não uma FK para uma tabela
+    `Segmento`) — a modelagem completa de Segmento/Módulo/FeatureFlag é
+    conteúdo da Fase 2 do roadmap. Não antecipamos essa tabela agora para
+    não versionar um catálogo que ainda pode mudar de nome/granularidade
+    antes de ter um segundo tenant real.
+
+    Attributes:
+        nome: Nome do contrato/instituição.
+        slug: Identificador único e legível do tenant.
+        segmento: Um dos valores de `Tenant.Segmento` — define rótulos de
+            tela e módulos habilitados por padrão.
+        cidade: Cidade da instituição (opcional).
+        uf: UF da instituição (opcional).
+        ativo: Contrato ativo. Usado, por exemplo, para o job diário de
+            notificações só processar tenants ativos.
+        criado_em: Data de criação do registro.
+        dpo_nome: Nome do Encarregado (DPO) deste tenant (LGPD Art. 41).
+        dpo_email: E-mail de contato do Encarregado.
+        dpo_telefone: Telefone de contato do Encarregado (opcional).
+        logo: Logotipo da instituição, usado nas etiquetas patrimoniais.
     """
 
     class Segmento(models.TextChoices):
@@ -91,10 +109,23 @@ class Tenant(models.Model):
 
     @property
     def rotulo_beneficiario_singular(self) -> str:
+        """Rótulo, no singular, usado nas telas para "a pessoa atendida".
+
+        Returns:
+            O rótulo correspondente ao `segmento` deste tenant (ex.:
+            `"Paciente"` para Home Care/Hospital), ou `"Beneficiário"`
+            como padrão.
+        """
         return self._ROTULO_BENEFICIARIO_POR_SEGMENTO.get(self.segmento, ("Beneficiário", "Beneficiários"))[0]
 
     @property
     def rotulo_beneficiario_plural(self) -> str:
+        """Rótulo, no plural, usado nas telas para "as pessoas atendidas".
+
+        Returns:
+            O rótulo correspondente ao `segmento` deste tenant (ex.:
+            `"Clientes"` para Locadora), ou `"Beneficiários"` como padrão.
+        """
         return self._ROTULO_BENEFICIARIO_POR_SEGMENTO.get(self.segmento, ("Beneficiário", "Beneficiários"))[1]
 
     def __str__(self) -> str:
@@ -102,14 +133,24 @@ class Tenant(models.Model):
 
 
 class TenantQuerySet(models.QuerySet):
+    """QuerySet base de todo model multi-tenant, usado por `TenantManager`."""
+
     def for_tenant(self, tenant) -> "TenantQuerySet":
+        """Filtra o queryset por um tenant específico, explicitamente.
+
+        Args:
+            tenant: Uma instância de `Tenant`, ou diretamente o `pk` do
+                tenant.
+
+        Returns:
+            O queryset filtrado por `tenant_id`.
+        """
         tenant_id = tenant.pk if isinstance(tenant, models.Model) else tenant
         return self.filter(tenant_id=tenant_id)
 
 
 class TenantManager(models.Manager):
-    """
-    Manager padrão de todo model multi-tenant.
+    """Manager padrão de todo model multi-tenant.
 
     Filtra automaticamente pelo tenant corrente da requisição (definido
     pelo TenantMiddleware). Se não houver tenant no contexto, devolve um
@@ -120,7 +161,8 @@ class TenantManager(models.Manager):
 
     `all_tenants()` é a única forma de obter uma consulta cross-tenant, e
     deve ser usada exclusivamente dentro do app `owner`. Isso é reforçado
-    por um teste de arquitetura automatizado — ver core/tests/test_architecture.py.
+    por um teste de arquitetura automatizado — ver
+    `core/tests/test_architecture.py`.
     """
 
     #: Subclasses podem trocar por um QuerySet mais específico (que
@@ -129,6 +171,13 @@ class TenantManager(models.Manager):
     queryset_class = TenantQuerySet
 
     def get_queryset(self) -> TenantQuerySet:
+        """Constrói o queryset padrão, filtrado pelo tenant corrente.
+
+        Returns:
+            Queryset vazio se não houver tenant no `ContextVar` corrente
+            (`core.tenancy.get_current_tenant_id`); caso contrário, o
+            queryset filtrado por esse `tenant_id`.
+        """
         qs = self.queryset_class(self.model, using=self._db)
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
@@ -136,16 +185,25 @@ class TenantManager(models.Manager):
         return qs.filter(tenant_id=tenant_id)
 
     def all_tenants(self) -> TenantQuerySet:
-        """Uso exclusivo do app `owner` — consulta explicitamente cross-tenant."""
+        """Devolve um queryset sem nenhum filtro de tenant.
+
+        Uso exclusivo do app `owner` — consulta explicitamente
+        cross-tenant, fora do isolamento fail-closed padrão.
+
+        Returns:
+            Queryset com todos os registros, de todos os tenants.
+        """
         return self.queryset_class(self.model, using=self._db)
 
 
 class TenantModel(models.Model):
-    """
-    Base abstrata para todo model de domínio pertencente a um tenant.
+    """Base abstrata para todo model de domínio pertencente a um tenant.
 
     Reaproveitada por `core.Unidade`/`core.Fornecedor` e por todos os
     models dos apps `ativos` e `beneficiarios`.
+
+    Attributes:
+        tenant: FK para o `Tenant` dono deste registro.
     """
 
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="+")
@@ -157,10 +215,23 @@ class TenantModel(models.Model):
 
 
 class Unidade(TenantModel):
-    """
-    Unidade física de um tenant (ex.: um posto/CRAS de uma prefeitura, uma
-    filial de home care, uma loja de locadora — docs/features/
-    identificacao-patrimonial-e-unidades.md).
+    """Unidade física de um tenant.
+
+    Ex.: um posto/CRAS de uma prefeitura, uma filial de home care, uma
+    loja de locadora (docs/features/identificacao-patrimonial-e-unidades.md).
+
+    Attributes:
+        nome: Nome da unidade, único dentro do tenant.
+        tipo: Rótulo livre (ex.: "Matriz", "Filial", "Loja"), varia por
+            segmento.
+        responsavel: Nome do responsável pela unidade (opcional).
+        telefone: Telefone de contato (opcional).
+        email: E-mail de contato (opcional).
+        endereco: Endereço físico (opcional).
+        cidade: Cidade da unidade (opcional).
+        uf: UF da unidade (opcional).
+        observacoes: Observações livres (opcional).
+        ativo: Indica se a unidade está em operação.
     """
 
     nome = models.CharField(max_length=150)
@@ -191,15 +262,20 @@ class Unidade(TenantModel):
 
 
 class Modulo(models.Model):
-    """
-    Catálogo de funcionalidades que podem ser ligadas/desligadas por tenant
-    (docs/business-rules/modulos.md).
+    """Catálogo de funcionalidades que podem ser ligadas/desligadas por tenant.
+
+    Ver docs/business-rules/modulos.md.
 
     Cross-tenant por natureza (é catálogo da plataforma, o mesmo para
     todos) — por isso não herda `TenantModel`. Populado por migration de
     dados (mesmo padrão de `contas.Papel`, ver
     `contas/migrations/0002_seed_papeis.py`), não por tela de cadastro:
     criar um módulo é decisão de produto, não operação de cliente.
+
+    Attributes:
+        codigo: Identificador único do módulo (ex.: `"locacao_financeiro"`).
+        nome: Nome de exibição do módulo.
+        descricao: Descrição do que o módulo habilita (opcional).
     """
 
     codigo = models.SlugField(max_length=50, unique=True)
@@ -216,16 +292,22 @@ class Modulo(models.Model):
 
 
 class TenantModulo(TenantModel):
-    """
-    Ativação explícita de um módulo para um tenant — sobrepõe o padrão do
-    segmento (ver `core.features.modulo_habilitado`).
+    """Ativação explícita de um módulo para um tenant.
 
-    Herda `TenantModel` só pelo campo `tenant` e pelo `TenantManager`
-    (que dá `all_tenants()`) — a leitura de "este tenant específico tem
-    este módulo?" é sempre feita com `tenant` explícito no filtro (nunca
-    via ContextVar do tenant corrente), porque é chamada tanto de dentro
-    de uma requisição quanto da tela do Owner (cross-tenant por definição).
-    Ver `core.features` para a função que usa isto.
+    Sobrepõe o padrão do segmento (ver `core.features.modulo_habilitado`).
+
+    Nota de implementação: herda `TenantModel` só pelo campo `tenant` e
+    pelo `TenantManager` (que dá `all_tenants()`) — a leitura de "este
+    tenant específico tem este módulo?" é sempre feita com `tenant`
+    explícito no filtro (nunca via ContextVar do tenant corrente), porque
+    é chamada tanto de dentro de uma requisição quanto da tela do Owner
+    (cross-tenant por definição). Ver `core.features` para a função que
+    usa isto.
+
+    Attributes:
+        modulo: FK para o `Modulo` sendo ativado/desativado.
+        ativo: Estado da exceção — `True` liga, `False` desliga,
+            sobrepondo o padrão do segmento.
     """
 
     modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE, related_name="tenants")
@@ -243,7 +325,13 @@ class TenantModulo(TenantModel):
 
 
 class Fornecedor(TenantModel):
-    """Fornecedor/oficina/prestador usado em aquisição e manutenção de ativos."""
+    """Fornecedor/oficina/prestador usado em aquisição e manutenção de ativos.
+
+    Attributes:
+        nome: Nome do fornecedor, único dentro do tenant.
+        contato: Nome da pessoa de contato (opcional).
+        telefone: Telefone de contato (opcional).
+    """
 
     nome = models.CharField(max_length=150)
     contato = models.CharField(max_length=150, blank=True)

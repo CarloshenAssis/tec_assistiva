@@ -19,6 +19,24 @@ from core.forms import LogoForm
 
 @tenant_required
 def instituicao_editar(request):
+    """Formulário de configuração do logotipo do tenant, restrito a Admin.
+
+    Args:
+        request: A requisição GET (exibe o formulário), ou POST para
+            enviar um novo logotipo ou removê-lo (campo `remover_logo`
+            no corpo do POST).
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário com o logotipo
+        atual, se houver. Em POST de remoção ou de envio válido,
+        redireciona de volta para a mesma tela com mensagem de sucesso.
+        Em POST de envio inválido, re-renderiza o formulário com os
+        erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin.
+    """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode configurar o logotipo da instituição.")
     tenant = request.tenant

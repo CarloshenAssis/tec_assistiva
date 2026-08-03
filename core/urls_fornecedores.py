@@ -1,3 +1,5 @@
+"""Rotas de `/app/fornecedores/*`."""
+
 from django.urls import path
 
 from core import views_fornecedores as views

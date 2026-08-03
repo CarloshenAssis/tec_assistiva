@@ -20,12 +20,33 @@ from core.paginacao import paginar
 
 
 def _exigir_admin(request) -> None:
+    """Garante que o usuário logado seja Admin (ou nível superior).
+
+    Args:
+        request: A requisição corrente, com `request.user` autenticado.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o nível hierárquico
+            do usuário for menor que `NIVEL_ADMIN`.
+    """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode gerenciar unidades.")
 
 
 @tenant_required
 def unidades_lista(request):
+    """Lista paginada de unidades do tenant, restrita a Admin.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` renderizando `core/unidades_lista.html`.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin.
+    """
     _exigir_admin(request)
     unidades_qs = Unidade.objects.all().order_by("nome")
     pagina = paginar(request, unidades_qs)
@@ -38,6 +59,21 @@ def unidades_lista(request):
 
 @tenant_required
 def unidades_criar(request):
+    """Cadastro de nova unidade, restrito a Admin.
+
+    Args:
+        request: A requisição GET (exibe o formulário) ou POST (submete).
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário vazio (com
+        `ativo=True` pré-marcado). Em POST válido, redireciona para a
+        lista de unidades. Em POST inválido, re-renderiza o formulário
+        com os erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin.
+    """
     _exigir_admin(request)
     if request.method == "POST":
         form = UnidadeForm(request.POST, tenant=request.tenant)
@@ -58,6 +94,24 @@ def unidades_criar(request):
 
 @tenant_required
 def unidades_editar(request, pk):
+    """Edição de uma unidade existente, restrita a Admin.
+
+    Args:
+        request: A requisição GET (exibe o formulário preenchido) ou
+            POST (submete a edição).
+        pk: PK da `Unidade` a editar.
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário preenchido. Em
+        POST válido, redireciona para a lista de unidades. Em POST
+        inválido, re-renderiza o formulário com os erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin.
+        django.http.Http404: Se `pk` não corresponder a uma unidade do
+            tenant corrente.
+    """
     _exigir_admin(request)
     unidade = get_object_or_404(Unidade, pk=pk)
     if request.method == "POST":
@@ -77,7 +131,24 @@ def unidades_editar(request, pk):
 
 @tenant_required
 def unidades_alternar_ativo(request, pk):
-    """Ativa/desativa a unidade. Exige POST — afeta quem opera nela e o Mapa Operacional."""
+    """Ativa/desativa uma unidade, restrito a Admin.
+
+    Exige POST — afeta quem opera nela e o Mapa Operacional.
+
+    Args:
+        request: A requisição POST de confirmação.
+        pk: PK da `Unidade` a ativar/desativar.
+
+    Returns:
+        Redireciona para a lista de unidades após alternar o campo
+        `ativo`.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin, ou se o método não for POST.
+        django.http.Http404: Se `pk` não corresponder a uma unidade do
+            tenant corrente.
+    """
     _exigir_admin(request)
     if request.method != "POST":
         raise PermissionDenied("Esta operação exige confirmação (POST).")

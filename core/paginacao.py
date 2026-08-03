@@ -21,11 +21,21 @@ TAMANHO_PADRAO = 25
 
 
 def paginar(request, queryset, *, tamanho_padrao: int = TAMANHO_PADRAO) -> Page:
-    """
-    Página de `queryset` na posição de `?pagina=` e no tamanho de
-    `?por_pagina=` — este último restrito a `TAMANHOS_DISPONIVEIS`; qualquer
-    valor fora da lista (ausente, não numérico, ou não permitido) cai no
-    padrão, nunca vira "sem limite".
+    """Pagina um queryset conforme os parâmetros de query string da requisição.
+
+    Args:
+        request: A requisição corrente, de onde são lidos `?pagina=` e
+            `?por_pagina=`.
+        queryset: O queryset (ou qualquer objeto paginável pelo
+            `django.core.paginator.Paginator`) a paginar.
+        tamanho_padrao: Tamanho de página usado quando `?por_pagina=`
+            estiver ausente ou for inválido. Default `TAMANHO_PADRAO`.
+
+    Returns:
+        A `Page` correspondente a `?pagina=`, no tamanho de
+        `?por_pagina=` — este último restrito a `TAMANHOS_DISPONIVEIS`;
+        qualquer valor fora da lista (ausente, não numérico, ou não
+        permitido) cai no padrão, nunca vira "sem limite".
     """
     try:
         tamanho = int(request.GET.get("por_pagina", tamanho_padrao))

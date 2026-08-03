@@ -16,13 +16,25 @@ from django.http import HttpResponse
 
 
 def _resposta_csv(nome_arquivo: str) -> tuple[HttpResponse, "csv._writer"]:
-    # Charset "utf-8" na resposta, não "utf-8-sig": o codec `utf-8-sig`
-    # insere um BOM a CADA chamada de `.encode()`, e `HttpResponse.write()`
-    # recodifica a cada chamada — como `csv.writer` faz um `write()` por
-    # linha, declarar a resposta como utf-8-sig contaminava toda linha
-    # (menos a primeira) com um BOM extra no meio do arquivo. O BOM correto
-    # é só no início, escrito uma única vez abaixo como bytes crus — que
-    # `HttpResponse` grava sem recodificar.
+    """Prepara uma `HttpResponse` de download CSV com BOM e separador `;`.
+
+    Nota de implementação: charset `"utf-8"` na resposta, não
+    `"utf-8-sig"` — o codec `utf-8-sig` insere um BOM a CADA chamada de
+    `.encode()`, e `HttpResponse.write()` recodifica a cada chamada; como
+    `csv.writer` faz um `write()` por linha, declarar a resposta como
+    utf-8-sig contaminava toda linha (menos a primeira) com um BOM extra
+    no meio do arquivo. O BOM correto é só no início, escrito uma única
+    vez abaixo como bytes crus — que `HttpResponse` grava sem recodificar.
+
+    Args:
+        nome_arquivo: Nome do arquivo sugerido no download (ex.:
+            `"ativos.csv"`).
+
+    Returns:
+        Uma tupla `(resposta, escritor)`: a `HttpResponse` já configurada
+        com cabeçalhos e BOM, e o `csv.writer` pronto para escrever
+        linhas nela.
+    """
     resposta = HttpResponse(content_type="text/csv; charset=utf-8")
     resposta["Content-Disposition"] = f'attachment; filename="{nome_arquivo}"'
     resposta.write(b"\xef\xbb\xbf")
@@ -31,6 +43,17 @@ def _resposta_csv(nome_arquivo: str) -> tuple[HttpResponse, "csv._writer"]:
 
 
 def exportar_ativos_csv(ativos_qs) -> HttpResponse:
+    """Exporta um queryset de `Ativo` como CSV para download.
+
+    Args:
+        ativos_qs: Queryset de `ativos.models.Ativo`, já filtrado pelo
+            escopo de unidade/tenant do usuário.
+
+    Returns:
+        `HttpResponse` de download com uma linha por ativo (patrimônio,
+        categoria, subcategoria, fabricante, modelo, nº de série, status,
+        unidade e data de aquisição).
+    """
     resposta, escritor = _resposta_csv("ativos.csv")
     escritor.writerow([
         "Patrimônio", "Categoria", "Subcategoria", "Fabricante", "Modelo",
@@ -52,6 +75,20 @@ def exportar_ativos_csv(ativos_qs) -> HttpResponse:
 
 
 def exportar_beneficiarios_csv(beneficiarios_qs, rotulo_singular: str) -> HttpResponse:
+    """Exporta um queryset de `Beneficiario` como CSV para download.
+
+    Args:
+        beneficiarios_qs: Queryset de `beneficiarios.models.Beneficiario`,
+            já filtrado pelo escopo de unidade/tenant do usuário.
+        rotulo_singular: Rótulo do tenant para "beneficiário"
+            (`Tenant.rotulo_beneficiario_singular`), usado como cabeçalho
+            da primeira coluna.
+
+    Returns:
+        `HttpResponse` de download com uma linha por titular (nome, tipo
+        e número de documento, telefone, WhatsApp, e-mail, unidade e
+        cidade).
+    """
     resposta, escritor = _resposta_csv("beneficiarios.csv")
     escritor.writerow([
         rotulo_singular, "Tipo de documento", "Documento", "Telefone", "WhatsApp",
@@ -72,6 +109,18 @@ def exportar_beneficiarios_csv(beneficiarios_qs, rotulo_singular: str) -> HttpRe
 
 
 def exportar_movimentacoes_csv(movimentacoes_qs) -> HttpResponse:
+    """Exporta um queryset de `Movimentacao` como CSV para download.
+
+    Args:
+        movimentacoes_qs: Queryset de `ativos.models.Movimentacao`, já
+            filtrado pelo escopo de unidade/tenant do usuário.
+
+    Returns:
+        `HttpResponse` de download com uma linha por movimentação (data,
+        ativo, tipo, status anterior/novo, usuário, unidade e, quando a
+        movimentação for um empréstimo, beneficiário, prazo e data de
+        devolução prevista).
+    """
     resposta, escritor = _resposta_csv("movimentacoes.csv")
     escritor.writerow([
         "Data/hora", "Ativo", "Tipo", "Status anterior", "Status novo",
@@ -99,10 +148,19 @@ def exportar_movimentacoes_csv(movimentacoes_qs) -> HttpResponse:
 
 
 def exportar_auditoria_csv(registros_qs, *, incluir_tenant: bool = False) -> HttpResponse:
-    """
-    `incluir_tenant=True` na visão cross-tenant do Owner — na visão por
-    tenant do Admin/Gestor a coluna seria sempre o mesmo valor, então nem
-    aparece (docs/business-rules/auditoria.md).
+    """Exporta um queryset de `RegistroAuditoria` como CSV para download.
+
+    Args:
+        registros_qs: Queryset de `auditoria.models.RegistroAuditoria`.
+        incluir_tenant: Quando `True`, acrescenta a coluna "Organização" —
+            usado na visão cross-tenant do Owner; na visão por tenant do
+            Admin/Gestor a coluna seria sempre o mesmo valor, então nem
+            aparece (docs/business-rules/auditoria.md).
+
+    Returns:
+        `HttpResponse` de download com uma linha por registro de
+        auditoria (quando, usuário, ação, objeto, se envolve dado
+        sensível, descrição e IP).
     """
     resposta, escritor = _resposta_csv("auditoria.csv")
     cabecalho = ["Quando", "Usuário", "Ação", "Objeto", "Sensível", "Descrição", "IP"]

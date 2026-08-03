@@ -14,6 +14,25 @@ from django.core.exceptions import PermissionDenied
 
 
 def tenant_required(view_func):
+    """Decorador que restringe uma view a usuários vinculados a um tenant.
+
+    Combina `django.contrib.auth.decorators.login_required` (exige sessão
+    autenticada) com a checagem adicional de que o usuário não é da
+    plataforma (`is_platform_staff`) e possui `tenant_id` definido.
+
+    Args:
+        view_func: A view Django a ser decorada.
+
+    Returns:
+        A view decorada. Requisições de usuário anônimo são redirecionadas
+        ao login; requisições de Owner ou usuário sem tenant recebem
+        `PermissionDenied` (HTTP 403).
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se `request.user` for
+            `is_platform_staff=True` ou não tiver `tenant_id`.
+    """
+
     @login_required
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
@@ -25,6 +44,15 @@ def tenant_required(view_func):
 
 
 def nivel_hierarquico(request) -> int:
-    """Nível hierárquico do usuário logado (0 se não tiver papel definido)."""
+    """Devolve o nível hierárquico do usuário logado na requisição.
+
+    Args:
+        request: A requisição Django corrente, com `request.user` já
+            resolvido pelo `AuthenticationMiddleware`.
+
+    Returns:
+        `Papel.nivel_hierarquico` do usuário, ou `0` se não tiver papel
+        definido.
+    """
     papel = getattr(request.user, "papel", None)
     return papel.nivel_hierarquico if papel else 0

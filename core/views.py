@@ -1,3 +1,5 @@
+"""Dashboard, relatórios e redirecionamento inicial do app `core`."""
+
 from django.shortcuts import redirect, render
 
 from ativos.domain.enums import StatusAtivo
@@ -19,13 +21,21 @@ from notificacoes.models import NotificacaoEnviada
 
 
 def raiz(request):
-    """
-    Redirecionamento inicial (`/` e destino padrão pós-login).
+    """Redireciona para o destino correto conforme o tipo de usuário.
 
-    Não pode apontar direto para `app:dashboard`: um usuário da plataforma
+    Usado tanto em `/` quanto como destino padrão pós-login. Não pode
+    apontar direto para `app:dashboard`: um usuário da plataforma
     (`is_platform_staff`, sem tenant) recebe 403 lá — a área dele é
-    `owner:dashboard`. Descoberto ao testar o login da primeira conta Owner
-    em produção: o redirect fixo mandava até o Owner para `/app/dashboard/`.
+    `owner:dashboard`. Descoberto ao testar o login da primeira conta
+    Owner em produção: o redirect fixo mandava até o Owner para
+    `/app/dashboard/`.
+
+    Args:
+        request: A requisição corrente.
+
+    Returns:
+        Redireciona para `login` (usuário anônimo), `owner:dashboard`
+        (Owner) ou `app:dashboard` (usuário de tenant).
     """
     if not request.user.is_authenticated:
         return redirect("login")
@@ -50,14 +60,23 @@ _ROTULOS_RESUMO_CORES = [
 
 @tenant_required
 def dashboard(request):
-    """
-    Painel do tenant, restrito às unidades que o usuário pode ver
-    (docs/business-rules/dashboard.md).
+    """Painel principal do tenant, restrito às unidades visíveis ao usuário.
 
-    Todos os números saem de consultas agregadas no banco — nenhuma linha de
-    Ativo é trazida para a aplicação só para ser contada, e o custo não cresce
-    com o tamanho do acervo. Ver `ativos.selectors.indicadores_por_status` e
-    `resumo_cores_agregado`.
+    Ver docs/business-rules/dashboard.md.
+
+    Todos os números saem de consultas agregadas no banco — nenhuma linha
+    de Ativo é trazida para a aplicação só para ser contada, e o custo
+    não cresce com o tamanho do acervo. Ver
+    `ativos.selectors.indicadores_por_status` e `resumo_cores_agregado`.
+
+    Args:
+        request: A requisição GET, de um usuário vinculado a um tenant.
+
+    Returns:
+        `HttpResponse` renderizando `core/dashboard.html` com contagens
+        por status, taxa de utilização, movimentações recentes, resumo
+        colorido (Mapa Operacional) e, quando o usuário enxerga mais de
+        uma unidade, o resumo por unidade.
     """
     ativos_qs = filtrar_por_unidade(Ativo.objects.all(), request.user)
 
@@ -116,6 +135,16 @@ def dashboard(request):
 
 @tenant_required
 def relatorios(request):
+    """Tela de relatórios básicos do tenant, restrita às unidades visíveis.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` renderizando `core/relatorios.html` com contagens
+        por status, total de beneficiários (e quantos têm empréstimo em
+        aberto), total de notificações e resumo por unidade.
+    """
     ativos_qs = filtrar_por_unidade(Ativo.objects.all(), request.user)
     beneficiarios_qs = filtrar_por_unidade(
         Beneficiario.objects.all(), request.user, incluir_sem_unidade=True
@@ -152,11 +181,29 @@ def relatorios(request):
 
 @tenant_required
 def relatorios_exportar_ativos(request):
+    """Exporta o acervo de ativos visível ao usuário como CSV.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` de download CSV (ver
+        `core.relatorios_export.exportar_ativos_csv`).
+    """
     return exportar_ativos_csv(filtrar_por_unidade(Ativo.objects.all(), request.user))
 
 
 @tenant_required
 def relatorios_exportar_beneficiarios(request):
+    """Exporta os beneficiários visíveis ao usuário como CSV.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` de download CSV (ver
+        `core.relatorios_export.exportar_beneficiarios_csv`).
+    """
     beneficiarios_qs = filtrar_por_unidade(
         Beneficiario.objects.all(), request.user, incluir_sem_unidade=True
     )
@@ -165,6 +212,15 @@ def relatorios_exportar_beneficiarios(request):
 
 @tenant_required
 def relatorios_exportar_movimentacoes(request):
+    """Exporta as movimentações do acervo visível ao usuário como CSV.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` de download CSV (ver
+        `core.relatorios_export.exportar_movimentacoes_csv`).
+    """
     ativos_qs = filtrar_por_unidade(Ativo.objects.all(), request.user)
     movimentacoes_qs = Movimentacao.objects.filter(ativo__in=ativos_qs)
     return exportar_movimentacoes_csv(movimentacoes_qs)

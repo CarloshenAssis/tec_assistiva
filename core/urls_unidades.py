@@ -1,3 +1,5 @@
+"""Rotas de `/app/unidades/*`."""
+
 from django.urls import path
 
 from core import views_unidades as views
