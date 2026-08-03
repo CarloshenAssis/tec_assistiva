@@ -13,6 +13,7 @@ Este repositório contém:
 - `docs/ONBOARDING_TENANT.md` — passo a passo para provisionar um cliente novo.
 - `docs/TROUBLESHOOTING.md` — erros comuns e como diagnosticar.
 - `docs/FLUXOS_DE_NEGOCIO.md` — diagramas dos principais fluxos operacionais.
+- `docs/POLITICA_PRIVACIDADE.md` — modelo de política de privacidade (LGPD Art. 9º/41), pendente de preenchimento institucional.
 - `docs/business-rules/` — regra de negócio por assunto; `docs/features/` — documentação de feature específica.
 - O código do backend (Django): **Fase 0** (fundação técnica multi-tenant) e **Fase 1** (MVP operacional) do roadmap acima já implementadas.
 
@@ -154,7 +155,6 @@ coletada e retida fora do nosso controle, sem prazo nem controle de acesso.
 ### Pendente para uma próxima fase
 
 - Integração real de envio (WhatsApp Business API / SMTP) — hoje o backend registra e "envia" via log estruturado, ponto de extensão isolado em `notificacoes/services.py::_despachar`.
-- Agendamento do job diário via cron (hoje é um management command; a Vercel oferece Vercel Cron).
 - Edição de templates de notificação pela UI (hoje só via Django Admin).
 - Filtro de "cidade" no Mapa (não modelado — só há um campo de cidade no Tenant, não por ativo/unidade).
 
@@ -178,8 +178,11 @@ ordem de risco:
    exfiltração por seletor). Eliminar exige migrar os estilos inline para
    classes no CSS.
 6. **Encarregado (DPO) e política de privacidade.** O Art. 41 exige indicar
-   um encarregado e o Art. 9º, transparência ao titular. São itens
-   institucionais, não de código.
+   um encarregado e o Art. 9º, transparência ao titular. O modelo do
+   documento já existe em `docs/POLITICA_PRIVACIDADE.md`, mas falta a
+   decisão institucional (quem é o Encarregado, se cada tenant tem o seu
+   ou se a Ciclartech responde por todos como operadora) e publicá-lo em
+   local acessível ao titular — não é item que o código resolve sozinho.
 
 ## Deploy na Vercel
 
@@ -247,6 +250,7 @@ servir dado de paciente com chave pública de desenvolvimento.
 | `DJANGO_ALLOWED_HOSTS` | `ciclartech.vercel.app` | Se ausente, os domínios vêm de `VERCEL_URL`/`VERCEL_PROJECT_PRODUCTION_URL`. Um `*` aqui é descartado automaticamente com aviso — `Host` arbitrário permite envenenar o link de recuperação de senha |
 | `DJANGO_PROXIES_CONFIAVEIS` | `1` | Número de proxies reversos à frente da app. Sem isso o IP registrado na auditoria é o da borda da Vercel, não o do cliente, e o bloqueio por tentativas perde precisão |
 | `DJANGO_ADMIN_URL` | algo não óbvio, ex. `gestao-interna/` | Reduz o ruído de varredura automatizada em `/admin/`, que consome o limite de bloqueio de contas legítimas |
+| `CRON_SECRET` | valor aleatório longo (ex.: `python -c "import secrets; print(secrets.token_urlsafe(32))"`) | Protege `/cron/notificacoes-diarias/` — a Vercel envia esse valor automaticamente como `Authorization: Bearer <CRON_SECRET>` nas chamadas de cron (`vercel.json` já declara o job, `0 12 * * *`). Sem essa variável configurada, o endpoint recusa qualquer chamada e o job diário de vencimento/atraso não roda sozinho |
 
 **Para a recuperação de senha funcionar** (sem elas o link é apenas
 registrado no log, não enviado):
