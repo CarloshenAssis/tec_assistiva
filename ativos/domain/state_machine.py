@@ -68,10 +68,29 @@ ESTADOS_TERMINAIS = {S.BAIXADO}
 def transicionar(
     status_atual: StatusAtivo, tipo: TipoMovimentacao, destino: Optional[StatusAtivo] = None
 ) -> StatusAtivo:
-    """
-    Calcula o novo status do Ativo dada uma movimentação, ou levanta
-    `TransicaoInvalidaError`/`DestinoObrigatorioError` se a transição não
-    for permitida.
+    """Calcula o novo status do Ativo dada uma movimentação.
+
+    Função central da máquina de estados — todo registro de
+    `Movimentacao` passa por aqui antes de gravar, direta ou
+    indiretamente (via `ativos.services`).
+
+    Args:
+        status_atual: O `StatusAtivo` corrente do ativo.
+        tipo: O `TipoMovimentacao` sendo registrado.
+        destino: Obrigatório apenas para transições ambíguas (hoje, só
+            `DEVOLUCAO` a partir de `EMPRESTADO`), onde o operador
+            escolhe entre múltiplos status novos possíveis. Ignorado nas
+            demais transições.
+
+    Returns:
+        O novo `StatusAtivo` resultante da transição.
+
+    Raises:
+        DestinoObrigatorioError: Se a transição exigir `destino` e ele
+            não tiver sido informado.
+        TransicaoInvalidaError: Se a combinação de `status_atual` e
+            `tipo` (e, quando aplicável, `destino`) não estiver na
+            tabela de transições permitidas.
     """
     chave_com_destino = (status_atual, tipo)
     if chave_com_destino in _TRANSICOES_COM_DESTINO:
@@ -96,6 +115,17 @@ def transicionar(
 def pode_transicionar(
     status_atual: StatusAtivo, tipo: TipoMovimentacao, destino: Optional[StatusAtivo] = None
 ) -> bool:
+    """Verifica, sem levantar exceção, se uma transição é permitida.
+
+    Args:
+        status_atual: O `StatusAtivo` corrente do ativo.
+        tipo: O `TipoMovimentacao` a verificar.
+        destino: Ver `transicionar`.
+
+    Returns:
+        `True` se `transicionar` com os mesmos argumentos não levantaria
+        exceção; `False` caso contrário.
+    """
     try:
         transicionar(status_atual, tipo, destino)
         return True
@@ -104,12 +134,38 @@ def pode_transicionar(
 
 
 def pode_inativar(status_atual: StatusAtivo) -> bool:
+    """Verifica se a inativação administrativa é permitida a partir do estado.
+
+    Args:
+        status_atual: O `StatusAtivo` corrente do ativo.
+
+    Returns:
+        `True` se `status_atual` estiver em `_ESTADOS_INATIVAVEIS`
+        (`DISPONIVEL`, `MANUTENCAO` ou `RESERVADO`).
+    """
     return status_atual in _ESTADOS_INATIVAVEIS
 
 
 def pode_transferir(status_atual: StatusAtivo) -> bool:
+    """Verifica se a transferência entre unidades é permitida a partir do estado.
+
+    Args:
+        status_atual: O `StatusAtivo` corrente do ativo.
+
+    Returns:
+        `True` se `status_atual` estiver em `_ESTADOS_TRANSFERIVEIS`.
+    """
     return status_atual in _ESTADOS_TRANSFERIVEIS
 
 
 def eh_estado_terminal(status_atual: StatusAtivo) -> bool:
+    """Verifica se o estado é terminal (sem transição de saída).
+
+    Args:
+        status_atual: O `StatusAtivo` a verificar.
+
+    Returns:
+        `True` se `status_atual` estiver em `ESTADOS_TERMINAIS`
+        (hoje, só `BAIXADO`).
+    """
     return status_atual in ESTADOS_TERMINAIS

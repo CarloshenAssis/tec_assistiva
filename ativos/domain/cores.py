@@ -26,6 +26,11 @@ from ativos.domain.enums import StatusAtivo
 
 
 class CorOperacional(str, Enum):
+    """Cor operacional de um Ativo, usada em toda a plataforma.
+
+    Ver a paleta oficial no docstring do módulo.
+    """
+
     AZUL = "azul"
     VERDE = "verde"
     VERDE_CLARO = "verde_claro"
@@ -37,6 +42,11 @@ class CorOperacional(str, Enum):
 
     @property
     def rotulo(self) -> str:
+        """Nome de exibição da cor operacional, em português.
+
+        Returns:
+            O rótulo correspondente em `_ROTULOS`.
+        """
         return _ROTULOS[self]
 
 
@@ -61,6 +71,25 @@ def cor_operacional(
     data_prevista_devolucao: Optional[date] = None,
     hoje: Optional[date] = None,
 ) -> CorOperacional:
+    """Calcula a cor operacional de um Ativo.
+
+    Args:
+        status: O `StatusAtivo` corrente do ativo.
+        data_prevista_devolucao: Data prevista de devolução, obrigatória
+            para calcular a gradação de atraso/proximidade quando
+            `status` for `EMPRESTADO`. Se omitida nesse caso, devolve
+            `VERDE` (sem informação de prazo).
+        hoje: Data de referência para o cálculo de dias. Default a data
+            corrente — parametrizável para testes determinísticos.
+
+    Returns:
+        A `CorOperacional` correspondente: `AZUL` (disponível), `AMARELO`
+        (manutenção), `CINZA` (baixado/extraviado/inativo/reservado/
+        higienização), ou — para `EMPRESTADO` — uma gradação de
+        `VERDE`/`VERDE_CLARO` (dentro do prazo ou vencendo em até 7 dias)
+        a `VERMELHO_CLARO`/`VERMELHO_MEDIO`/`VERMELHO_ESCURO` (atraso
+        crescente).
+    """
     hoje = hoje or date.today()
 
     if status == StatusAtivo.DISPONIVEL:

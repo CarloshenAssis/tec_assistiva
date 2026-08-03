@@ -24,6 +24,17 @@ S = StatusAtivo
 
 @dataclass(frozen=True)
 class Acao:
+    """Uma ação disponível para um Ativo num determinado estado.
+
+    Attributes:
+        codigo: Identificador único da ação (ex.: `"emprestar"`), usado
+            no template e na view que a executa.
+        rotulo: Nome de exibição da ação, em português.
+        nivel_hierarquico_minimo: Nível hierárquico mínimo
+            (`contas.models.Papel.nivel_hierarquico`) exigido para
+            executar a ação. Default `0` (qualquer usuário autenticado).
+    """
+
     codigo: str
     rotulo: str
     nivel_hierarquico_minimo: int = 0
@@ -104,6 +115,27 @@ _ACOES_POR_STATUS = {
 def acoes_disponiveis(
     status: StatusAtivo, nivel_hierarquico: Optional[int] = None
 ) -> List[Acao]:
+    """Lista as ações disponíveis para um Ativo, conforme estado e (opcionalmente) RBAC.
+
+    Única fonte de verdade sobre "o que pode ser feito agora" com um
+    Ativo — consumida pela resolução do QR Code, ficha do ativo e painel
+    rápido, para essas superfícies nunca ficarem dessincronizadas entre
+    si.
+
+    Args:
+        status: O `StatusAtivo` corrente do ativo.
+        nivel_hierarquico: Nível hierárquico do usuário logado
+            (`contas.models.Papel.nivel_hierarquico`). Se omitido,
+            devolve a lista completa de ações possíveis nesse estado,
+            sem filtro de permissão — útil para telas
+            administrativas/relatórios; views de operação devem sempre
+            passar o nível do usuário logado.
+
+    Returns:
+        Lista de `Acao` disponíveis em `status`, filtrada por
+        `nivel_hierarquico_minimo` quando `nivel_hierarquico` for
+        informado.
+    """
     acoes = _ACOES_POR_STATUS.get(status, [])
     if nivel_hierarquico is None:
         return list(acoes)

@@ -17,6 +17,12 @@ from enum import Enum
 
 
 class StatusAtivo(str, Enum):
+    """Estados possíveis de um Ativo — nós da máquina de estados.
+
+    Ver `ativos.domain.state_machine` para as transições permitidas
+    entre estes valores.
+    """
+
     DISPONIVEL = "disponivel"
     EMPRESTADO = "emprestado"
     RESERVADO = "reservado"
@@ -28,6 +34,11 @@ class StatusAtivo(str, Enum):
 
     @property
     def rotulo(self) -> str:
+        """Nome de exibição do status, em português.
+
+        Returns:
+            O rótulo correspondente em `_ROTULOS_STATUS`.
+        """
         return _ROTULOS_STATUS[self]
 
 
@@ -44,6 +55,12 @@ _ROTULOS_STATUS = {
 
 
 class TipoMovimentacao(str, Enum):
+    """Tipos de evento que geram um registro de `Movimentacao`.
+
+    Cada valor corresponde a uma aresta possível na máquina de estados
+    (`ativos.domain.state_machine`).
+    """
+
     EMPRESTIMO = "emprestimo"
     DEVOLUCAO = "devolucao"
     RENOVACAO = "renovacao"
@@ -64,6 +81,11 @@ class TipoMovimentacao(str, Enum):
 
     @property
     def rotulo(self) -> str:
+        """Nome de exibição do tipo de movimentação, em português.
+
+        Returns:
+            O rótulo correspondente em `_ROTULOS_TIPO`.
+        """
         return _ROTULOS_TIPO[self]
 
 
