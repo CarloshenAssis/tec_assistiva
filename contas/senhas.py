@@ -28,4 +28,14 @@ _TAMANHO = 16
 
 
 def gerar_senha_temporaria() -> str:
+    """Gera uma senha temporária aleatória, criptograficamente segura.
+
+    Usada para contas criadas por um administrador — quem a recebe deve
+    trocá-la pela própria em "Alterar senha" no primeiro acesso.
+
+    Returns:
+        Uma string de `_TAMANHO` caracteres, sorteados de `_ALFABETO`
+        (letras e dígitos, sem os pares visualmente ambíguos) via
+        `secrets.choice`.
+    """
     return "".join(secrets.choice(_ALFABETO) for _ in range(_TAMANHO))

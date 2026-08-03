@@ -23,13 +23,12 @@ MENSAGEM_BLOQUEIO = (
 
 
 class FormularioLoginSeguro(AuthenticationForm):
-    """
-    `AuthenticationForm` com verificação de bloqueio antes da autenticação.
+    """`AuthenticationForm` com verificação de bloqueio antes da autenticação.
 
-    A checagem acontece em `clean()` **antes** de `super().clean()` para que
-    uma tentativa barrada nunca chegue a executar o hash da senha: além de
-    poupar CPU (o PBKDF2 é caro por definição), isso impede que o tempo de
-    resposta diferencie "bloqueado" de "senha errada".
+    A checagem acontece em `clean()` antes de `super().clean()` para que
+    uma tentativa barrada nunca chegue a executar o hash da senha: além
+    de poupar CPU (o PBKDF2 é caro por definição), isso impede que o
+    tempo de resposta diferencie "bloqueado" de "senha errada".
     """
 
     #: Substitui a mensagem padrão do Django por uma que não revela nada
@@ -42,6 +41,16 @@ class FormularioLoginSeguro(AuthenticationForm):
     }
 
     def clean(self):
+        """Valida o formulário, barrando a autenticação se houver bloqueio.
+
+        Returns:
+            Os dados limpos de `super().clean()`, se não houver bloqueio.
+
+        Raises:
+            django.forms.ValidationError: Com código
+                `"bloqueado_por_tentativas"`, se a identificação ou o IP
+                estiverem bloqueados (ver `contas.bloqueio.esta_bloqueado`).
+        """
         identificacao = (self.data.get("username") or "").strip()
         ip = ip_do_cliente(self.request) if self.request is not None else None
 
@@ -92,6 +101,15 @@ class CriarUsuarioForm(forms.Form):
     )
 
     def __init__(self, *args, nivel_criador: int, **kwargs):
+        """Inicializa o formulário, restringindo papel e unidades disponíveis.
+
+        Args:
+            *args: Argumentos posicionais repassados a `forms.Form`.
+            nivel_criador: `nivel_hierarquico` de quem está criando o
+                usuário — limita as opções de papel a níveis
+                estritamente abaixo.
+            **kwargs: Argumentos nomeados repassados a `forms.Form`.
+        """
         super().__init__(*args, **kwargs)
         self.fields["papel"].queryset = Papel.objects.filter(
             nivel_hierarquico__lt=nivel_criador
@@ -102,10 +120,20 @@ class CriarUsuarioForm(forms.Form):
         self.fields["unidades"].queryset = Unidade.objects.filter(ativo=True).order_by("nome")
 
     def clean_username(self):
-        # `Usuario.objects` já é cross-tenant por padrão (herda o
-        # `UserManager` do Django, não o `TenantManager` fail-closed dos
-        # demais models — ver contas/models.py). O username é único na
-        # plataforma inteira, não só no tenant.
+        """Valida que o username é único em toda a plataforma.
+
+        Nota de implementação: `Usuario.objects` já é cross-tenant por
+        padrão (herda o `UserManager` do Django, não o `TenantManager`
+        fail-closed dos demais models — ver `contas/models.py`). O
+        username é único na plataforma inteira, não só no tenant.
+
+        Returns:
+            O username, sem espaços nas pontas.
+
+        Raises:
+            django.forms.ValidationError: Se já existir um usuário com o
+                mesmo username em qualquer tenant.
+        """
         username = self.cleaned_data["username"].strip()
         if Usuario.objects.filter(username=username).exists():
             raise forms.ValidationError("Já existe um usuário com este nome de login.")
@@ -145,6 +173,19 @@ class EditarUsuarioForm(forms.Form):
     )
 
     def __init__(self, *args, nivel_editor: int, papel_atual_id: int, **kwargs):
+        """Inicializa o formulário, restringindo papel e unidades disponíveis.
+
+        Args:
+            *args: Argumentos posicionais repassados a `forms.Form`.
+            nivel_editor: `nivel_hierarquico` de quem está editando —
+                limita as opções de papel a níveis estritamente abaixo,
+                mais o papel atual do usuário editado.
+            papel_atual_id: PK do `Papel` atual do usuário sendo editado
+                — sempre incluído nas opções, mesmo que esteja no nível
+                do editor ou acima, para não travar a edição de campos
+                que não sejam o papel.
+            **kwargs: Argumentos nomeados repassados a `forms.Form`.
+        """
         super().__init__(*args, **kwargs)
         self.fields["papel"].queryset = Papel.objects.filter(
             models.Q(nivel_hierarquico__lt=nivel_editor) | models.Q(pk=papel_atual_id)

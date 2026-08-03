@@ -35,23 +35,55 @@ from auditoria.models import AcaoAuditada, RegistroAuditoria
 
 
 def _config(nome: str, padrao: int) -> int:
+    """Lê uma configuração numérica de `settings`, com valor padrão.
+
+    Args:
+        nome: Nome da variável em `settings` (ex.:
+            `"SEGURANCA_LOGIN_JANELA_MINUTOS"`).
+        padrao: Valor a usar se a configuração não estiver definida.
+
+    Returns:
+        O valor configurado, ou `padrao`.
+    """
     return getattr(settings, nome, padrao)
 
 
 @dataclass(frozen=True)
 class ResultadoBloqueio:
-    """Resposta da consulta de bloqueio — o motivo é para auditoria, não para o usuário."""
+    """Resposta da consulta de bloqueio.
+
+    Attributes:
+        bloqueado: `True` se a autenticação está impedida agora.
+        motivo: Texto explicativo, para auditoria — nunca deve ser
+            exposto ao usuário final.
+    """
 
     bloqueado: bool
     motivo: str = ""
 
 
 def _janela_inicio():
+    """Calcula o início da janela deslizante de observação de falhas.
+
+    Returns:
+        `datetime` correspondente a `SEGURANCA_LOGIN_JANELA_MINUTOS`
+        minutos atrás do momento corrente.
+    """
     minutos = _config("SEGURANCA_LOGIN_JANELA_MINUTOS", 15)
     return timezone.now() - timezone.timedelta(minutes=minutos)
 
 
 def _falhas_recentes(**filtros) -> int:
+    """Conta falhas de login recentes na trilha de auditoria.
+
+    Args:
+        **filtros: Filtros adicionais de queryset (ex.:
+            `usuario_identificacao__iexact=...` ou `ip=...`).
+
+    Returns:
+        Quantidade de registros `AcaoAuditada.LOGIN_FALHA` dentro da
+        janela deslizante corrente que também satisfazem `filtros`.
+    """
     return RegistroAuditoria.objects.filter(
         acao=AcaoAuditada.LOGIN_FALHA,
         criado_em__gte=_janela_inicio(),
@@ -60,12 +92,22 @@ def _falhas_recentes(**filtros) -> int:
 
 
 def esta_bloqueado(*, identificacao: str, ip: Optional[str]) -> ResultadoBloqueio:
-    """
-    Diz se a combinação usuário/IP está impedida de tentar autenticar agora.
+    """Verifica se a combinação usuário/IP está impedida de autenticar agora.
 
-    Não distingue "usuário existe" de "usuário não existe" em momento algum —
-    o bloqueio é por string tentada, então a resposta não serve para enumerar
-    contas válidas.
+    Não distingue "usuário existe" de "usuário não existe" em momento
+    algum — o bloqueio é por string tentada, então a resposta não serve
+    para enumerar contas válidas.
+
+    Args:
+        identificacao: O identificador (username) que está tentando
+            autenticar.
+        ip: O IP de origem da tentativa, ou `None` se indisponível.
+
+    Returns:
+        Um `ResultadoBloqueio` com `bloqueado=True` se o limite por
+        identificação (`SEGURANCA_LOGIN_MAX_TENTATIVAS_IDENTIFICACAO`) ou
+        por IP (`SEGURANCA_LOGIN_MAX_TENTATIVAS_IP`) tiver sido atingido
+        na janela deslizante corrente.
     """
     limite_id = _config("SEGURANCA_LOGIN_MAX_TENTATIVAS_IDENTIFICACAO", 5)
     limite_ip = _config("SEGURANCA_LOGIN_MAX_TENTATIVAS_IP", 20)
@@ -84,14 +126,26 @@ def esta_bloqueado(*, identificacao: str, ip: Optional[str]) -> ResultadoBloquei
 def registrar_bloqueio_se_atingiu_limite(
     *, identificacao: str, ip: Optional[str], request=None
 ) -> bool:
-    """
-    Grava o evento de bloqueio **apenas na transição** para o estado bloqueado.
+    """Grava o evento de bloqueio apenas na transição para o estado bloqueado.
 
-    Chamado logo depois de cada falha de login. Registrar a cada tentativa
-    barrada seria um vetor de inundação: quem ataca controla o volume e
-    poderia inflar a tabela de auditoria à vontade. Aqui cada episódio de
-    bloqueio produz exatamente uma linha; o volume de tentativas subsequentes
-    fica no log de acesso da borda (Vercel), que é o lugar próprio para isso.
+    Chamado logo depois de cada falha de login. Registrar a cada
+    tentativa barrada seria um vetor de inundação: quem ataca controla o
+    volume e poderia inflar a tabela de auditoria à vontade. Aqui cada
+    episódio de bloqueio produz exatamente uma linha; o volume de
+    tentativas subsequentes fica no log de acesso da borda (Vercel), que
+    é o lugar próprio para isso.
+
+    Args:
+        identificacao: O identificador (username) que falhou o login.
+        ip: O IP de origem da tentativa, ou `None` se indisponível.
+        request: A requisição corrente, repassada ao registro de
+            auditoria (para capturar IP/user agent). Opcional.
+
+    Returns:
+        `True` se esta chamada registrou o evento de bloqueio (a falha
+        que acabou de ocorrer cruzou exatamente o limiar). `False` se
+        `identificacao` estiver vazia ou o limiar não tiver sido cruzado
+        agora (já estava abaixo, ou já foi cruzado antes).
     """
     from auditoria.services import registrar  # import tardio: evita ciclo
 
@@ -113,12 +167,18 @@ def registrar_bloqueio_se_atingiu_limite(
 
 
 def tentativas_restantes(*, identificacao: str) -> int:
-    """
-    Quantas tentativas ainda cabem para esta identificação na janela atual.
+    """Calcula quantas tentativas de login ainda cabem para uma identificação.
 
-    Usado apenas em teste e diagnóstico — **não** deve ser exposto na tela de
+    Usado apenas em teste e diagnóstico — não deve ser exposto na tela de
     login: informar "restam 2 tentativas" confirma para quem ataca que o
     usuário existe e que ele está no caminho certo.
+
+    Args:
+        identificacao: O identificador (username) a consultar.
+
+    Returns:
+        Quantidade de tentativas restantes antes do bloqueio por
+        identificação, na janela deslizante corrente (nunca negativo).
     """
     limite = _config("SEGURANCA_LOGIN_MAX_TENTATIVAS_IDENTIFICACAO", 5)
     usadas = _falhas_recentes(usuario_identificacao__iexact=identificacao)

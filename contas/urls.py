@@ -1,3 +1,5 @@
+"""Rotas de `/app/usuarios/*` (gestão de usuários e auditoria)."""
+
 from django.urls import path
 
 from contas import views

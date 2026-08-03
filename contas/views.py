@@ -25,13 +25,22 @@ from core.unidades import unidades_do_usuario
 
 
 class AlterarSenhaView(auth_views.PasswordChangeView):
-    """
-    `PasswordChangeView` padrão do Django, com o único acréscimo de gravar o
-    evento na trilha de auditoria — troca de senha é o tipo de ação que uma
-    investigação de incidente pergunta "quando foi a última vez".
+    """`PasswordChangeView` padrão do Django, com registro em auditoria.
+
+    Único acréscimo sobre a view padrão: grava o evento na trilha de
+    auditoria — troca de senha é o tipo de ação que uma investigação de
+    incidente pergunta "quando foi a última vez".
     """
 
     def form_valid(self, form):
+        """Processa a troca de senha e registra o evento em auditoria.
+
+        Args:
+            form: O `PasswordChangeForm` validado.
+
+        Returns:
+            A resposta HTTP padrão de `PasswordChangeView.form_valid`.
+        """
         resposta = super().form_valid(form)
         registrar(
             AcaoAuditada.SENHA_ALTERADA,
@@ -43,21 +52,41 @@ class AlterarSenhaView(auth_views.PasswordChangeView):
 
 
 def _exigir_gestor_ou_admin(request) -> None:
+    """Garante que o usuário logado seja Gestor, Admin ou nível superior.
+
+    Args:
+        request: A requisição corrente, com `request.user` autenticado.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o nível hierárquico
+            do usuário for menor que `NIVEL_GESTOR`.
+    """
     if nivel_hierarquico(request) < NIVEL_GESTOR:
         raise PermissionDenied("Somente Gestor ou Admin podem gerenciar usuários.")
 
 
 @tenant_required
 def usuarios_lista(request):
+    """Lista paginada de usuários do tenant, restrita a Gestor/Admin.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` renderizando `contas/usuarios_lista.html`. Cada
+        usuário da página ganha o atributo `pode_ser_gerenciado`
+        (calculado via `Usuario.pode_gerenciar`), usado no template para
+        decidir se mostra os botões de gestão — sem isso, o botão
+        "Desativar" apareceria para qualquer usuário, mesmo quando o
+        clique seria bloqueado no servidor.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for ao
+            menos Gestor.
+    """
     _exigir_gestor_ou_admin(request)
     usuarios_qs = Usuario.objects.filter(tenant=request.tenant).order_by("username")
     pagina = paginar(request, usuarios_qs)
-    # Anotado aqui (não recalculado no template) porque `pode_gerenciar`
-    # recebe o outro usuário como argumento — um template não chama método
-    # com parâmetro. Sem isto, o botão "Desativar" aparecia para qualquer
-    # usuário (só escondido para o próprio logado), inclusive um Gestor
-    # vendo o botão no Admin: clicar nele já era bloqueado no servidor
-    # (`pode_gerenciar` nega, 403), mas o botão não deveria nem aparecer.
     usuarios = list(pagina.object_list)
     for usuario in usuarios:
         usuario.pode_ser_gerenciado = request.user.pode_gerenciar(usuario)
@@ -70,13 +99,25 @@ def usuarios_lista(request):
 
 @tenant_required
 def usuarios_criar(request):
-    """
-    Cria Gestor/Funcionário no tenant de quem está logado.
+    """Cria um Gestor/Funcionário no tenant de quem está logado.
 
-    O próprio administrador (ou Gestor, dentro do que lhe é permitido) gera
-    o acesso — o Owner da plataforma só cria o primeiro Admin de cada
-    contrato (ver owner/views.py::criar_administrador); daqui em diante o
-    provisionamento de usuário é interno ao tenant.
+    O próprio administrador (ou Gestor, dentro do que lhe é permitido)
+    gera o acesso — o Owner da plataforma só cria o primeiro Admin de
+    cada contrato (ver `owner/views.py::criar_administrador`); daqui em
+    diante o provisionamento de usuário é interno ao tenant.
+
+    Args:
+        request: A requisição GET (exibe o formulário) ou POST (submete).
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário vazio. Em POST
+        válido, renderiza `contas/usuario_criado.html` com a senha
+        temporária gerada (mostrada uma única vez). Em POST inválido,
+        re-renderiza o formulário com os erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for ao
+            menos Gestor.
     """
     _exigir_gestor_ou_admin(request)
     nivel_criador = nivel_hierarquico(request)
@@ -120,14 +161,32 @@ def usuarios_criar(request):
 
 @tenant_required
 def usuarios_editar(request, pk):
-    """
-    Edita e-mail, nome, papel e unidades de um usuário já existente.
+    """Edita e-mail, nome, papel e unidades de um usuário existente.
 
     Mesma regra de autorização de `usuarios_alternar_ativo`/
-    `usuarios_gerar_nova_senha` (`pode_gerenciar`, não a mais restrita de
-    `usuarios_criar`): permite editar um par de mesmo nível já existente
-    (ex.: Gestor editando outro Gestor), só não permite criar um novo nem
-    promover alguém para o próprio nível ou acima — ver `EditarUsuarioForm`.
+    `usuarios_gerar_nova_senha` (`Usuario.pode_gerenciar`, não a mais
+    restrita de `usuarios_criar`): permite editar um par de mesmo nível
+    já existente (ex.: Gestor editando outro Gestor), só não permite
+    criar um novo nem promover alguém para o próprio nível ou acima —
+    ver `EditarUsuarioForm`.
+
+    Args:
+        request: A requisição GET (exibe o formulário preenchido) ou
+            POST (submete a edição).
+        pk: PK do `Usuario` a editar.
+
+    Returns:
+        Em GET, `HttpResponse` renderizando o formulário preenchido. Em
+        POST válido, redireciona para a lista de usuários. Em POST
+        inválido, re-renderiza o formulário com os erros.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for ao
+            menos Gestor, se ele não puder gerenciar `usuario_alvo`
+            (`Usuario.pode_gerenciar`), ou se tentar editar o próprio
+            cadastro por aqui.
+        django.http.Http404: Se `pk` não corresponder a um usuário do
+            tenant corrente.
     """
     _exigir_gestor_ou_admin(request)
     usuario_alvo = get_object_or_404(Usuario, pk=pk, tenant=request.tenant)
@@ -173,7 +232,27 @@ def usuarios_editar(request, pk):
 
 @tenant_required
 def usuarios_alternar_ativo(request, pk):
-    """Ativa/desativa um usuário do próprio tenant. Exige POST (revoga acesso de terceiro)."""
+    """Ativa/desativa um usuário do próprio tenant.
+
+    Exige POST — revoga acesso de terceiro, não pode ser acionável por
+    um link solto.
+
+    Args:
+        request: A requisição POST de confirmação.
+        pk: PK do `Usuario` a ativar/desativar.
+
+    Returns:
+        Redireciona para a lista de usuários após alternar o campo
+        `is_active`.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o método não for
+            POST, se o usuário não for ao menos Gestor, se ele não puder
+            gerenciar `usuario_alvo`, ou se tentar desativar a própria
+            conta.
+        django.http.Http404: Se `pk` não corresponder a um usuário do
+            tenant corrente.
+    """
     _exigir_gestor_ou_admin(request)
     if request.method != "POST":
         raise PermissionDenied("Esta operação exige confirmação (POST).")
@@ -195,12 +274,29 @@ def usuarios_alternar_ativo(request, pk):
 
 @tenant_required
 def usuarios_gerar_nova_senha(request, pk):
-    """
-    Redefine a senha de um usuário do próprio tenant, gerando outra
-    temporária — mesmo mecanismo de `usuarios_criar`, para o caso de a
-    pessoa ter perdido ou errado a senha recebida na criação (ela só é
-    mostrada uma vez, não há como "ver de novo"). Exige POST: invalida a
-    senha atual na hora, então não pode ser acionável por um link solto.
+    """Redefine a senha de um usuário do próprio tenant.
+
+    Gera outra senha temporária — mesmo mecanismo de `usuarios_criar`,
+    para o caso de a pessoa ter perdido ou errado a senha recebida na
+    criação (ela só é mostrada uma vez, não há como "ver de novo"). Exige
+    POST: invalida a senha atual na hora, então não pode ser acionável
+    por um link solto.
+
+    Args:
+        request: A requisição POST de confirmação.
+        pk: PK do `Usuario` cuja senha será redefinida.
+
+    Returns:
+        `HttpResponse` renderizando `contas/senha_redefinida.html` com a
+        nova senha temporária, mostrada uma única vez.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o método não for
+            POST, se o usuário não for ao menos Gestor, se ele não puder
+            gerenciar `usuario_alvo`, ou se tentar redefinir a própria
+            senha por aqui.
+        django.http.Http404: Se `pk` não corresponder a um usuário do
+            tenant corrente.
     """
     _exigir_gestor_ou_admin(request)
     if request.method != "POST":
@@ -231,7 +327,23 @@ def usuarios_gerar_nova_senha(request, pk):
 
 @tenant_required
 def auditoria_lista(request):
-    """Trilha de auditoria restrita ao próprio tenant — mesmo seletor da visão cross-tenant do Owner."""
+    """Trilha de auditoria restrita ao próprio tenant, com filtros.
+
+    Mesmo seletor da visão cross-tenant do Owner
+    (`auditoria.selectors.listar_registros`).
+
+    Args:
+        request: A requisição GET, com filtros opcionais em `?acao=`,
+            `?usuario=`, `?sensivel=1`, `?pagina=` e `?por_pagina=`.
+
+    Returns:
+        `HttpResponse` renderizando `contas/auditoria.html` com a página
+        de registros filtrada.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for ao
+            menos Gestor.
+    """
     _exigir_gestor_ou_admin(request)
     pagina = listar_registros(
         tenant_id=request.tenant.pk,
@@ -257,7 +369,24 @@ def auditoria_lista(request):
 
 @tenant_required
 def auditoria_exportar(request):
-    """Mesmo filtro de `auditoria_lista`, em CSV e sem paginar — ver owner/views.py::auditoria_exportar."""
+    """Exporta a trilha de auditoria do tenant como CSV.
+
+    Mesmo filtro de `auditoria_lista`, em CSV e sem paginar — ver
+    `owner/views.py::auditoria_exportar` para a variante cross-tenant.
+
+    Args:
+        request: A requisição GET, com os mesmos filtros de
+            `auditoria_lista`.
+
+    Returns:
+        `HttpResponse` de download CSV (ver
+        `core.relatorios_export.exportar_auditoria_csv`), sem a coluna
+        de organização (redundante numa visão de tenant único).
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for ao
+            menos Gestor.
+    """
     _exigir_gestor_ou_admin(request)
     registros_qs = filtrar_registros(
         tenant_id=request.tenant.pk,

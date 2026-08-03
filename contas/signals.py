@@ -23,6 +23,16 @@ from contas.bloqueio import registrar_bloqueio_se_atingiu_limite
 
 @receiver(user_logged_in)
 def _auditar_login_bem_sucedido(sender, request, user, **kwargs):
+    """Registra um login bem-sucedido na trilha de auditoria.
+
+    Conectado ao signal `django.contrib.auth.signals.user_logged_in`.
+
+    Args:
+        sender: Classe que disparou o signal (padrão Django).
+        request: A requisição do login.
+        user: O `Usuario` autenticado.
+        **kwargs: Argumentos adicionais do signal, ignorados.
+    """
     registrar(
         AcaoAuditada.LOGIN_SUCESSO,
         request=request,
@@ -33,6 +43,18 @@ def _auditar_login_bem_sucedido(sender, request, user, **kwargs):
 
 @receiver(user_login_failed)
 def _auditar_login_malsucedido(sender, credentials, request=None, **kwargs):
+    """Registra uma falha de login e verifica o limiar de bloqueio.
+
+    Conectado ao signal `django.contrib.auth.signals.user_login_failed`.
+
+    Args:
+        sender: Classe que disparou o signal (padrão Django).
+        credentials: Dicionário de credenciais tentadas, com a senha já
+            mascarada pelo próprio Django
+            (`django.contrib.auth._clean_credentials`).
+        request: A requisição do login, ou `None` se indisponível.
+        **kwargs: Argumentos adicionais do signal, ignorados.
+    """
     # `credentials` já chega com a senha mascarada pelo próprio Django
     # (`django.contrib.auth._clean_credentials`), então é seguro registrar o
     # identificador tentado — que é justamente o que alimenta o bloqueio.
@@ -58,6 +80,17 @@ def _auditar_login_malsucedido(sender, credentials, request=None, **kwargs):
 
 @receiver(user_logged_out)
 def _auditar_logout(sender, request, user, **kwargs):
+    """Registra um logout na trilha de auditoria.
+
+    Conectado ao signal `django.contrib.auth.signals.user_logged_out`.
+
+    Args:
+        sender: Classe que disparou o signal (padrão Django).
+        request: A requisição do logout.
+        user: O `Usuario` que se desconectou, ou `None` se a sessão já
+            estava anônima.
+        **kwargs: Argumentos adicionais do signal, ignorados.
+    """
     if user is None:
         return
     registrar(
