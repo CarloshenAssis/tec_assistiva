@@ -7,6 +7,13 @@ Este repositório contém:
 - `docs/ESPECIFICACAO_TECNICA.md` — especificação técnica e arquitetural (domínio, RF/RNF, stack).
 - `docs/PLANO_EVOLUCAO_SAAS_CICLARTECH.md` — plano de evolução para plataforma SaaS (Owner/Admin/Gestor/Funcionário, segmentos, planos, `/owner`).
 - `docs/PLANO_DOMINIO_ATIVOS.md` — modelagem de domínio do Ativo (máquina de estados, `Movimentacao`, `AcoesDisponiveis`, QR Code).
+- `docs/GUIA_DESENVOLVEDOR.md` — estrutura do projeto, convenções de código e fluxo de contribuição.
+- `docs/REFERENCIA_BANCO_DE_DADOS.md` — dicionário de tabelas e diagrama de entidades.
+- `docs/GUIA_OPERACOES.md` — operação do dia a dia da plataforma (área Owner, jobs, auditoria, banco).
+- `docs/ONBOARDING_TENANT.md` — passo a passo para provisionar um cliente novo.
+- `docs/TROUBLESHOOTING.md` — erros comuns e como diagnosticar.
+- `docs/FLUXOS_DE_NEGOCIO.md` — diagramas dos principais fluxos operacionais.
+- `docs/business-rules/` — regra de negócio por assunto; `docs/features/` — documentação de feature específica.
 - O código do backend (Django): **Fase 0** (fundação técnica multi-tenant) e **Fase 1** (MVP operacional) do roadmap acima já implementadas.
 
 ## Setup de desenvolvimento
