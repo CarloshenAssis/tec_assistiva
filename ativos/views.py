@@ -72,25 +72,43 @@ TABS_FICHA = [
 
 
 def _ativos_no_escopo(request):
-    """
-    Ativos que o usuário logado pode ver: tenant corrente (via
-    `TenantManager`) **e** unidade permitida.
+    """Devolve o queryset de ativos visíveis ao usuário logado.
 
-    Todo acesso a Ativo nas views passa por aqui — é o que faz a permissão de
-    unidade (`Usuario.unidades`) valer de fato, e não só existir no modelo
-    (docs/business-rules/unidades.md). Admin/Owner recebem o queryset sem
-    filtro adicional.
+    Tenant corrente (via `TenantManager`) e unidade permitida. Todo
+    acesso a Ativo nas views passa por aqui — é o que faz a permissão de
+    unidade (`Usuario.unidades`) valer de fato, e não só existir no
+    modelo (docs/business-rules/unidades.md). Admin/Owner recebem o
+    queryset sem filtro adicional.
+
+    Args:
+        request: A requisição corrente.
+
+    Returns:
+        Queryset de `Ativo` filtrado por tenant e escopo de unidade.
     """
     return filtrar_por_unidade(Ativo.objects.all(), request.user)
 
 
 def _ativo_no_escopo(request, pk):
-    """
-    Como `get_object_or_404`, mas dentro do escopo de unidade do usuário.
+    """Busca um ativo específico dentro do escopo do usuário, ou 404.
 
-    Um ativo de outra unidade responde 404 — deliberadamente igual a "não
-    existe", e não 403: confirmar a existência já entregaria a informação que
-    o escopo existe para proteger (mesmo princípio de `resolver_qr`).
+    Como `get_object_or_404`, mas dentro do escopo de unidade do
+    usuário. Um ativo de outra unidade responde 404 — deliberadamente
+    igual a "não existe", e não 403: confirmar a existência já entregaria
+    a informação que o escopo existe para proteger (mesmo princípio de
+    `resolver_qr`).
+
+    Args:
+        request: A requisição corrente.
+        pk: PK do `Ativo` buscado.
+
+    Returns:
+        O `Ativo` correspondente, com `categoria`, `subcategoria`,
+        `unidade` e `fornecedor` pré-carregados.
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a um ativo dentro
+            do escopo do usuário.
     """
     return get_object_or_404(
         _ativos_no_escopo(request).select_related(
@@ -101,10 +119,18 @@ def _ativo_no_escopo(request, pk):
 
 
 def _beneficiarios_no_escopo(request):
-    """
-    Beneficiários visíveis ao usuário: os da unidade dele **mais** os que não
-    têm unidade definida (visíveis a toda a organização — ver o comentário no
-    campo `Beneficiario.unidade`).
+    """Devolve o queryset de beneficiários visíveis ao usuário logado.
+
+    Os da unidade dele mais os que não têm unidade definida (visíveis a
+    toda a organização — ver o comentário no campo
+    `Beneficiario.unidade`).
+
+    Args:
+        request: A requisição corrente.
+
+    Returns:
+        Queryset de `Beneficiario` filtrado por tenant e escopo de
+        unidade.
     """
     return filtrar_por_unidade(
         Beneficiario.objects.all(), request.user, incluir_sem_unidade=True
@@ -113,6 +139,17 @@ def _beneficiarios_no_escopo(request):
 
 @tenant_required
 def lista(request):
+    """Lista paginada e filtrável do acervo de ativos.
+
+    Args:
+        request: A requisição GET, com filtros opcionais em
+            `?categoria=` e `?q=` (busca por patrimônio, número de série
+            ou fabricante).
+
+    Returns:
+        `HttpResponse` renderizando `ativos/lista.html`, com resumo por
+        categoria e a cor operacional de cada ativo da página.
+    """
     categoria_filtro = request.GET.get("categoria")
     busca = request.GET.get("q", "").strip()
 
