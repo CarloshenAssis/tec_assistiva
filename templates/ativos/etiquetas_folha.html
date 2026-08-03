@@ -7,19 +7,17 @@
   {# o topbar e o CSS do app não devem existir no que vai para a impressora.   #}
   <style>
     /*
-      Uma única etiqueta: a página tem exatamente o tamanho dela, pronta
-      para cortar (rolo de etiqueta térmica, sem margem, sem página extra).
-      Mais de uma: a página vira uma folha padrão (A4) com uma grade de
-      etiquetas lado a lado — não uma por página — para não desperdiçar
-      papel imprimindo dezenas de folhas avulsas.
+      Sempre uma folha padrão (A4), nunca uma página do tamanho exato da
+      etiqueta: impressora comum lida mal com tamanho de página
+      não-padrão, e imprimir cada etiqueta na sua própria folha desperdiça
+      papel. As etiquetas ficam alinhadas a partir do canto superior
+      esquerdo, uma do lado da outra até faltar espaço na linha, e então
+      desce para a próxima — mesmo com uma única etiqueta, que fica no
+      canto superior esquerdo da folha (sobra em branco fica disponível
+      para cortar e reaproveitar depois, se sobrar espaço).
     */
-    {% if total == 1 %}
-      @page { size: {{ largura_mm }}mm {{ altura_mm }}mm; margin: 0; }
-      .folha { display: block; }
-    {% else %}
-      @page { size: A4; margin: 10mm; }
-      .folha { display: flex; flex-wrap: wrap; gap: 3mm; align-content: flex-start; }
-    {% endif %}
+    @page { size: A4; margin: 10mm; }
+    .folha { display: flex; flex-wrap: wrap; gap: 3mm; align-content: flex-start; justify-content: flex-start; }
 
     {% if layout == "pequeno" %}
       .etiqueta { width: 33mm; height: 22mm; padding: 1.5mm; }
@@ -59,9 +57,6 @@
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    {% if total == 1 %}
-      .etiqueta { border: none; border-radius: 0; }
-    {% endif %}
 
     .cabecalho { display: flex; align-items: center; gap: 1.2mm; min-width: 0; }
     .cabecalho img.logo { width: var(--logo-tam, 4mm); height: var(--logo-tam, 4mm); object-fit: contain; flex: 0 0 auto; }

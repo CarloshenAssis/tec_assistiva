@@ -21,7 +21,7 @@ from ativos.domain.acoes import NIVEL_ADMIN, NIVEL_GESTOR, acoes_disponiveis
 from auditoria import limitador
 from ativos.domain.enums import StatusAtivo, TipoMovimentacao
 from ativos.domain.exceptions import DominioAtivoError
-from ativos.etiquetas import LAYOUT_DIMENSOES_MM, montar_etiquetas
+from ativos.etiquetas import montar_etiquetas
 from ativos.forms import (
     CHECKLIST_ITENS_DEVOLUCAO,
     CHECKLIST_ITENS_EMPRESTIMO,
@@ -1108,17 +1108,10 @@ def etiquetas_folha(request):
     etiquetas = montar_etiquetas(ativos, url_de=url_de, tenant=request.tenant, layout=layout)
     services.registrar_impressao_etiquetas(ativos, usuario=request.user, layout=layout)
 
-    largura_mm, altura_mm = LAYOUT_DIMENSOES_MM[LayoutEtiqueta(layout)]
     return render(
         request,
         "ativos/etiquetas_folha.html",
-        {
-            "etiquetas": etiquetas,
-            "layout": layout,
-            "total": len(etiquetas),
-            "largura_mm": largura_mm,
-            "altura_mm": altura_mm,
-        },
+        {"etiquetas": etiquetas, "layout": layout, "total": len(etiquetas)},
     )
 
 

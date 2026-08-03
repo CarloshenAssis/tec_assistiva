@@ -325,10 +325,11 @@ class LayoutEtiqueta(models.TextChoices):
     """
     Tamanhos de etiqueta suportados pelo Centro de Etiquetas.
 
-    As medidas são as de rolos de etiqueta térmica comuns no mercado
-    brasileiro — o CSS de impressão (`templates/ativos/etiquetas_folha.html`)
-    usa exatamente estes valores (ver `ativos.etiquetas.LAYOUT_DIMENSOES_MM`),
-    então mudar um valor aqui exige mudar o CSS correspondente.
+    A folha inteira é sempre impressa em papel A4 padrão, com as etiquetas
+    lado a lado (ver `templates/ativos/etiquetas_folha.html`) — o tamanho
+    aqui só define quanto espaço cada etiqueta ocupa na folha (CSS
+    `.etiqueta` por `layout`), a ser recortada depois de impressa. Mudar um
+    valor aqui exige mudar o CSS correspondente.
 
     Todo tamanho mostra o mesmo conteúdo (QR, patrimônio, categoria, nome e
     logotipo da instituição) — só a escala física muda, não o que cabe na

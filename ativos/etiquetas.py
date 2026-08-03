@@ -33,16 +33,6 @@ import qrcode
 
 from ativos.models import LayoutEtiqueta
 
-#: Dimensões físicas de cada tamanho de etiqueta, em milímetros — usadas
-#: tanto pelo CSS de impressão (`templates/ativos/etiquetas_folha.html`)
-#: quanto para decidir o layout da folha (etiqueta única vs. grade de
-#: várias). Mudar um valor aqui exige mudar o CSS correspondente.
-LAYOUT_DIMENSOES_MM = {
-    LayoutEtiqueta.PEQUENO: (33, 22),
-    LayoutEtiqueta.MEDIO: (50, 30),
-    LayoutEtiqueta.GRANDE: (80, 50),
-}
-
 
 def _qr_data_uri(url: str) -> str:
     """

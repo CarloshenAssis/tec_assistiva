@@ -60,11 +60,14 @@ Histórico de impressão registrado
   embutido como `data:` URI (`ativos.etiquetas._logo_data_uri`), pela mesma
   razão: a folha continua autocontida, sem depender de uma requisição ao
   storage no momento da impressão.
-- **Layout da folha**: uma única etiqueta gera uma página do tamanho exato
-  dela, sem margem — pronta para cortar do rolo. Duas ou mais etiquetas
-  saem numa folha padrão (A4) organizadas em grade lado a lado, não uma por
-  página — evita desperdiçar papel imprimindo dezenas de folhas avulsas do
-  tamanho da etiqueta.
+- **Layout da folha**: sempre uma folha A4 padrão, nunca uma página do
+  tamanho exato da etiqueta — impressora comum lida mal com tamanho de
+  página não padronizado. As etiquetas ficam alinhadas a partir do canto
+  superior esquerdo da folha, uma do lado da outra até faltar espaço na
+  linha, então desce para a próxima linha — mesmo havendo só uma etiqueta,
+  que fica sozinha no canto superior esquerdo (o espaço em branco que sobra
+  pode ser reaproveitado depois, cortando à mão). Evita desperdiçar papel
+  imprimindo uma folha inteira por etiqueta.
 - Impressão em lote com filtros por categoria, unidade, status, e a opção
   "somente ativos sem etiqueta impressa". "Selecionar todos" marca apenas o
   que está visível na lista já filtrada — nunca o acervo inteiro.
