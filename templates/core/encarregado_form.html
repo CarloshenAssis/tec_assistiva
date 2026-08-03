@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Encarregado (DPO) · Ciclartech{% endblock %}
+{% block page_title %}Encarregado (DPO){% endblock %}
+{% block content %}
+<div class="card" style="max-width:520px;">
+  <p class="faint" style="font-size:12.5px;margin-top:0;">
+    Pessoa responsável por atender solicitações dos titulares de dados
+    (beneficiários/pacientes/clientes) desta organização, nos termos do
+    Art. 41 da LGPD. Não precisa ser um profissional dedicado — pode ser
+    alguém que já acumula essa função (jurídico, RH, TI) —, mas precisa
+    ser uma pessoa identificável, com um canal de contato que alguém de
+    fato acompanha.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_dpo_nome">Nome do Encarregado</label>
+      {{ form.dpo_nome }}
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="id_dpo_email">E-mail</label>
+        {{ form.dpo_email }}
+      </div>
+      <div class="field">
+        <label for="id_dpo_telefone">Telefone</label>
+        {{ form.dpo_telefone }}
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Salvar</button>
+  </form>
+</div>
+{% endblock %}

@@ -182,8 +182,12 @@ ordem de risco:
    institucional adotada: cada tenant é controlador dos dados dos seus
    próprios beneficiários (a Ciclartech é operadora da plataforma, não
    controladora), então o Encarregado é configurado por tenant —
-   `Tenant.dpo_nome`/`dpo_email`/`dpo_telefone`, editável em
-   `/owner/contratos/<id>/editar/`. O modelo do texto da política está em
+   `Tenant.dpo_nome`/`dpo_email`/`dpo_telefone`. Quem preenche é o
+   **Admin do próprio tenant**, em `/app/encarregado/`
+   (`core/views_encarregado.py`) — só o próprio tenant sabe quem, na
+   organização dele, deve responder por isso; o Owner também pode editar
+   em `/owner/contratos/<id>/editar/` como canal de suporte, mas não é o
+   fluxo esperado. O modelo do texto da política está em
    `docs/POLITICA_PRIVACIDADE.md`. Falta ainda: publicar o documento em
    local acessível ao titular dentro do próprio app (hoje só existe como
    arquivo no repositório) e, idealmente, gerar o texto por tenant a

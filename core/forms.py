@@ -1,6 +1,20 @@
 from django import forms
 
-from core.models import Fornecedor, Unidade
+from core.models import Fornecedor, Tenant, Unidade
+
+
+class EncarregadoForm(forms.ModelForm):
+    """
+    Encarregado (DPO) do próprio tenant (LGPD Art. 41) — editado pelo Admin
+    do tenant, não pelo Owner: cada tenant é controlador dos dados dos
+    seus próprios beneficiários (a Ciclartech é operadora da plataforma),
+    então só o próprio tenant sabe quem, na organização dele, responde por
+    isso. Ver docs/POLITICA_PRIVACIDADE.md.
+    """
+
+    class Meta:
+        model = Tenant
+        fields = ["dpo_nome", "dpo_email", "dpo_telefone"]
 
 
 class UnidadeForm(forms.ModelForm):

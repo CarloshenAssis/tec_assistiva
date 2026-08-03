@@ -1,11 +1,12 @@
 from django.urls import include, path
 
-from core import views
+from core import views, views_encarregado
 
 app_name = "app"
 
 urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("encarregado/", views_encarregado.encarregado_editar, name="encarregado"),
     path("relatorios/", views.relatorios, name="relatorios"),
     path("relatorios/exportar/ativos/", views.relatorios_exportar_ativos, name="relatorios_exportar_ativos"),
     path(

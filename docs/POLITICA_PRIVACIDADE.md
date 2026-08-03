@@ -11,11 +11,14 @@
 > **operadora** da plataforma que processa esses dados por conta do
 > tenant — distinção do Art. 5º, VI e VII). Por isso o Encarregado (DPO) é
 > configurado **por tenant**, não um único DPO da Ciclartech para toda a
-> plataforma. O campo é preenchido pelo próprio tenant em
-> `/owner/contratos/<id>/editar/` (`Tenant.dpo_nome`/`dpo_email`/
-> `dpo_telefone` — `core/models.py`) e pode ser usado para gerar esta
-> política automaticamente por tenant, em vez de um documento único
-> estático.
+> plataforma. Quem preenche é o **Admin do próprio tenant**, em
+> `/app/encarregado/` (`core/views_encarregado.py`, `Tenant.dpo_nome`/
+> `dpo_email`/`dpo_telefone` — `core/models.py`) — só o próprio tenant
+> sabe quem, na organização dele, deve responder por isso. O Owner também
+> pode editar em `/owner/contratos/<id>/editar/` como canal de suporte,
+> mas o preenchimento pelo próprio tenant é o fluxo esperado. Estes campos
+> podem ser usados para gerar esta política automaticamente por tenant,
+> em vez de um documento único estático.
 
 **Última atualização**: [DATA]
 **Versão**: 1.0
@@ -185,11 +188,13 @@ identificação do controlador (art. 9º), designação de encarregado (art.
 
 **Antes de publicar para um tenant real:**
 
-1. O Owner (equipe Ciclartech) ou o Admin do próprio tenant preenche o
-   Encarregado em `/owner/contratos/<id>/editar/` (campos `dpo_nome`/
-   `dpo_email`/`dpo_telefone` no model `Tenant`). A tela de detalhe do
-   tenant (`/owner/contratos/<id>/`) mostra um aviso enquanto isso não for
-   feito.
+1. O Admin do próprio tenant preenche o Encarregado em
+   `/app/encarregado/` (campos `dpo_nome`/`dpo_email`/`dpo_telefone` no
+   model `Tenant`) — fluxo esperado, já que só o tenant sabe quem deve
+   responder por isso. O Owner também pode editar em
+   `/owner/contratos/<id>/editar/` como canal de suporte; a tela de
+   detalhe do tenant (`/owner/contratos/<id>/`) mostra um aviso enquanto
+   isso não for feito.
 2. Preencher os demais campos `[ENTRE COLCHETES]` (razão social, CNPJ,
    endereço) com dados reais do tenant.
 3. Revisar com advogado especializado em proteção de dados antes de
