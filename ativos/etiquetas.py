@@ -27,18 +27,20 @@ from __future__ import annotations
 
 import base64
 import io
+import mimetypes
 
 import qrcode
 
 from ativos.models import LayoutEtiqueta
 
-#: Quanto de conteúdo cabe em cada tamanho de etiqueta. O template lê estas
-#: flags em vez de comparar strings de layout no HTML, para que acrescentar um
-#: tamanho novo seja mudança de uma linha aqui.
-_CONTEUDO_POR_LAYOUT = {
-    LayoutEtiqueta.PEQUENO: {"categoria": False, "instituicao": False},
-    LayoutEtiqueta.MEDIO: {"categoria": True, "instituicao": False},
-    LayoutEtiqueta.GRANDE: {"categoria": True, "instituicao": True},
+#: Dimensões físicas de cada tamanho de etiqueta, em milímetros — usadas
+#: tanto pelo CSS de impressão (`templates/ativos/etiquetas_folha.html`)
+#: quanto para decidir o layout da folha (etiqueta única vs. grade de
+#: várias). Mudar um valor aqui exige mudar o CSS correspondente.
+LAYOUT_DIMENSOES_MM = {
+    LayoutEtiqueta.PEQUENO: (33, 22),
+    LayoutEtiqueta.MEDIO: (50, 30),
+    LayoutEtiqueta.GRANDE: (80, 50),
 }
 
 
@@ -61,22 +63,52 @@ def _qr_data_uri(url: str) -> str:
     return f"data:image/png;base64,{codificado}"
 
 
-def montar_etiquetas(ativos, url_de, instituicao: str, layout: str) -> list[dict]:
+def _logo_data_uri(tenant) -> str:
+    """
+    Logotipo do tenant como `data:` URI embutido — mesmo raciocínio do QR:
+    a folha precisa continuar autocontida, sem depender de uma requisição
+    de rede ao storage (S3/Supabase) no momento da impressão.
+
+    Devolve string vazia se o tenant não tiver logotipo configurado (ver
+    `/app/instituicao/`) — o template cai de volta no símbolo padrão.
+    """
+    if not tenant.logo:
+        return ""
+    try:
+        tenant.logo.open("rb")
+        conteudo = tenant.logo.read()
+    except (OSError, ValueError):
+        # Arquivo referenciado no banco mas ausente/inacessível no storage —
+        # etiqueta sai sem logo em vez de derrubar a geração da folha inteira.
+        return ""
+    finally:
+        tenant.logo.close()
+    mime = mimetypes.guess_type(tenant.logo.name)[0] or "image/png"
+    return f"data:{mime};base64,{base64.b64encode(conteudo).decode('ascii')}"
+
+
+def montar_etiquetas(ativos, url_de, tenant, layout: str) -> list[dict]:
     """
     Constrói os dados de cada etiqueta da folha.
+
+    Todo tamanho mostra o mesmo conteúdo (QR, patrimônio, categoria, nome e
+    logotipo da instituição) — só muda a escala física da etiqueta, não o
+    que cabe nela. Decisão registrada em docs/business-rules/etiquetas.md.
 
     `url_de(ativo)` é injetado pela view (que é quem sabe construir uma URL
     absoluta a partir da requisição) — mantém este módulo livre de `request`
     e, portanto, testável sem cliente HTTP.
     """
-    conteudo = _CONTEUDO_POR_LAYOUT[LayoutEtiqueta(layout)]
+    LayoutEtiqueta(layout)  # valida o valor, mesma exigência de antes
+    logo = _logo_data_uri(tenant)
     return [
         {
             "ativo": ativo,
             "qr": _qr_data_uri(url_de(ativo)),
             "patrimonio": ativo.patrimonio,
-            "categoria": ativo.categoria.nome if conteudo["categoria"] else "",
-            "instituicao": instituicao if conteudo["instituicao"] else "",
+            "categoria": ativo.categoria.nome,
+            "instituicao": tenant.nome,
+            "logo": logo,
         }
         for ativo in ativos
     ]

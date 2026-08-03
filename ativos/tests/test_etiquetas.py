@@ -52,7 +52,13 @@ class BaseEtiquetas(TestCase):
 
 
 class MontarEtiquetasTest(BaseEtiquetas):
-    """Conteúdo de cada etiqueta por layout — testável sem cliente HTTP."""
+    """
+    Conteúdo da etiqueta — testável sem cliente HTTP.
+
+    Todo tamanho mostra o mesmo conteúdo (QR, patrimônio, categoria, nome e
+    logotipo da instituição): só a escala física muda entre Pequeno/Médio/
+    Grande, não o que a etiqueta carrega (docs/business-rules/etiquetas.md).
+    """
 
     def test_qr_vai_embutido_como_data_uri(self):
         """
@@ -62,41 +68,32 @@ class MontarEtiquetasTest(BaseEtiquetas):
         etiquetas = montar_etiquetas(
             [self.cadeira],
             url_de=lambda ativo: f"https://exemplo.test/qr/{ativo.qr_token}/",
-            instituicao="Prefeitura Etiqueta",
+            tenant=self.tenant,
             layout=LayoutEtiqueta.MEDIO,
         )
         self.assertTrue(etiquetas[0]["qr"].startswith("data:image/png;base64,"))
 
-    def test_layout_pequeno_omite_categoria_e_instituicao(self):
-        etiqueta = montar_etiquetas(
-            [self.cadeira],
-            url_de=lambda ativo: "https://exemplo.test/",
-            instituicao="Prefeitura Etiqueta",
-            layout=LayoutEtiqueta.PEQUENO,
-        )[0]
-        self.assertEqual("CAD-0001", etiqueta["patrimonio"])
-        self.assertEqual("", etiqueta["categoria"])
-        self.assertEqual("", etiqueta["instituicao"])
+    def test_todo_tamanho_mostra_categoria_e_instituicao(self):
+        for layout in LayoutEtiqueta.values:
+            with self.subTest(layout=layout):
+                etiqueta = montar_etiquetas(
+                    [self.cadeira],
+                    url_de=lambda ativo: "https://exemplo.test/",
+                    tenant=self.tenant,
+                    layout=layout,
+                )[0]
+                self.assertEqual("CAD-0001", etiqueta["patrimonio"])
+                self.assertEqual("Cadeira de Rodas", etiqueta["categoria"])
+                self.assertEqual("Prefeitura Etiqueta", etiqueta["instituicao"])
 
-    def test_layout_medio_mostra_categoria_mas_nao_instituicao(self):
+    def test_sem_logotipo_configurado_etiqueta_fica_sem_logo(self):
         etiqueta = montar_etiquetas(
             [self.cadeira],
             url_de=lambda ativo: "https://exemplo.test/",
-            instituicao="Prefeitura Etiqueta",
+            tenant=self.tenant,
             layout=LayoutEtiqueta.MEDIO,
         )[0]
-        self.assertEqual("Cadeira de Rodas", etiqueta["categoria"])
-        self.assertEqual("", etiqueta["instituicao"])
-
-    def test_layout_grande_mostra_tudo(self):
-        etiqueta = montar_etiquetas(
-            [self.cadeira],
-            url_de=lambda ativo: "https://exemplo.test/",
-            instituicao="Prefeitura Etiqueta",
-            layout=LayoutEtiqueta.GRANDE,
-        )[0]
-        self.assertEqual("Cadeira de Rodas", etiqueta["categoria"])
-        self.assertEqual("Prefeitura Etiqueta", etiqueta["instituicao"])
+        self.assertEqual("", etiqueta["logo"])
 
 
 class FilaDeImpressaoTest(BaseEtiquetas):

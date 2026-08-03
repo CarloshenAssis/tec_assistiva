@@ -17,6 +17,18 @@ class EncarregadoForm(forms.ModelForm):
         fields = ["dpo_nome", "dpo_email", "dpo_telefone"]
 
 
+class LogoForm(forms.ModelForm):
+    """
+    Logotipo da instituição, editado pelo Admin do próprio tenant — mesmo
+    raciocínio do `EncarregadoForm`: identidade visual da etiqueta é decisão
+    do tenant, não da Ciclartech.
+    """
+
+    class Meta:
+        model = Tenant
+        fields = ["logo"]
+
+
 class UnidadeForm(forms.ModelForm):
     """
     Precisa de `tenant` explícito no `__init__` porque a instância só recebe

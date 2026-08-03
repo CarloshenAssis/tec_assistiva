@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Instituição · Ciclartech{% endblock %}
+{% block page_title %}Instituição{% endblock %}
+{% block content %}
+<div class="card" style="max-width:520px;">
+  <p class="faint" style="font-size:12.5px;margin-top:0;">
+    O logotipo aparece nas etiquetas patrimoniais dos ativos, ao lado do
+    nome da instituição. Recomendado: imagem quadrada, fundo transparente
+    ou branco — a etiqueta é impressa em preto e branco.
+  </p>
+
+  {% if tenant.logo %}
+    <div style="margin-bottom:14px;padding:10px;border:1px solid #F0EDE5;border-radius:6px;display:flex;align-items:center;gap:12px;">
+      <img src="{{ tenant.logo.url }}" alt="Logotipo atual" style="max-width:64px;max-height:64px;object-fit:contain;">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="remover_logo" value="1">
+        <button class="btn btn-ghost" type="submit" style="font-size:12px;">Remover logotipo</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% if form.errors %}
+      <ul class="errorlist">
+        {% for campo in form %}{% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="field">
+      <label for="id_logo">{% if tenant.logo %}Trocar logotipo{% else %}Enviar logotipo{% endif %}</label>
+      {{ form.logo }}
+    </div>
+    <button class="btn btn-primary btn-block" type="submit">Salvar</button>
+  </form>
+</div>
+{% endblock %}

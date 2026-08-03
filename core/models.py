@@ -10,6 +10,7 @@ estratégia (schema compartilhado + tenant_id, isolamento por manager).
 from django.db import models
 
 from core.tenancy import get_current_tenant_id
+from core.validadores import validar_upload_imagem
 
 
 class Tenant(models.Model):
@@ -67,6 +68,21 @@ class Tenant(models.Model):
     )
     dpo_email = models.EmailField("E-mail do Encarregado (DPO)", blank=True)
     dpo_telefone = models.CharField("Telefone do Encarregado (DPO)", max_length=30, blank=True)
+
+    #: Logotipo da instituição — aparece nas etiquetas patrimoniais
+    #: (ativos/etiquetas.py) embutido como data URI, pela mesma razão do QR
+    #: Code (folha de impressão autocontida, sem requisição de rede extra).
+    #: Autoatendimento do Admin do tenant em `/app/instituicao/`
+    #: (core/views_instituicao.py) — mesma lógica do Encarregado (DPO): só o
+    #: próprio tenant decide a identidade visual da sua etiqueta.
+    logo = models.ImageField(
+        "Logotipo",
+        upload_to="tenants/logos/",
+        blank=True,
+        null=True,
+        validators=[validar_upload_imagem],
+        help_text="Aparece nas etiquetas patrimoniais dos ativos.",
+    )
 
     class Meta:
         verbose_name = "Tenant"

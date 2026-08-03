@@ -6,39 +6,73 @@
   {# Página autocontida de propósito: não estende base.html porque a sidebar,  #}
   {# o topbar e o CSS do app não devem existir no que vai para a impressora.   #}
   <style>
-    /* Cada tamanho de etiqueta é uma página do seu próprio tamanho — é assim
-       que rolo de etiqueta térmica funciona: uma etiqueta por "página", sem
-       margem. As medidas espelham ativos.models.LayoutEtiqueta. */
-    {% if layout == "pequeno" %}
-      @page { size: 33mm 22mm; margin: 0; }
-      .etiqueta { width: 33mm; height: 22mm; }
-      .qr { width: 15mm; height: 15mm; }
-      .patrimonio { font-size: 7pt; }
-    {% elif layout == "grande" %}
-      @page { size: 80mm 50mm; margin: 0; }
-      .etiqueta { width: 80mm; height: 50mm; }
-      .qr { width: 30mm; height: 30mm; }
-      .patrimonio { font-size: 13pt; }
+    /*
+      Uma única etiqueta: a página tem exatamente o tamanho dela, pronta
+      para cortar (rolo de etiqueta térmica, sem margem, sem página extra).
+      Mais de uma: a página vira uma folha padrão (A4) com uma grade de
+      etiquetas lado a lado — não uma por página — para não desperdiçar
+      papel imprimindo dezenas de folhas avulsas.
+    */
+    {% if total == 1 %}
+      @page { size: {{ largura_mm }}mm {{ altura_mm }}mm; margin: 0; }
+      .folha { display: block; }
     {% else %}
-      @page { size: 50mm 30mm; margin: 0; }
-      .etiqueta { width: 50mm; height: 30mm; }
-      .qr { width: 20mm; height: 20mm; }
+      @page { size: A4; margin: 10mm; }
+      .folha { display: flex; flex-wrap: wrap; gap: 3mm; align-content: flex-start; }
+    {% endif %}
+
+    {% if layout == "pequeno" %}
+      .etiqueta { width: 33mm; height: 22mm; padding: 1.5mm; }
+      .qr { width: 13mm; height: 13mm; }
+      .instituicao-nome { font-size: 6pt; }
+      .marca { width: 3mm; height: 3mm; }
+      .patrimonio { font-size: 6.5pt; }
+      .categoria { font-size: 5.5pt; }
+    {% elif layout == "grande" %}
+      .etiqueta { width: 80mm; height: 50mm; padding: 3.5mm; }
+      .qr { width: 26mm; height: 26mm; }
+      .instituicao-nome { font-size: 11pt; }
+      .marca { width: 6mm; height: 6mm; }
+      .patrimonio { font-size: 13pt; }
+      .categoria { font-size: 9pt; }
+    {% else %}
+      .etiqueta { width: 50mm; height: 30mm; padding: 2.2mm; }
+      .qr { width: 17mm; height: 17mm; }
+      .instituicao-nome { font-size: 8pt; }
+      .marca { width: 4mm; height: 4mm; }
       .patrimonio { font-size: 9pt; }
+      .categoria { font-size: 6.5pt; }
     {% endif %}
 
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #ddd; }
+    @media print { body { background: #fff; } }
 
     .etiqueta {
       display: flex;
-      align-items: center;
-      gap: 2mm;
-      padding: 1.5mm;
-      page-break-after: always;
-      break-after: page;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 0.3mm solid #999;
+      border-radius: 1mm;
+      background: #fff;
       overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
-    .etiqueta:last-child { page-break-after: auto; break-after: auto; }
+    {% if total == 1 %}
+      .etiqueta { border: none; border-radius: 0; }
+    {% endif %}
+
+    .cabecalho { display: flex; align-items: center; gap: 1.2mm; min-width: 0; }
+    .cabecalho img.logo { width: var(--logo-tam, 4mm); height: var(--logo-tam, 4mm); object-fit: contain; flex: 0 0 auto; }
+    .instituicao-nome {
+      font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .rodape { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5mm; }
+    .dados { min-width: 0; line-height: 1.2; }
+    .patrimonio { font-weight: 700; font-family: "Courier New", monospace; color: #1D5FA8; letter-spacing: -0.2px; }
+    .categoria { font-weight: 700; color: #B8631F; text-transform: uppercase; margin-top: 0.4mm; }
 
     .qr { flex: 0 0 auto; }
     .qr img {
@@ -48,15 +82,6 @@
          módulo e o leitor falha. */
       image-rendering: pixelated;
     }
-
-    .dados { min-width: 0; line-height: 1.15; }
-    .patrimonio { font-weight: bold; font-family: "Courier New", monospace; letter-spacing: -0.2px; }
-    .categoria { font-size: 6.5pt; margin-top: 0.5mm; }
-    .instituicao {
-      font-size: 6pt; margin-top: 0.8mm; text-transform: uppercase;
-      display: flex; align-items: center; gap: 1mm;
-    }
-    .instituicao .marca { width: 2.4mm; height: 2.4mm; flex: 0 0 auto; }
 
     /* Barra de apoio: existe só na tela, para quem abriu a aba e fechou a
        caixa de impressão sem imprimir. Nunca sai no papel. */
@@ -73,24 +98,30 @@
   <button type="button" id="imprimir-agora">Imprimir</button>
 </div>
 
-{% for etiqueta in etiquetas %}
-  <div class="etiqueta">
-    <div class="qr"><img src="{{ etiqueta.qr }}" alt="QR Code de {{ etiqueta.patrimonio }}"></div>
-    <div class="dados">
-      <div class="patrimonio">{{ etiqueta.patrimonio }}</div>
-      {% if etiqueta.categoria %}<div class="categoria">{{ etiqueta.categoria }}</div>{% endif %}
-      {% if etiqueta.instituicao %}
-        <div class="instituicao">
+<div class="folha">
+  {% for etiqueta in etiquetas %}
+    <div class="etiqueta">
+      <div class="cabecalho">
+        {% if etiqueta.logo %}
+          <img class="logo" src="{{ etiqueta.logo }}" alt="Logotipo de {{ etiqueta.instituicao }}">
+        {% else %}
           <svg class="marca" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M110,14 A96,96 0 1 1 37,49.5" stroke="#111813" stroke-width="26" stroke-linecap="round" fill="none"></path>
             <polygon points="69.2,11.0 53.8,69.8 13.2,36.2" fill="#111813"></polygon>
           </svg>
-          {{ etiqueta.instituicao }}
+        {% endif %}
+        <span class="instituicao-nome">{{ etiqueta.instituicao }}</span>
+      </div>
+      <div class="rodape">
+        <div class="dados">
+          <div class="patrimonio">ATIVO Nº {{ etiqueta.patrimonio }}</div>
+          <div class="categoria">{{ etiqueta.categoria }}</div>
         </div>
-      {% endif %}
+        <div class="qr"><img src="{{ etiqueta.qr }}" alt="QR Code de {{ etiqueta.patrimonio }}"></div>
+      </div>
     </div>
-  </div>
-{% endfor %}
+  {% endfor %}
+</div>
 
 <script src="{% static 'js/etiquetas-folha.js' %}"></script>
 </body>

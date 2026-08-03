@@ -327,13 +327,17 @@ class LayoutEtiqueta(models.TextChoices):
 
     As medidas são as de rolos de etiqueta térmica comuns no mercado
     brasileiro — o CSS de impressão (`templates/ativos/etiquetas_folha.html`)
-    usa exatamente estes valores em `@page`, então mudar um valor aqui exige
-    mudar o CSS correspondente.
+    usa exatamente estes valores (ver `ativos.etiquetas.LAYOUT_DIMENSOES_MM`),
+    então mudar um valor aqui exige mudar o CSS correspondente.
+
+    Todo tamanho mostra o mesmo conteúdo (QR, patrimônio, categoria, nome e
+    logotipo da instituição) — só a escala física muda, não o que cabe na
+    etiqueta (docs/business-rules/etiquetas.md).
     """
 
-    PEQUENO = "pequeno", "Pequeno — 33×22 mm (só QR + patrimônio)"
-    MEDIO = "medio", "Médio — 50×30 mm (QR + patrimônio + categoria)"
-    GRANDE = "grande", "Grande — 80×50 mm (QR + patrimônio + categoria + instituição)"
+    PEQUENO = "pequeno", "Pequeno — 33×22 mm"
+    MEDIO = "medio", "Médio — 50×30 mm"
+    GRANDE = "grande", "Grande — 80×50 mm"
 
 
 class ImpressaoEtiqueta(TenantModel):

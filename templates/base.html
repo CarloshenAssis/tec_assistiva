@@ -135,7 +135,7 @@
         </div>
       </details>
       {% if pode_gerenciar_usuarios %}
-      <details class="nav-section" {% if nav_atual in "usuarios,auditoria,unidades,encarregado"|split:"," %}open{% endif %}>
+      <details class="nav-section" {% if nav_atual in "usuarios,auditoria,unidades,encarregado,instituicao"|split:"," %}open{% endif %}>
         <summary>Administração<span class="chevron">›</span></summary>
         <div class="nav-items">
           <a class="nav-item {% if nav_atual == 'usuarios' %}active{% endif %}" href="{% url 'app:usuarios:lista' %}">
@@ -150,6 +150,9 @@
           </a>
           <a class="nav-item {% if nav_atual == 'encarregado' %}active{% endif %}" href="{% url 'app:encarregado' %}">
             <span class="dot"></span> Encarregado (LGPD)
+          </a>
+          <a class="nav-item {% if nav_atual == 'instituicao' %}active{% endif %}" href="{% url 'app:instituicao' %}">
+            <span class="dot"></span> Instituição (logo)
           </a>
           {% endif %}
         </div>
