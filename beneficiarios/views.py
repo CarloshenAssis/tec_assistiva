@@ -10,7 +10,7 @@ from django.utils.text import slugify
 from auditoria import limitador
 from auditoria.models import AcaoAuditada
 from auditoria.services import registrar, registrar_acesso_dado_pessoal
-from beneficiarios.forms import BeneficiarioForm
+from beneficiarios.forms import BeneficiarioForm, DocumentoBeneficiarioForm
 from beneficiarios.lgpd import anonimizar, exportar_dados
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from core.arquivos import resposta_de_download
@@ -83,6 +83,34 @@ def criar(request):
 
 
 @tenant_required
+def editar(request, pk):
+    beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
+    if request.method == "POST":
+        form = BeneficiarioForm(request.POST, instance=beneficiario, usuario=request.user)
+        if form.is_valid():
+            form.save()
+            registrar(
+                AcaoAuditada.ALTERACAO,
+                request=request,
+                objeto=beneficiario,
+                descricao="Cadastro do titular editado",
+            )
+            messages.success(request, f"{request.tenant.rotulo_beneficiario_singular} atualizado com sucesso.")
+            return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
+    else:
+        form = BeneficiarioForm(instance=beneficiario, usuario=request.user)
+    return render(
+        request,
+        "beneficiarios/form.html",
+        {
+            "nav_atual": "beneficiarios",
+            "form": form,
+            "titulo": f"Editar {request.tenant.rotulo_beneficiario_singular}",
+        },
+    )
+
+
+@tenant_required
 def ficha(request, pk):
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     emprestimos = beneficiario.emprestimos.select_related("movimentacao", "movimentacao__ativo").order_by(
@@ -100,9 +128,43 @@ def ficha(request, pk):
             "nav_atual": "beneficiarios",
             "beneficiario": beneficiario,
             "emprestimos": emprestimos,
+            "documentos": beneficiario.documentos.order_by("-enviado_em"),
+            "form_documento": DocumentoBeneficiarioForm(),
             "pode_gerir_lgpd": nivel_hierarquico(request) >= NIVEL_ADMIN,
         },
     )
+
+
+@tenant_required
+def documento_novo(request, pk):
+    """Anexa um documento (RG, comprovante, laudo, receita) ao titular."""
+    beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
+    if request.method != "POST":
+        raise PermissionDenied("Envio de documento exige POST.")
+
+    form = DocumentoBeneficiarioForm(request.POST, request.FILES)
+    if form.is_valid():
+        documento = form.save(commit=False)
+        documento.tenant = request.tenant
+        documento.beneficiario = beneficiario
+        documento.save()
+        sensivel = documento.tipo in (
+            DocumentoBeneficiario.Tipo.LAUDO,
+            DocumentoBeneficiario.Tipo.RECEITA_MEDICA,
+        )
+        registrar(
+            AcaoAuditada.CRIACAO,
+            request=request,
+            objeto=beneficiario,
+            descricao=f"Documento anexado: {documento.get_tipo_display()}",
+            envolve_dado_sensivel=sensivel,
+        )
+        messages.success(request, "Documento anexado com sucesso.")
+    else:
+        for erros in form.errors.values():
+            for erro in erros:
+                messages.error(request, erro)
+    return redirect("app:beneficiarios:ficha", pk=beneficiario.pk)
 
 
 @tenant_required

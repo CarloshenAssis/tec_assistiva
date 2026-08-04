@@ -19,7 +19,7 @@ Cadastrar titular (nome, documento, contato, base legal)
 
 ↓
 
-Anexar documentos (RG, comprovante, laudo, receita) — via Django Admin
+Anexar documentos (RG, comprovante, laudo, receita) pela ficha do titular
 
 ↓
 
@@ -36,11 +36,20 @@ Titular pede acesso/eliminação → Admin exporta ou anonimiza
 
 ## Regras de negócio
 
-- **Quem cadastra**: qualquer usuário autenticado do tenant, a partir do
-  nível **Funcionário** — a tela de cadastro (`/app/beneficiarios/novo/`)
-  não tem restrição de papel além de pertencer ao tenant
-  (`beneficiarios/views.py::criar`). É a mesma pessoa que faz o
-  atendimento de balcão que cadastra quem está sendo atendido.
+- **Quem cadastra/edita**: qualquer usuário autenticado do tenant, a
+  partir do nível **Funcionário** — tanto a tela de cadastro
+  (`/app/beneficiarios/novo/`) quanto a de edição
+  (`/app/beneficiarios/<id>/editar/`) não têm restrição de papel além de
+  pertencer ao tenant e ver o titular no próprio escopo de unidade
+  (`beneficiarios/views.py::criar`, `::editar`). É a mesma pessoa que faz
+  o atendimento de balcão que cadastra e corrige o cadastro de quem está
+  sendo atendido — corrigir um CPF digitado errado não exige mais Django
+  Admin.
+- **Quem anexa documento**: mesmo nível de `criar`/`editar` — Funcionário
+  em diante, restrito ao escopo de unidade do titular
+  (`beneficiarios/views.py::documento_novo`). Anexar cópia de RG/laudo é
+  trabalho rotineiro de balcão, não uma ação sensível de gestão de LGPD
+  (essa é a exportação/anonimização, que continuam Admin-only).
 - **Escopo de unidade**: `Beneficiario.unidade` é **opcional**, ao
   contrário de `Ativo.unidade` (obrigatória). Um titular sem unidade
   definida fica **visível a toda a organização**, não só a quem atua numa
@@ -83,21 +92,24 @@ Titular pede acesso/eliminação → Admin exporta ou anonimiza
 | Ação | Nível mínimo |
 |---|---|
 | Cadastrar titular | Funcionário |
+| Editar cadastro do titular | Funcionário (restrito ao escopo de unidade) |
 | Ver ficha / listar | Funcionário (restrito ao escopo de unidade) |
 | Selecionar titular no wizard de empréstimo | Funcionário |
+| Anexar documento (RG, comprovante, laudo, receita) | Funcionário (restrito ao escopo de unidade) |
 | Baixar documento anexado | Funcionário (restrito ao escopo de unidade) |
 | Exportar dados (Art. 18, II/V) | **Admin** |
 | Anonimizar (Art. 18, VI) | **Admin** |
 | Revogar consentimento | Camada de serviço (`beneficiarios.lgpd.revogar_consentimento`) — hoje sem tela própria, chamada programaticamente |
 
-Note que **não existe tela de edição** do cadastro de um titular
-(`beneficiarios/urls.py` só tem `novo`, ficha, exportar, anonimizar,
-baixar documento) — depois de criado, o único jeito de alterar campos
-identificáveis pela interface é a anonimização (que os apaga, não
-corrige). Corrigir um dado errado (CPF digitado errado, por exemplo)
-hoje exige o Django Admin. Da mesma forma, **anexar um documento** ao
-titular (RG, laudo, receita) também só é feito pelo Django Admin — não
-há upload pela tela de cadastro.
+A edição (`beneficiarios/views.py::editar`, rota
+`/app/beneficiarios/<id>/editar/`) e o upload de documento
+(`::documento_novo`, rota `/app/beneficiarios/<id>/documentos/novo/`)
+ficam indisponíveis assim que o titular é anonimizado — a ficha oculta
+os dois pontos de entrada nesse estado (`esta_anonimizado=True`), porque
+não há mais dado identificável para editar nem documento sensível a
+anexar. Editar registra `AcaoAuditada.ALTERACAO` na trilha; anexar
+documento registra `AcaoAuditada.CRIACAO`, marcando dado sensível quando
+o tipo é laudo ou receita médica — mesmo critério do download.
 
 ## Estados possíveis
 

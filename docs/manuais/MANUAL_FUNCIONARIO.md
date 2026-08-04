@@ -86,9 +86,17 @@ Campos principais:
   "Consentimento", confirme verbalmente com a pessoa antes de marcar.
 
 **Atenção com dados sensíveis**: se for anexar laudo médico ou receita,
-esses documentos são tratados como dado sensível — só Admin/Gestor
-conseguem exportar ou apagar depois, mas qualquer um com acesso ao
-cadastro pode ver.
+esses documentos são tratados como dado sensível — só Admin consegue
+exportar ou anonimizar os dados do titular depois, mas qualquer um com
+acesso ao cadastro pode ver.
+
+**Corrigir um dado ou anexar documento depois de salvo**: na ficha do
+titular (**Cadastros → Beneficiários → abrir o titular**), use **Editar
+cadastro** para corrigir um campo (CPF digitado errado, telefone, etc.) e
+a seção **Documentos** para anexar RG, comprovante, laudo ou receita —
+não precisa de Django Admin nem de Gestor para isso. Esses dois pontos
+somem da ficha se o titular já tiver sido anonimizado (não há mais o que
+editar ou anexar nesse caso).
 
 ## 4. Fluxo de Empréstimo
 

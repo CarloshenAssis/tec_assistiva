@@ -1,6 +1,6 @@
 from django import forms
 
-from beneficiarios.models import Beneficiario
+from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from core import features
 from core.models import Tenant
 from core.unidades import unidades_visiveis
@@ -114,3 +114,9 @@ class BeneficiarioForm(forms.ModelForm):
 
                 self.instance.consentimento_em = timezone.now()
         return dados
+
+
+class DocumentoBeneficiarioForm(forms.ModelForm):
+    class Meta:
+        model = DocumentoBeneficiario
+        fields = ["tipo", "arquivo"]

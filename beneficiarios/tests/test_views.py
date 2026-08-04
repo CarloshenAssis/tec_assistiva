@@ -191,3 +191,92 @@ class DocumentoFlexivelPorModuloTest(TestCase):
         resposta = self.client.get(reverse("app:beneficiarios:criar"))
         opcoes = {valor for valor, _ in resposta.context["form"].fields["tipo_documento"].choices}
         self.assertEqual({"cpf", "cnpj"}, opcoes)
+
+
+class EditarBeneficiarioTest(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nome="Prefeitura Edit A", slug="pref-edit-a")
+        self.tenant_b = Tenant.objects.create(nome="Prefeitura Edit B", slug="pref-edit-b")
+        self.usuario_a = Usuario.objects.create_user(
+            username="func_edit_a",
+            password="senha-teste-123",
+            tenant=self.tenant_a,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.beneficiario_a = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant_a, nome="Maria Silva", documento="123.456.789-09", base_legal="consentimento"
+        )
+        self.beneficiario_b = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant_b, nome="João Pedro", documento="234.567.891-73"
+        )
+
+    def test_editar_corrige_dado_do_titular(self):
+        self.client.login(username="func_edit_a", password="senha-teste-123")
+        resposta = self.client.post(
+            reverse("app:beneficiarios:editar", args=[self.beneficiario_a.pk]),
+            {
+                "tipo_relacao": "beneficiario",
+                "nome": "Maria da Silva",
+                "tipo_documento": "cpf",
+                "documento": "123.456.789-09",
+                "base_legal": "consentimento",
+            },
+        )
+        self.assertEqual(302, resposta.status_code)
+        self.beneficiario_a.refresh_from_db()
+        self.assertEqual("Maria da Silva", self.beneficiario_a.nome)
+
+    def test_editar_beneficiario_de_outro_tenant_devolve_404(self):
+        self.client.login(username="func_edit_a", password="senha-teste-123")
+        resposta = self.client.get(reverse("app:beneficiarios:editar", args=[self.beneficiario_b.pk]))
+        self.assertEqual(404, resposta.status_code)
+
+    def test_editar_exige_login(self):
+        resposta = self.client.get(reverse("app:beneficiarios:editar", args=[self.beneficiario_a.pk]))
+        self.assertEqual(302, resposta.status_code)
+
+
+class DocumentoNovoTest(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nome="Prefeitura Doc Novo A", slug="pref-doc-novo-a")
+        self.tenant_b = Tenant.objects.create(nome="Prefeitura Doc Novo B", slug="pref-doc-novo-b")
+        self.usuario_a = Usuario.objects.create_user(
+            username="func_doc_novo_a",
+            password="senha-teste-123",
+            tenant=self.tenant_a,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.beneficiario_a = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant_a, nome="Maria Silva", documento="123.456.789-09"
+        )
+        self.beneficiario_b = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant_b, nome="João Pedro", documento="234.567.891-73"
+        )
+
+    def test_anexa_documento_ao_titular(self):
+        self.client.login(username="func_doc_novo_a", password="senha-teste-123")
+        resposta = self.client.post(
+            reverse("app:beneficiarios:documento_novo", args=[self.beneficiario_a.pk]),
+            {"tipo": "rg", "arquivo": SimpleUploadedFile("rg.png", PNG)},
+        )
+        self.assertEqual(302, resposta.status_code)
+        self.assertTrue(
+            DocumentoBeneficiario.objects.all_tenants()
+            .filter(beneficiario=self.beneficiario_a, tipo="rg")
+            .exists()
+        )
+
+    def test_nao_anexa_documento_a_titular_de_outro_tenant(self):
+        self.client.login(username="func_doc_novo_a", password="senha-teste-123")
+        resposta = self.client.post(
+            reverse("app:beneficiarios:documento_novo", args=[self.beneficiario_b.pk]),
+            {"tipo": "rg", "arquivo": SimpleUploadedFile("rg.png", PNG)},
+        )
+        self.assertEqual(404, resposta.status_code)
+
+    def test_upload_exige_post(self):
+        self.client.login(username="func_doc_novo_a", password="senha-teste-123")
+        resposta = self.client.get(
+            reverse("app:beneficiarios:documento_novo", args=[self.beneficiario_a.pk])
+        )
+        self.assertEqual(403, resposta.status_code)
