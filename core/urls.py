@@ -10,6 +10,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("encarregado/", views_encarregado.encarregado_editar, name="encarregado"),
     path("instituicao/", views_instituicao.instituicao_editar, name="instituicao"),
+    path("instituicao/logo.png", views_instituicao.logo_imagem, name="logo_imagem"),
     path("relatorios/", views.relatorios, name="relatorios"),
     path("relatorios/exportar/ativos/", views.relatorios_exportar_ativos, name="relatorios_exportar_ativos"),
     path(

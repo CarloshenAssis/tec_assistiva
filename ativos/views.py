@@ -40,6 +40,7 @@ from ativos.models import (
     CategoriaAtivo,
     DetalheEmprestimo,
     FotoAtivo,
+    FotoMovimentacao,
     ImpressaoEtiqueta,
     LayoutEtiqueta,
     Movimentacao,
@@ -55,6 +56,7 @@ from ativos.selectors import (
 )
 from beneficiarios.models import Beneficiario
 from core import features
+from core.arquivos import resposta_de_imagem
 from core.decorators import nivel_hierarquico, tenant_required
 from core.models import Unidade
 from core.paginacao import paginar
@@ -940,6 +942,57 @@ def qrcode_imagem(request, pk):
     buffer = io.BytesIO()
     imagem.save(buffer, format="PNG")
     return HttpResponse(buffer.getvalue(), content_type="image/png")
+
+
+@tenant_required
+def foto_ativo_imagem(request, pk):
+    """Serve uma foto de cadastro do ativo, autenticada e com cache longo.
+
+    Substitui o link direto ao storage (`FotoAtivo.arquivo.url`) nos
+    templates: aquele link, por ser assinado, mudava a cada renderização
+    da página e nunca era reaproveitado pelo cache do navegador — cada
+    visita à ficha do ativo baixava as fotos inteiras de novo do
+    Supabase Storage. Servindo por aqui, a URL é sempre a mesma
+    (`/app/ativos/fotos/<pk>/`) e o navegador cacheia por um ano.
+
+    Args:
+        request: A requisição GET.
+        pk: PK da `FotoAtivo` a servir.
+
+    Returns:
+        `FileResponse` com a imagem, `Cache-Control` de longa duração
+        (ver `core.arquivos.resposta_de_imagem`).
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a uma foto de um
+            ativo dentro do escopo do usuário.
+    """
+    foto = get_object_or_404(FotoAtivo, pk=pk, ativo__in=_ativos_no_escopo(request))
+    return resposta_de_imagem(foto.arquivo)
+
+
+@tenant_required
+def foto_movimentacao_imagem(request, pk):
+    """Serve uma foto de movimentação (entrega/devolução/manutenção), autenticada e com cache longo.
+
+    Mesmo raciocínio de `foto_ativo_imagem` — ver docstring lá.
+
+    Args:
+        request: A requisição GET.
+        pk: PK da `FotoMovimentacao` a servir.
+
+    Returns:
+        `FileResponse` com a imagem, `Cache-Control` de longa duração
+        (ver `core.arquivos.resposta_de_imagem`).
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a uma foto de uma
+            movimentação de um ativo dentro do escopo do usuário.
+    """
+    foto = get_object_or_404(
+        FotoMovimentacao, pk=pk, movimentacao__ativo__in=_ativos_no_escopo(request)
+    )
+    return resposta_de_imagem(foto.arquivo)
 
 
 @tenant_required

@@ -13,6 +13,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
 
 from ativos.domain.acoes import NIVEL_ADMIN
+from core.arquivos import resposta_de_imagem
 from core.decorators import nivel_hierarquico, tenant_required
 from core.forms import LogoForm
 
@@ -58,3 +59,23 @@ def instituicao_editar(request):
         "core/instituicao_form.html",
         {"nav_atual": "instituicao", "form": form, "tenant": tenant},
     )
+
+
+@tenant_required
+def logo_imagem(request):
+    """Serve o logotipo do tenant corrente, autenticado e com cache longo.
+
+    Substitui o link direto ao storage (`Tenant.logo.url`), pelo mesmo
+    motivo de `ativos.views.foto_ativo_imagem` — ver docstring lá.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `FileResponse` com a imagem, `Cache-Control` de longa duração
+        (ver `core.arquivos.resposta_de_imagem`).
+
+    Raises:
+        django.http.Http404: Se o tenant não tiver logotipo configurado.
+    """
+    return resposta_de_imagem(request.tenant.logo)

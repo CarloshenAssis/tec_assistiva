@@ -220,12 +220,19 @@ Vercel envia — já configurado em `settings.py` para
 `("HTTP_X_FORWARDED_PROTO", "https")`, mas confirmar se não há um proxy
 adicional na frente (CDN customizado) que não repassa esse cabeçalho.
 
-### CSS/imagem de foto de ativo bloqueado no navegador (CSP)
+### Foto de ativo/logotipo não carrega (404 ou imagem quebrada)
 
-Se `MEDIA_STORAGE_HOST` não corresponde ao host real do endpoint S3
-configurado, o `img-src` da CSP não libera o domínio do storage e o
-navegador bloqueia a imagem. Conferir `DJANGO_STORAGE_S3_ENDPOINT_URL` e
-`core/middleware.py::_diretiva_img_src`.
+Fotos de ativo/movimentação e logotipo do tenant são servidas por view
+autenticada (`core.arquivos.resposta_de_imagem`), nunca por link direto ao
+storage — a CSP (`img-src`) fica restrita a `'self'` de propósito (ver
+`core/middleware.py`). Se a imagem não carrega:
+
+- Confirmar que o registro (`FotoAtivo`/`FotoMovimentacao`/`Tenant.logo`)
+  pertence ao tenant/unidade do usuário logado — um recurso de outro
+  escopo responde 404 por desenho, não é bug.
+- Confirmar que o arquivo ainda existe no storage configurado
+  (`DJANGO_STORAGE_S3_*`) — um registro pode apontar para um arquivo que
+  não está mais lá.
 
 ## Onde olhar quando nada disso resolve
 

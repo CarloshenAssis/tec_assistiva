@@ -19,12 +19,21 @@ script com a sessão da vítima. Por isso toda resposta sai como anexo, com
 
 from __future__ import annotations
 
+import mimetypes
+
 from django.http import FileResponse, Http404
 
 #: Tipo genérico para toda entrega. Não usamos o content type adivinhado a
 #: partir da extensão: se o arquivo for um SVG malicioso, `image/svg+xml`
 #: reabre exatamente o vetor de XSS que o `attachment` fecha.
 _TIPO_NEUTRO = "application/octet-stream"
+
+#: Um ano — mesmo raciocínio de cache "imutável" de qualquer asset com nome
+#: de arquivo estável: `Storage.save()` do Django nunca sobrescreve um
+#: caminho já existente (acrescenta um sufixo aleatório em caso de colisão
+#: de nome), então o conteúdo em `campo_arquivo.name` nunca muda depois de
+#: publicado — é seguro cachear por muito tempo.
+_CACHE_IMAGEM_SEGUNDOS = 31536000
 
 
 def resposta_de_download(campo_arquivo, *, nome_sugerido: str = "") -> FileResponse:
@@ -72,4 +81,49 @@ def resposta_de_download(campo_arquivo, *, nome_sugerido: str = "") -> FileRespo
     resposta["X-Content-Type-Options"] = "nosniff"
     # Documento clínico não deve ficar em cache compartilhado.
     resposta["Cache-Control"] = "private, no-store"
+    return resposta
+
+
+def resposta_de_imagem(campo_arquivo) -> FileResponse:
+    """Devolve uma imagem já validada como conteúdo renderizável, com cache longo.
+
+    Diferente de `resposta_de_download`: aqui o conteúdo é sempre um
+    `ImageField` que já passou por `core.validadores.validar_upload_imagem`
+    (extensão restrita a jpg/jpeg/png/webp, sem SVG — o vetor de XSS que
+    justifica o tratamento neutro de `resposta_de_download` não existe
+    aqui), então é seguro renderizar inline com o `Content-Type` real.
+
+    Servida por uma view autenticada (nunca por link direto ao storage)
+    para nunca gerar signed URL nova a cada carregamento de página — o
+    problema que motivou esta função: sem uma URL estável, o navegador
+    nunca reaproveita cache entre visitas, e cada render de uma ficha com
+    fotos rebaixa o arquivo inteiro de novo do Supabase Storage.
+    `Cache-Control: private` (não `public`) porque o acesso ainda depende
+    de sessão autenticada e escopo de tenant/unidade — só o navegador de
+    quem tem permissão pode cachear, nunca um proxy compartilhado.
+
+    Args:
+        campo_arquivo: Um `FieldFile` (valor de `ImageField`) já resolvido
+            e pertencente a um registro que o usuário tem permissão de
+            acessar.
+
+    Returns:
+        Uma `FileResponse` com o `Content-Type` real da imagem, renderizável
+        inline, com `Cache-Control: private, max-age=31536000, immutable`.
+
+    Raises:
+        django.http.Http404: Se `campo_arquivo` for vazio ou o arquivo não
+            existir mais no storage.
+    """
+    if not campo_arquivo:
+        raise Http404("Imagem não encontrada.")
+
+    try:
+        handle = campo_arquivo.open("rb")
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise Http404("Imagem não encontrada.") from exc
+
+    tipo = mimetypes.guess_type(campo_arquivo.name)[0] or _TIPO_NEUTRO
+    resposta = FileResponse(handle, content_type=tipo)
+    resposta["Cache-Control"] = f"private, max-age={_CACHE_IMAGEM_SEGUNDOS}, immutable"
     return resposta

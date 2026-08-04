@@ -77,26 +77,21 @@ class CabecalhosTest(TestCase):
         self.assertIn("no-store", resposta["Cache-Control"])
 
 
-class CspImgSrcStorageExternoTest(TestCase):
+class CspImgSrcTest(TestCase):
     """
-    `img-src` precisa liberar o host do storage de mídia quando configurado
-    — senão a foto de equipamento (servida via URL assinada do Supabase,
-    outra origem) seria bloqueada pelo próprio navegador.
+    `img-src` fica sempre restrito a 'self' — nenhuma imagem é servida por
+    link direto ao storage externo (fotos de ativo/movimentação e logotipo
+    do tenant passam por view autenticada, ver `core.arquivos.
+    resposta_de_imagem`). Isso também funciona como guard-rail: se alguém
+    reintroduzir um `.url` direto no futuro, a CSP bloqueia a imagem em vez
+    de liberar a origem silenciosamente.
     """
 
-    def test_sem_storage_externo_configurado_nao_libera_host_nenhum(self):
+    def test_img_src_restrito_a_self(self):
         resposta = self.client.get(reverse("login"))
         csp = resposta["Content-Security-Policy"]
         img_src = next(d for d in csp.split(";") if d.strip().startswith("img-src"))
         self.assertEqual("img-src 'self' data:", img_src.strip())
-
-    def test_com_storage_externo_configurado_libera_o_host(self):
-        with self.settings(MEDIA_STORAGE_HOST="tuqecavtmbkriwhnqzfu.storage.supabase.co"):
-            resposta = self.client.get(reverse("login"))
-        csp = resposta["Content-Security-Policy"]
-        img_src = next(d for d in csp.split(";") if d.strip().startswith("img-src"))
-        self.assertIn("https://tuqecavtmbkriwhnqzfu.storage.supabase.co", img_src)
-        self.assertIn("'self'", img_src)
 
 
 class SaudeTest(TestCase):

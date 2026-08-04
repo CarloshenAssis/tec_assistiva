@@ -175,21 +175,27 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # credenciais estão configuradas, e cai para disco local só em
 # desenvolvimento (sem as env vars, comportamento de sempre).
 #
-# O bucket é privado ("public=false" no Supabase) — documento de
-# beneficiário (RG, laudo, receita médica) e assinatura do termo nunca são
-# expostos por URL direta; a única saída é `core.arquivos.resposta_de_download`,
-# que autentica e verifica o tenant antes de servir o conteúdo (ver
-# beneficiarios/views.py::baixar_documento). Foto de equipamento
-# (FotoAtivo/FotoMovimentacao) não é dado pessoal e usa `.url` (link
-# assinado, expira sozinho) direto no `<img src>` dos templates — não passa
-# por essa view.
+# O bucket é privado ("public=false" no Supabase) — nenhum arquivo (documento
+# de beneficiário, assinatura do termo, foto de equipamento, logotipo do
+# tenant) é exposto por URL direta ao storage. Toda entrega passa por uma
+# view autenticada que verifica tenant/unidade antes de servir o conteúdo:
+# `core.arquivos.resposta_de_download` (documentos, sempre como anexo) e
+# `core.arquivos.resposta_de_imagem` (fotos/logotipo, renderizável inline,
+# com Cache-Control longo — ver `ativos.views.foto_ativo_imagem`).
+#
+# Antes, foto de equipamento usava `.url` (link assinado) direto no
+# `<img src>` dos templates — cada render gerava uma URL assinada nova
+# (a assinatura embute o timestamp da requisição), então o navegador nunca
+# reaproveitava cache entre visitas e cada carregamento de página rebaixava
+# as fotos inteiras do Supabase Storage de novo. Corrigido servindo por
+# view própria, com URL estável e `Cache-Control: private, max-age=1 ano`.
 _S3_ACCESS_KEY = env("DJANGO_STORAGE_S3_ACCESS_KEY_ID", default="")
 _S3_SECRET_KEY = env("DJANGO_STORAGE_S3_SECRET_ACCESS_KEY", default="")
 
-#: Host do storage externo, para liberar no `img-src` da CSP
-#: (core/middleware.py) — sem isso, a foto de equipamento (que usa `.url`
-#: direto no `<img>`) seria bloqueada pelo navegador por vir de outra
-#: origem. `None` quando não há S3 configurado (CSP permanece só 'self').
+#: Host do storage externo em uso — hoje só para diagnóstico/observabilidade
+#: (não é mais consumido pela CSP, ver `core/middleware.py`: `img-src` fica
+#: sempre restrito a 'self', porque nenhum template aponta para o storage
+#: diretamente). `None` quando não há S3 configurado.
 MEDIA_STORAGE_HOST = None
 
 if _S3_ACCESS_KEY and _S3_SECRET_KEY:

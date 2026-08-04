@@ -3,7 +3,7 @@
     <div class="faint" style="font-size:11.5px;margin-bottom:8px;">Fotos cadastradas</div>
     <div class="grid grid-4">
       {% for foto in fotos_cadastro %}
-        <img src="{{ foto.arquivo.url }}" alt="{{ foto.get_tipo_display }}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
+        <img src="{% url 'app:ativos:foto_ativo_imagem' foto.pk %}" alt="{{ foto.get_tipo_display }}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
       {% empty %}
         <div class="faint" style="font-size:12.5px;">Nenhuma foto de cadastro.</div>
       {% endfor %}
@@ -16,7 +16,7 @@
       <div>
         <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:6px;">ANTES · entrega</div>
         {% for foto in fotos_entrega %}
-          <img src="{{ foto.arquivo.url }}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
+          <img src="{% url 'app:ativos:foto_movimentacao_imagem' foto.pk %}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
         {% empty %}
           <div class="faint" style="font-size:12.5px;">Sem foto de entrega.</div>
         {% endfor %}
@@ -24,7 +24,7 @@
       <div>
         <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:6px;">DEPOIS · devolução</div>
         {% for foto in fotos_devolucao %}
-          <img src="{{ foto.arquivo.url }}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
+          <img src="{% url 'app:ativos:foto_movimentacao_imagem' foto.pk %}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
         {% empty %}
           <div class="faint" style="font-size:12.5px;">Sem foto de devolução.</div>
         {% endfor %}
@@ -38,7 +38,7 @@
       <div>
         <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:6px;">ANTES · envio</div>
         {% for foto in fotos_envio_manutencao %}
-          <img src="{{ foto.arquivo.url }}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
+          <img src="{% url 'app:ativos:foto_movimentacao_imagem' foto.pk %}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
         {% empty %}
           <div class="faint" style="font-size:12.5px;">Sem foto de envio.</div>
         {% endfor %}
@@ -46,7 +46,7 @@
       <div>
         <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:6px;">DEPOIS · retorno</div>
         {% for foto in fotos_retorno_manutencao %}
-          <img src="{{ foto.arquivo.url }}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
+          <img src="{% url 'app:ativos:foto_movimentacao_imagem' foto.pk %}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;">
         {% empty %}
           <div class="faint" style="font-size:12.5px;">Sem foto de retorno.</div>
         {% endfor %}

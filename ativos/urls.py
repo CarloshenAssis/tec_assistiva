@@ -45,4 +45,6 @@ urlpatterns = [
     path("<int:pk>/editar/", views.editar, name="editar"),
     path("<int:pk>/qrcode.png", views.qrcode_imagem, name="qrcode_imagem"),
     path("<int:pk>/acao/<str:codigo>/", views.executar_acao, name="executar_acao"),
+    path("fotos/<int:pk>/", views.foto_ativo_imagem, name="foto_ativo_imagem"),
+    path("fotos-movimentacao/<int:pk>/", views.foto_movimentacao_imagem, name="foto_movimentacao_imagem"),
 ]

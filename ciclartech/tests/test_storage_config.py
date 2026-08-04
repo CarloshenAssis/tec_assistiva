@@ -53,7 +53,7 @@ class BackendDeMidiaTest(SimpleTestCase):
         self.assertEqual("S3Storage", saida[0])
         self.assertEqual("ciclartech-media", saida[1])
 
-    def test_com_credenciais_expoe_o_host_para_a_csp(self):
+    def test_com_credenciais_expoe_o_host_do_storage(self):
         saida = self._rodar(_SCRIPT_S3).splitlines()
         self.assertEqual("tuqecavtmbkriwhnqzfu.storage.supabase.co", saida[2])
 

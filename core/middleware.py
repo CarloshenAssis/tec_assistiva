@@ -24,24 +24,17 @@ from django.conf import settings
 #: CSS injetado pode fazer exfiltração por seletor, mas não executa código.
 #: Eliminá-la exige migrar os estilos inline para classes no CSS.
 #:
-#: `img-src` é montado dinamicamente por `_diretiva_img_src()` — precisa
-#: liberar o host do storage externo (Supabase) quando configurado, senão a
-#: foto de equipamento (que usa `.url` direto no `<img src>`, ver
-#: ativos/models.py::FotoAtivo) vem de outra origem e o navegador a bloqueia.
-def _diretiva_img_src() -> str:
-    """Monta a diretiva `img-src` da CSP, liberando o storage externo se configurado.
-
-    Returns:
-        A diretiva `img-src` pronta para compor a Content Security
-        Policy, incluindo o host de `settings.MEDIA_STORAGE_HOST` quando
-        definido.
-    """
-    host = getattr(settings, "MEDIA_STORAGE_HOST", None)
-    if host:
-        return f"img-src 'self' data: https://{host}; "
-    return "img-src 'self' data:; "
-
-
+#: `img-src` é sempre 'self' — nenhuma imagem é servida por link direto ao
+#: storage externo. Fotos de ativo/movimentação e logotipo do tenant vivem
+#: no bucket privado do Supabase e são servidas por view autenticada
+#: (`core.arquivos.resposta_de_imagem`), nunca por `.url` direto no
+#: `<img src>` — ver `ativos.views.foto_ativo_imagem` para a justificativa
+#: (URL assinada mudava a cada render, o navegador nunca cacheava, e cada
+#: visita à ficha rebaixava as fotos inteiras do Supabase de novo).
+#: Deixar `img-src` restrito a 'self' é também um guard-rail: se alguém
+#: reintroduzir um `.url` direto no futuro, a imagem simplesmente não
+#: carrega (bug visível), em vez de a CSP liberar a origem silenciosamente
+#: e o mesmo problema de cache voltar sem ninguém notar.
 def _politica_csp() -> str:
     """Monta a Content Security Policy completa da aplicação.
 
@@ -53,8 +46,8 @@ def _politica_csp() -> str:
         "default-src 'self'; "
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
-        + _diretiva_img_src()
-        + "font-src 'self'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
         "connect-src 'self'; "
         # Impede que a aplicação seja embutida em iframe de terceiro
         # (clickjacking). Redundante com X-Frame-Options de propósito:

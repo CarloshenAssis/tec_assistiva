@@ -216,13 +216,24 @@ backend conforme as variáveis de ambiente presentes:
   (`storages.backends.s3.S3Storage`).
 
 O bucket `ciclartech-media` já foi criado no projeto Supabase, **privado**
-(`public=false`): documento de beneficiário (RG, laudo, receita médica) e
-assinatura do termo não são expostos por URL direta — a única saída
-continua sendo `core.arquivos.resposta_de_download` (autenticada, com
-verificação de tenant). Foto de equipamento (`FotoAtivo`/`FotoMovimentacao`)
-não é dado pessoal e usa a URL assinada do storage direto no `<img src>` —
-por isso o host do storage é liberado dinamicamente na CSP
-(`core/middleware.py::_diretiva_img_src`, via `settings.MEDIA_STORAGE_HOST`).
+(`public=false`): nenhum arquivo é exposto por URL direta ao storage — nem
+documento de beneficiário (RG, laudo, receita médica) nem foto de
+equipamento, apesar desta última não ser dado pessoal. Toda entrega passa
+por view autenticada: `core.arquivos.resposta_de_download` (documentos,
+sempre como anexo) e `core.arquivos.resposta_de_imagem` (fotos de
+ativo/movimentação e logotipo do tenant, renderizável inline, com
+`Cache-Control` de 1 ano — ver `ativos.views.foto_ativo_imagem`).
+
+Isso corrige um problema real de custo: antes, foto de equipamento usava
+`.url` (link assinado) direto no `<img src>` dos templates. Cada render
+gerava uma assinatura nova (embute o timestamp da requisição), então a URL
+nunca se repetia e o navegador nunca conseguia cachear — cada visita à
+ficha do ativo rebaixava as fotos inteiras do Supabase Storage de novo, o
+mesmo padrão que já causou estouro de egress em outro projeto. A CSP
+(`img-src`, `core/middleware.py`) fica sempre restrita a `'self'` agora —
+nenhum template deveria apontar para o storage diretamente; se alguém
+reintroduzir isso, a imagem simplesmente não carrega (bug visível), em vez
+de a CSP liberar a origem silenciosamente.
 
 **Variáveis de ambiente para ativar** (gere as chaves em Supabase → projeto
 **ciclartech** → **Project Settings** → **Storage** → aba **S3 Connection**
