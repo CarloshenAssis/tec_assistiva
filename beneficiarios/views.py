@@ -13,6 +13,7 @@ from auditoria.services import registrar, registrar_acesso_dado_pessoal
 from beneficiarios.forms import BeneficiarioForm, DocumentoBeneficiarioForm
 from beneficiarios.lgpd import anonimizar, exportar_dados
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
+from core import features
 from core.arquivos import resposta_de_download
 from core.decorators import nivel_hierarquico, tenant_required
 from core.paginacao import paginar
@@ -130,6 +131,9 @@ def ficha(request, pk):
             "emprestimos": emprestimos,
             "documentos": beneficiario.documentos.order_by("-enviado_em"),
             "form_documento": DocumentoBeneficiarioForm(),
+            "documentos_habilitado": features.modulo_habilitado(
+                request.tenant, features.DOCUMENTOS_BENEFICIARIO
+            ),
             "pode_gerir_lgpd": nivel_hierarquico(request) >= NIVEL_ADMIN,
         },
     )
@@ -137,10 +141,19 @@ def ficha(request, pk):
 
 @tenant_required
 def documento_novo(request, pk):
-    """Anexa um documento (RG, comprovante, laudo, receita) ao titular."""
+    """
+    Anexa um documento (RG, comprovante, laudo, receita) ao titular.
+
+    Exige o módulo `documentos_beneficiario` habilitado para o tenant
+    (docs/business-rules/modulos.md) — upload de documento é opcional, não
+    presumido; um POST forjado com o módulo desligado é recusado aqui, não
+    só escondido da tela.
+    """
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     if request.method != "POST":
         raise PermissionDenied("Envio de documento exige POST.")
+    if not features.modulo_habilitado(request.tenant, features.DOCUMENTOS_BENEFICIARIO):
+        raise PermissionDenied("Upload de documento não está habilitado para esta instituição.")
 
     form = DocumentoBeneficiarioForm(request.POST, request.FILES)
     if form.is_valid():

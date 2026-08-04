@@ -95,7 +95,7 @@
     </div>
   </div>
 
-  {% if not beneficiario.esta_anonimizado %}
+  {% if documentos_habilitado and not beneficiario.esta_anonimizado %}
     <div class="card">
       <div class="card-title">Documentos</div>
       <div class="flex-col">

@@ -4,6 +4,7 @@ from django.urls import reverse
 
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
 from contas.models import Papel, Usuario
+from core import features
 from core.models import Tenant, Unidade
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -252,6 +253,8 @@ class DocumentoNovoTest(TestCase):
         self.beneficiario_b = Beneficiario.objects.all_tenants().create(
             tenant=self.tenant_b, nome="João Pedro", documento="234.567.891-73"
         )
+        features.definir_modulo(self.tenant_a, features.DOCUMENTOS_BENEFICIARIO, True)
+        features.definir_modulo(self.tenant_b, features.DOCUMENTOS_BENEFICIARIO, True)
 
     def test_anexa_documento_ao_titular(self):
         self.client.login(username="func_doc_novo_a", password="senha-teste-123")
@@ -280,3 +283,56 @@ class DocumentoNovoTest(TestCase):
             reverse("app:beneficiarios:documento_novo", args=[self.beneficiario_a.pk])
         )
         self.assertEqual(403, resposta.status_code)
+
+
+class DocumentosBeneficiarioModuloDesligadoTest(TestCase):
+    """
+    O módulo `documentos_beneficiario` nasce desligado para todo tenant
+    (docs/business-rules/modulos.md) — upload de documento é opcional, o
+    Owner liga sob pedido. Sem o módulo, a seção some da ficha e a rota de
+    upload recusa mesmo um POST forjado.
+    """
+
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nome="Prefeitura Sem Doc", slug="pref-sem-doc")
+        self.usuario = Usuario.objects.create_user(
+            username="func_sem_doc",
+            password="senha-teste-123",
+            tenant=self.tenant,
+            papel=Papel.objects.get(codigo="funcionario"),
+        )
+        self.beneficiario = Beneficiario.objects.all_tenants().create(
+            tenant=self.tenant, nome="Maria Silva", documento="123.456.789-09"
+        )
+
+    def test_ficha_nao_mostra_secao_de_documentos(self):
+        self.client.login(username="func_sem_doc", password="senha-teste-123")
+        resposta = self.client.get(reverse("app:beneficiarios:ficha", args=[self.beneficiario.pk]))
+        self.assertNotContains(resposta, "Anexar documento")
+
+    def test_upload_recusado_mesmo_com_post_forjado(self):
+        self.client.login(username="func_sem_doc", password="senha-teste-123")
+        resposta = self.client.post(
+            reverse("app:beneficiarios:documento_novo", args=[self.beneficiario.pk]),
+            {"tipo": "rg", "arquivo": SimpleUploadedFile("rg.png", PNG)},
+        )
+        self.assertEqual(403, resposta.status_code)
+        self.assertFalse(
+            DocumentoBeneficiario.objects.all_tenants().filter(beneficiario=self.beneficiario).exists()
+        )
+
+    def test_download_de_documento_ja_existente_continua_liberado(self):
+        """
+        Desligar o módulo bloqueia só upload novo — um documento anexado
+        antes (ou por um tenant que já teve o módulo ligado) continua
+        baixável normalmente, mesmo módulo desligado agora.
+        """
+        documento = DocumentoBeneficiario.objects.all_tenants().create(
+            tenant=self.tenant,
+            beneficiario=self.beneficiario,
+            tipo=DocumentoBeneficiario.Tipo.RG,
+            arquivo=SimpleUploadedFile("rg.png", PNG),
+        )
+        self.client.login(username="func_sem_doc", password="senha-teste-123")
+        resposta = self.client.get(reverse("app:beneficiarios:baixar_documento", args=[documento.pk]))
+        self.assertEqual(200, resposta.status_code)

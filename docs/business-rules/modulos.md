@@ -38,6 +38,13 @@ O restante do sistema consulta "este tenant tem este módulo?"
     empréstimo) — ligado por padrão para **Locadora**.
   - `documento_pessoa_juridica` (CNPJ como tipo de documento do titular,
     além de CPF) — ligado por padrão para **Locadora**.
+  - `documentos_beneficiario` (upload de RG/comprovante/laudo/receita na
+    ficha do titular) — **desligado por padrão para todo segmento**, sem
+    exceção. Diferente dos dois módulos acima (que já nascem ligados para
+    Locadora), este é opt-in puro: mesmo Home Care e Hospital, onde laudo e
+    receita têm função clínica direta, só ganham a função se o Owner ligar
+    explicitamente para aquele tenant. Decisão deliberada — upload de
+    documento é opcional, não presumido pelo segmento.
   - Os demais segmentos nascem sem nenhum módulo ligado.
 - O Owner pode **sobrepor o padrão** para um tenant específico
   (`TenantModulo`) — ligar um módulo para quem normalmente não teria, ou
@@ -84,6 +91,15 @@ Por módulo e por tenant: `ligado` ou `desligado` — nunca "parcialmente".
   na devolução mesmo que o módulo `locacao_financeiro` seja desligado
   depois — desligar o módulo esconde o **formulário de entrada** desses
   dados em novos empréstimos, não apaga histórico.
+- Um documento já anexado ao titular (`documentos_beneficiario`) continua
+  existindo e **continua baixável** mesmo que o módulo seja desligado
+  depois — desligar esconde só a seção/rota de **upload novo**, não o
+  acesso a documento já gravado. Mesmo princípio dos dois módulos acima:
+  desligar módulo nunca apaga nem esconde retroativamente.
+- **Ligar/desligar um módulo agora gera evento de auditoria**
+  (`AcaoAuditada.ALTERACAO`, objeto o `Tenant` afetado) — antes desta
+  revisão isso não era registrado para nenhum módulo do catálogo; era um
+  gap silencioso, fechado junto com a adição de `documentos_beneficiario`.
 
 ## Impactos em outros módulos (de documentação)
 
@@ -123,3 +139,29 @@ Por módulo e por tenant: `ligado` ou `desligado` — nunca "parcialmente".
   módulo 11, cada um com sua própria tabela de pesos; nenhum é aceito como
   fallback do outro.
 - Sem o módulo, o formulário de cadastro só oferece CPF como opção.
+
+### `documentos_beneficiario`
+
+- Controla se a ficha do titular (`beneficiarios/ficha.html`) mostra a
+  seção **Documentos** — lista de anexos (RG, comprovante de residência,
+  laudo, receita médica) e o formulário de upload
+  (`beneficiarios/views.py::documento_novo`).
+- **Ligado**: Funcionário+ (restrito ao escopo de unidade do titular) pode
+  anexar e baixar documento pela própria ficha, sem precisar do Django
+  Admin (docs/business-rules/beneficiarios.md).
+- **Desligado**: a seção some da ficha; a rota de upload recusa mesmo um
+  POST forjado — a checagem é recalculada no servidor
+  (`core.features.modulo_habilitado`), não só uma questão de esconder o
+  botão na tela, mesmo padrão de `executar_acao` em `ativos`.
+- **Download de documento já anexado não depende deste módulo** — só o
+  upload de documento novo é bloqueado quando desligado. Um documento
+  anexado enquanto o módulo estava ligado continua baixável mesmo depois
+  de desligado (mesmo princípio de "desligar não apaga retroativamente"
+  dos outros módulos).
+- Nasce **desligado para todo segmento** (sem entrada em
+  `_MODULOS_PADRAO_POR_SEGMENTO`) — diferente dos outros dois módulos do
+  catálogo, que já nascem ligados para Locadora. Ver "Regras de negócio"
+  acima para o porquê.
+- Não afeta anonimização: a seção de Documentos já some da ficha quando o
+  titular está anonimizado, independentemente deste módulo estar ligado
+  ou não (regra do próprio `beneficiarios`, não deste módulo).

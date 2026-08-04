@@ -20,6 +20,8 @@ Cadastrar titular (nome, documento, contato, base legal)
 ↓
 
 Anexar documentos (RG, comprovante, laudo, receita) pela ficha do titular
+— opcional, passo só existe se o módulo `documentos_beneficiario`
+estiver habilitado (docs/business-rules/modulos.md)
 
 ↓
 
@@ -95,7 +97,7 @@ Titular pede acesso/eliminação → Admin exporta ou anonimiza
 | Editar cadastro do titular | Funcionário (restrito ao escopo de unidade) |
 | Ver ficha / listar | Funcionário (restrito ao escopo de unidade) |
 | Selecionar titular no wizard de empréstimo | Funcionário |
-| Anexar documento (RG, comprovante, laudo, receita) | Funcionário (restrito ao escopo de unidade) |
+| Anexar documento (RG, comprovante, laudo, receita) | Funcionário (restrito ao escopo de unidade) — só se o módulo `documentos_beneficiario` estiver habilitado para o tenant |
 | Baixar documento anexado | Funcionário (restrito ao escopo de unidade) |
 | Exportar dados (Art. 18, II/V) | **Admin** |
 | Anonimizar (Art. 18, VI) | **Admin** |
@@ -175,6 +177,11 @@ consentiria de novo, gerando um novo `consentimento_em`).
   (docs/features — Módulo Mapa Operacional de Ativos).
 - Recebe as notificações automáticas de vencimento/atraso
   (docs/business-rules/notificacoes.md) via telefone/WhatsApp cadastrado.
+- Upload de documento (RG, comprovante, laudo, receita) depende do módulo
+  `documentos_beneficiario` estar habilitado para o tenant
+  (docs/business-rules/modulos.md) — sem o módulo, a ficha não tem essa
+  seção, mas cadastro, edição, empréstimo, exportação e anonimização do
+  titular continuam funcionando normalmente.
 - Toda ação sobre o titular (criação, exportação, anonimização,
   revogação de consentimento, acesso à ficha/documento) é capturada na
   trilha de auditoria (docs/business-rules/auditoria.md).

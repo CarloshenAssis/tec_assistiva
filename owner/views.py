@@ -116,6 +116,14 @@ def alternar_modulo(request, pk):
     ativo_agora = features.modulo_habilitado(tenant, modulo.codigo)
     features.definir_modulo(tenant, modulo.codigo, not ativo_agora)
 
+    registrar(
+        AcaoAuditada.ALTERACAO,
+        request=request,
+        tenant=tenant,
+        objeto=tenant,
+        descricao=f"Módulo \"{modulo.nome}\" {'desligado' if ativo_agora else 'ligado'}",
+    )
+
     messages.success(
         request,
         f"Módulo \"{modulo.nome}\" {'desligado' if ativo_agora else 'ligado'} para {tenant.nome}.",

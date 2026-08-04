@@ -113,9 +113,11 @@ contratação.
 
 Alguns recursos do sistema (ex.: **Locação Financeira** — valor de
 diária, caução, multa por atraso; **Documento Pessoa Jurídica** — permite
-cadastrar beneficiário com CNPJ) são **módulos opcionais**, ligados ou
-desligados por contrato. Você não liga/desliga isso sozinho — quem
-controla é a equipe Ciclartech (Owner), pela área deles. Se sua
+cadastrar beneficiário com CNPJ; **Upload de Documento do Titular** —
+mostra a seção "Documentos" na ficha do beneficiário/paciente/cliente,
+para anexar RG, comprovante, laudo ou receita) são **módulos opcionais**,
+ligados ou desligados por contrato. Você não liga/desliga isso sozinho —
+quem controla é a equipe Ciclartech (Owner), pela área deles. Se sua
 instituição precisa de um módulo que não está ativo, entre em contato com
 a Ciclartech.
 

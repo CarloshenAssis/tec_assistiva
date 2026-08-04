@@ -17,11 +17,17 @@ from core.models import Modulo, Tenant, TenantModulo
 #: dois em sincronia é responsabilidade de quem adicionar um módulo novo.
 LOCACAO_FINANCEIRO = "locacao_financeiro"
 DOCUMENTO_PESSOA_JURIDICA = "documento_pessoa_juridica"
+DOCUMENTOS_BENEFICIARIO = "documentos_beneficiario"
 
 #: Módulos ativos por padrão em cada segmento, na ausência de um
 #: `TenantModulo` explícito para aquele tenant. Só a Locadora tem módulo
 #: ligado por padrão hoje — os demais segmentos nascem com tudo desligado
 #: e o Owner liga manualmente se um cliente específico precisar.
+#:
+#: `DOCUMENTOS_BENEFICIARIO` nasce desligado para **todo** segmento,
+#: inclusive Home Care/Hospital — decisão deliberada de exigir opt-in
+#: explícito do Owner em vez de um padrão por segmento (upload de
+#: documento do titular é opcional, não presumido).
 _MODULOS_PADRAO_POR_SEGMENTO: dict[str, set[str]] = {
     Tenant.Segmento.LOCADORA: {LOCACAO_FINANCEIRO, DOCUMENTO_PESSOA_JURIDICA},
 }

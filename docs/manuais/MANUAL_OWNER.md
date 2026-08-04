@@ -60,7 +60,12 @@ Ao abrir um tenant específico, você vê:
   dele automaticamente — se usar isso como controle de inadimplência,
   trate como algo a reforçar, não como bloqueio garantido.
 - **Módulos**: lista o catálogo inteiro com toggle Ligar/Desligar por
-  contrato — sobrepõe o padrão do segmento só para aquele cliente.
+  contrato — sobrepõe o padrão do segmento só para aquele cliente. Inclui
+  **Upload de documento do titular** (`documentos_beneficiario`), que
+  controla se a ficha do beneficiário/paciente/cliente ganha a seção para
+  anexar RG, comprovante, laudo ou receita — esse módulo nasce **desligado
+  para todo cliente**, inclusive Home Care e Hospital; ligue sob pedido
+  explícito. Cada mudança de módulo fica registrada na Auditoria geral.
 - **Encarregado (DPO)**: mostra se já foi configurado; aviso visível se
   ainda não foi.
 - **Usuários do contrato**: lista quem tem acesso, papel, status, com

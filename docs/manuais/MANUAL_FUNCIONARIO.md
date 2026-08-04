@@ -90,13 +90,18 @@ esses documentos são tratados como dado sensível — só Admin consegue
 exportar ou anonimizar os dados do titular depois, mas qualquer um com
 acesso ao cadastro pode ver.
 
-**Corrigir um dado ou anexar documento depois de salvo**: na ficha do
-titular (**Cadastros → Beneficiários → abrir o titular**), use **Editar
-cadastro** para corrigir um campo (CPF digitado errado, telefone, etc.) e
-a seção **Documentos** para anexar RG, comprovante, laudo ou receita —
-não precisa de Django Admin nem de Gestor para isso. Esses dois pontos
-somem da ficha se o titular já tiver sido anonimizado (não há mais o que
-editar ou anexar nesse caso).
+**Corrigir um dado depois de salvo**: na ficha do titular
+(**Cadastros → Beneficiários → abrir o titular**), use **Editar
+cadastro** para corrigir um campo (CPF digitado errado, telefone, etc.) —
+não precisa de Django Admin nem de Gestor para isso. Some da ficha se o
+titular já tiver sido anonimizado (não há mais o que editar nesse caso).
+
+**Anexar documento (RG, comprovante, laudo, receita)**: se a sua
+instituição tiver esse recurso habilitado, a ficha do titular mostra uma
+seção **Documentos** para anexar e baixar os arquivos direto por ali. É
+um recurso opcional, ligado por instituição (não por você) — se não
+aparecer na ficha, sua instituição optou por não usar; fale com o Admin
+se precisar dele.
 
 ## 4. Fluxo de Empréstimo
 
