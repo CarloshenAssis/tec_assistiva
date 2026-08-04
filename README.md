@@ -14,6 +14,7 @@ Este repositório contém:
 - `docs/TROUBLESHOOTING.md` — erros comuns e como diagnosticar.
 - `docs/FLUXOS_DE_NEGOCIO.md` — diagramas dos principais fluxos operacionais.
 - `docs/POLITICA_PRIVACIDADE.md` — modelo de política de privacidade (LGPD Art. 9º/41), pendente de preenchimento institucional.
+- `docs/manuais/` — manuais de uso por papel (Funcionário, Gestor, Admin, Owner): cadastros, fluxo de empréstimo/devolução e como usar cada módulo da tela.
 - `docs/business-rules/` — regra de negócio por assunto; `docs/features/` — documentação de feature específica.
 - O código do backend (Django): **Fase 0** (fundação técnica multi-tenant) e **Fase 1** (MVP operacional) do roadmap acima já implementadas.
 
