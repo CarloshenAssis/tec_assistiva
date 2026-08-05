@@ -24,12 +24,22 @@ from core.paginacao import paginar
 
 
 def _exigir_admin(request) -> None:
+    """Levanta `PermissionDenied` se o usuário não for Admin do tenant.
+
+    Args:
+        request: A requisição corrente.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o nível hierárquico
+            do usuário for menor que `NIVEL_ADMIN`.
+    """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode gerenciar categorias.")
 
 
 @tenant_required
 def categorias_lista(request):
+    """Lista paginada das categorias de ativo cadastradas no tenant."""
     _exigir_admin(request)
     categorias_qs = CategoriaAtivo.objects.all().order_by("nome")
     pagina = paginar(request, categorias_qs)
@@ -42,6 +52,7 @@ def categorias_lista(request):
 
 @tenant_required
 def categorias_criar(request):
+    """Cadastra uma nova categoria de ativo no tenant."""
     _exigir_admin(request)
     if request.method == "POST":
         form = CategoriaAtivoForm(request.POST, tenant=request.tenant)
@@ -62,6 +73,16 @@ def categorias_criar(request):
 
 @tenant_required
 def categorias_editar(request, pk):
+    """Edita nome/dados de uma categoria de ativo existente.
+
+    Args:
+        request: A requisição, GET ou POST.
+        pk: PK da `CategoriaAtivo` a editar.
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a uma categoria do
+            tenant corrente.
+    """
     _exigir_admin(request)
     categoria = get_object_or_404(CategoriaAtivo, pk=pk)
     if request.method == "POST":
@@ -81,6 +102,16 @@ def categorias_editar(request, pk):
 
 @tenant_required
 def subcategorias_lista(request, categoria_pk):
+    """Lista paginada das subcategorias de uma categoria de ativo.
+
+    Args:
+        request: A requisição GET.
+        categoria_pk: PK da `CategoriaAtivo` dona das subcategorias.
+
+    Raises:
+        django.http.Http404: Se `categoria_pk` não corresponder a uma
+            categoria do tenant corrente.
+    """
     _exigir_admin(request)
     categoria = get_object_or_404(CategoriaAtivo, pk=categoria_pk)
     subcategorias_qs = categoria.subcategorias.all().order_by("nome")
@@ -99,6 +130,16 @@ def subcategorias_lista(request, categoria_pk):
 
 @tenant_required
 def subcategorias_criar(request, categoria_pk):
+    """Cadastra uma nova subcategoria dentro de uma categoria de ativo.
+
+    Args:
+        request: A requisição, GET ou POST.
+        categoria_pk: PK da `CategoriaAtivo` dona da nova subcategoria.
+
+    Raises:
+        django.http.Http404: Se `categoria_pk` não corresponder a uma
+            categoria do tenant corrente.
+    """
     _exigir_admin(request)
     categoria = get_object_or_404(CategoriaAtivo, pk=categoria_pk)
     if request.method == "POST":
@@ -121,6 +162,16 @@ def subcategorias_criar(request, categoria_pk):
 
 @tenant_required
 def subcategorias_editar(request, pk):
+    """Edita nome/dados de uma subcategoria de ativo existente.
+
+    Args:
+        request: A requisição, GET ou POST.
+        pk: PK da `SubcategoriaAtivo` a editar.
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a uma subcategoria
+            do tenant corrente.
+    """
     _exigir_admin(request)
     subcategoria = get_object_or_404(SubcategoriaAtivo, pk=pk)
     if request.method == "POST":

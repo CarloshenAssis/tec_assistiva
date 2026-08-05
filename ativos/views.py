@@ -225,6 +225,15 @@ _FOTO_CAMPOS = [
 
 
 def _salvar_fotos_cadastro(ativo, arquivos):
+    """Grava as fotos de cadastro do ativo (principal, lateral, traseira, etiqueta).
+
+    Cada campo de `_FOTO_CAMPOS` é opcional — só cria a `FotoAtivo`
+    correspondente para os que vierem preenchidos.
+
+    Args:
+        ativo: O `Ativo` dono das fotos.
+        arquivos: `request.FILES` do formulário de cadastro/edição.
+    """
     for campo, tipo in _FOTO_CAMPOS:
         arquivo = arquivos.get(campo)
         if arquivo:
@@ -233,6 +242,26 @@ def _salvar_fotos_cadastro(ativo, arquivos):
 
 @tenant_required
 def criar(request):
+    """Cadastra um novo ativo, gerando patrimônio automático quando não informado.
+
+    Antes de mostrar o formulário, verifica se há ao menos uma unidade e
+    uma categoria cadastradas no tenant — sem isso o `AtivoForm` teria um
+    campo obrigatório sem nenhuma opção, então a view mostra uma tela
+    explicando o pré-requisito em vez do formulário quebrado.
+
+    Args:
+        request: A requisição, GET (formulário vazio) ou POST (submissão,
+            incluindo `request.FILES` com as fotos de cadastro).
+
+    Returns:
+        `HttpResponse` com o formulário, a tela de pré-requisito faltante
+        (`sem_unidade.html`/`sem_categoria.html`), ou um redirect para a
+        ficha do ativo recém-criado.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário for
+            Funcionário (nível abaixo de Gestor).
+    """
     if nivel_hierarquico(request) < NIVEL_GESTOR:
         raise PermissionDenied("Somente Gestor ou Admin podem cadastrar ativos.")
 
@@ -286,6 +315,23 @@ def criar(request):
 
 @tenant_required
 def editar(request, pk):
+    """Edita os dados cadastrais de um ativo já existente.
+
+    Args:
+        request: A requisição, GET (formulário preenchido) ou POST
+            (submissão).
+        pk: PK do `Ativo` a editar.
+
+    Returns:
+        `HttpResponse` com o formulário, ou um redirect para a ficha do
+        ativo após salvar.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário for
+            Funcionário (nível abaixo de Gestor).
+        django.http.Http404: Se `pk` não corresponder a um ativo dentro
+            do escopo do usuário.
+    """
     if nivel_hierarquico(request) < NIVEL_GESTOR:
         raise PermissionDenied("Somente Gestor ou Admin podem editar ativos.")
     ativo = _ativo_no_escopo(request, pk)
@@ -306,6 +352,25 @@ def editar(request, pk):
 
 @tenant_required
 def ficha(request, pk):
+    """Ficha completa do ativo, com abas de informações, timeline, fotos, manutenções, etc.
+
+    O conteúdo específico de cada aba só é montado sob demanda (a partir
+    de `?aba=`), para não carregar timeline/fotos/manutenções de todo
+    ativo visitado — a maioria dos acessos fica na aba padrão
+    "informacoes".
+
+    Args:
+        request: A requisição GET, com a aba corrente em `?aba=` (padrão
+            `"informacoes"`, ver `TABS_FICHA`).
+        pk: PK do `Ativo` exibido.
+
+    Returns:
+        `HttpResponse` renderizando `ativos/ficha.html`.
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a um ativo dentro
+            do escopo do usuário.
+    """
     ativo = _ativo_no_escopo(request, pk)
     contexto_emprestimo = datas_previstas_por_ativo([ativo.id]).get(ativo.id)
     ativo.cor_operacional = cor_de(ativo, contexto_emprestimo).value
@@ -356,6 +421,21 @@ def ficha(request, pk):
 
 
 def _contexto_por_status(ativo):
+    """Monta o contexto extra específico do status corrente do ativo, para o painel de QR Code.
+
+    O detalhe de empréstimo/manutenção é o que o `quick_panel.html`
+    precisa mostrar (beneficiário e prazo, ou oficina e motivo) sem que o
+    template precise conhecer a estrutura de `Movimentacao`.
+
+    Args:
+        ativo: O `Ativo` cujo contexto será montado.
+
+    Returns:
+        Dict com `ultima_movimentacao` sempre presente, e
+        `detalhe_emprestimo` ou `detalhe_manutencao` quando o status do
+        ativo e a movimentação mais recente do tipo correspondente
+        tiverem esse detalhe.
+    """
     contexto = {}
     status = ativo.status_enum
     if status == StatusAtivo.EMPRESTADO:
@@ -488,6 +568,24 @@ _ACOES_FORM_COM_ATIVO = {"transferir"}
 
 
 def _url_redirecionamento(codigo, ativo):
+    """Resolve a URL de destino das ações que na verdade abrem outro fluxo, em vez de executar direto.
+
+    Algumas ações da ficha/painel de QR não são uma simples chamada a
+    `ativos.services` — "emprestar" abre o wizard de empréstimo,
+    "receber_devolucao" abre a tela de devolução já buscando o ativo, e
+    "imprimir_etiqueta" abre o Centro de Etiquetas com o ativo
+    pré-selecionado. Usado tanto para montar o link na ficha
+    (`_preparar_acoes_para_template`) quanto para redirecionar de fato em
+    `executar_acao`, então as duas telas nunca divergem sobre o destino.
+
+    Args:
+        codigo: Código da ação (`AcaoAtivo.codigo`).
+        ativo: O `Ativo` alvo da ação.
+
+    Returns:
+        A URL de destino, ou `None` se `codigo` não for uma dessas ações
+        de redirecionamento (nesse caso a ação é executada no lugar).
+    """
     if codigo in ("emprestar", "confirmar_emprestimo"):
         return f"{reverse('app:ativos:wizard_emprestimo')}?ativo={ativo.pk}"
     if codigo == "receber_devolucao":
@@ -552,6 +650,23 @@ def _preparar_acoes_para_template(ativo, acoes, origem):
 
 
 def _executar_acao_com_form(codigo, ativo, usuario, dados):
+    """Despacha para a função de `ativos.services` correspondente a uma ação com formulário.
+
+    Único ponto que traduz `codigo` (string vinda da URL/`ACOES_COM_FORM`)
+    para a chamada de serviço certa — mantém `executar_acao` livre desse
+    if/elif e evita repetir a lista de ações em mais de um lugar.
+
+    Args:
+        codigo: Código da ação, uma chave de `ACOES_COM_FORM`.
+        ativo: O `Ativo` alvo da ação.
+        usuario: O `contas.Usuario` que está executando a ação.
+        dados: `form.cleaned_data` do formulário já validado da ação.
+
+    Raises:
+        ativos.domain.exceptions.DominioAtivoError: Propagada de
+            `ativos.services`, se a ação violar uma regra do domínio
+            (ex.: transição de estado inválida).
+    """
     if codigo == "enviar_manutencao":
         services.enviar_manutencao(
             ativo, usuario, motivo=dados["motivo"], fornecedor=dados.get("fornecedor"), valor=dados.get("valor")
@@ -578,6 +693,20 @@ def _executar_acao_com_form(codigo, ativo, usuario, dados):
 
 
 def _redirecionar_pos_acao(ativo, origem):
+    """Decide para onde voltar depois de `executar_acao`, conforme de onde a ação partiu.
+
+    `origem` é o que faz "confirmar manutenção" na lista de manutenções
+    devolver para a lista, em vez de sempre cair na ficha do ativo — a
+    mesma ação (`executar_acao`) é chamada de vários lugares da UI.
+
+    Args:
+        ativo: O `Ativo` que acabou de ser movimentado.
+        origem: De onde veio a requisição (`"ficha"`, `"quick_panel"` ou
+            `"manutencao"` — ver `_preparar_acoes_para_template`).
+
+    Returns:
+        `HttpResponseRedirect` para a tela correspondente a `origem`.
+    """
     if origem == "quick_panel":
         return redirect("app:ativos:resolver_qr", token=ativo.qr_token)
     if origem == "manutencao":
@@ -680,6 +809,20 @@ def executar_acao(request, pk, codigo):
 
 
 def _passo_wizard_emprestimo(wizard: dict) -> int:
+    """Determina o passo corrente do wizard a partir do que já foi preenchido na sessão.
+
+    Não há um contador de passo explícito guardado na sessão — o passo é
+    sempre derivado do que falta, então "voltar" (que remove uma chave) e
+    recarregar a página no meio do fluxo levam ao mesmo lugar sem estado
+    duplicado para manter sincronizado.
+
+    Args:
+        wizard: O dict `request.session["wizard_emprestimo"]`.
+
+    Returns:
+        O número do passo (1: escolher beneficiário, 2: escolher ativo,
+        3: definir prazo, 4: checklist/fotos/confirmação).
+    """
     if not wizard.get("beneficiario_id"):
         return 1
     if not wizard.get("ativo_id"):
@@ -723,6 +866,19 @@ def _texto_decimal_ou_none(valor: str):
 
 
 def _decimal_da_sessao(valor):
+    """Converte de volta para `Decimal` um valor monetário guardado como string na sessão do wizard.
+
+    Contraparte de `_texto_decimal_ou_none` — a sessão sempre guarda
+    string (ou `None`) porque `Decimal` não é serializável em JSON; aqui é
+    o único lugar que converte de volta, no momento de chamar
+    `services.emprestar`.
+
+    Args:
+        valor: A string guardada na sessão, ou `None`.
+
+    Returns:
+        O `Decimal` correspondente, ou `None` se `valor` for `None`.
+    """
     return Decimal(valor) if valor is not None else None
 
 
@@ -853,6 +1009,23 @@ def wizard_emprestimo(request):
 
 @tenant_required
 def devolucao(request):
+    """Busca um ativo emprestado (por patrimônio, QR ou beneficiário) e registra a devolução.
+
+    A busca por nome/documento do beneficiário existe porque no balcão
+    quem chega para devolver às vezes não tem o ativo em mãos ainda (é
+    trazido depois) ou não sabe o número do patrimônio de cor — mas sabe
+    quem pegou.
+
+    Args:
+        request: A requisição, GET/POST com `?q=`/`q` para a busca, e
+            POST com `destino`/`ativo_id`/checklist/`foto` para confirmar
+            a devolução.
+
+    Returns:
+        `HttpResponse` renderizando `ativos/devolucao.html` com o
+        resultado da busca, ou um redirect após confirmar a devolução com
+        sucesso.
+    """
     busca = (request.GET.get("q") or request.POST.get("q") or "").strip()
     ativo = None
     detalhe_emprestimo = None
@@ -936,6 +1109,23 @@ def devolucao(request):
 
 @tenant_required
 def qrcode_imagem(request, pk):
+    """Gera, sob demanda, a imagem PNG do QR Code que aponta para `resolver_qr`.
+
+    Não há armazenamento em disco/storage do QR: o `qr_token` já está
+    persistido no `Ativo`, então a imagem é só uma renderização
+    determinística dele, gerada a cada requisição.
+
+    Args:
+        request: A requisição GET.
+        pk: PK do `Ativo` cujo QR Code será gerado.
+
+    Returns:
+        `HttpResponse` com a imagem PNG (`image/png`).
+
+    Raises:
+        django.http.Http404: Se `pk` não corresponder a um ativo dentro
+            do escopo do usuário.
+    """
     ativo = _ativo_no_escopo(request, pk)
     url = request.build_absolute_uri(reverse("app:ativos:resolver_qr", args=[ativo.qr_token]))
     imagem = qrcode.make(url)
@@ -1083,6 +1273,14 @@ def mapa(request):
 
 @tenant_required
 def manutencao_lista(request):
+    """Lista paginada dos ativos atualmente em manutenção, com o motivo/fornecedor de cada um.
+
+    Args:
+        request: A requisição GET.
+
+    Returns:
+        `HttpResponse` renderizando `ativos/manutencao_lista.html`.
+    """
     ativos_qs = _ativos_no_escopo(request).filter(
         status=StatusAtivo.MANUTENCAO.value
     ).select_related("categoria")
@@ -1191,6 +1389,7 @@ def etiquetas_folha(request):
         return redirect("app:ativos:etiquetas_centro")
 
     def url_de(ativo):
+        """URL absoluta do QR de um ativo, para embutir no PNG de cada etiqueta da folha."""
         return request.build_absolute_uri(
             reverse("app:ativos:resolver_qr", args=[ativo.qr_token])
         )
