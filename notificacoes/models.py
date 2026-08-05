@@ -14,6 +14,14 @@ from core.models import TenantModel
 
 
 class NotificacaoTemplate(TenantModel):
+    """Texto configurável de um tipo de aviso, por tenant.
+
+    Um tenant sem template cadastrado para um `Tipo` simplesmente não
+    recebe aquele aviso (ver `notificacoes.services.criar_e_enviar`) — é
+    assim que RF017 deixa a instituição desativar um tipo de notificação,
+    sem precisar de um campo "ativo" à parte.
+    """
+
     class Tipo(models.TextChoices):
         CONFIRMACAO_EMPRESTIMO = "confirmacao_emprestimo", "Confirmação de empréstimo"
         AVISO_7_DIAS = "aviso_7_dias", "Aviso 7 dias antes do vencimento"
@@ -38,6 +46,15 @@ class NotificacaoTemplate(TenantModel):
 
 
 class NotificacaoEnviada(TenantModel):
+    """Registro de uma tentativa de envio de notificação a um beneficiário.
+
+    Uma linha por canal disparado (um empréstimo com WhatsApp e Email
+    cadastrados gera duas linhas). É tanto o histórico mostrado no painel
+    "Notificações" quanto a base de deduplicação que
+    `notificacoes.services.ja_notificado_hoje` consulta para não reenviar
+    o mesmo aviso no mesmo dia.
+    """
+
     class Canal(models.TextChoices):
         WHATSAPP = "whatsapp", "WhatsApp"
         EMAIL = "email", "Email"

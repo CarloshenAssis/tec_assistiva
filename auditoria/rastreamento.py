@@ -37,6 +37,14 @@ _MODELOS_EXCLUIDOS = {"auditoria.registroauditoria"}
 
 
 def _rotulo(sender) -> str:
+    """Rótulo `"app_label.model_name"` (minúsculo) de um model, para `_MODELOS_EXCLUIDOS`.
+
+    Args:
+        sender: A classe do model, tal como recebida pelo sinal Django.
+
+    Returns:
+        String `"app_label.model_name"` em minúsculas.
+    """
     return f"{sender._meta.app_label}.{sender._meta.model_name}"
 
 
@@ -58,11 +66,30 @@ def _eh_modelo_historico(sender) -> bool:
     executor de migrations monta os models históricos num `Apps` próprio,
     isolado. É mais estável que checar `sender.__module__ == "__fake__"`, que
     depende do nome que o Django dá ao módulo sintético.
+
+    Args:
+        sender: A classe do model, tal como recebida pelo sinal Django.
+
+    Returns:
+        `True` se `sender` foi reconstruído por uma migration em vez de
+        vir do registro normal de apps.
     """
     return sender._meta.apps is not registro_global_de_apps
 
 
 def _deve_auditar(sender) -> bool:
+    """Decide se um `save`/`delete` de `sender` deve gerar registro de auditoria.
+
+    Combina as três exclusões: model histórico de migration, app fora da
+    lista de apps de domínio e o próprio model de auditoria (evitaria
+    recursão sem propósito).
+
+    Args:
+        sender: A classe do model, tal como recebida pelo sinal Django.
+
+    Returns:
+        `True` se o model deve ser auditado.
+    """
     if _eh_modelo_historico(sender):
         return False
     return sender._meta.app_label in _APPS_AUDITADAS and _rotulo(sender) not in _MODELOS_EXCLUIDOS
@@ -89,6 +116,17 @@ def _campos_diferentes(anterior, atual) -> list[str]:
 
 @receiver(pre_save)
 def _capturar_estado_anterior(sender, instance, **kwargs):
+    """Busca o estado do registro antes do `save()`, para comparar depois no `post_save`.
+
+    Roda em todo `pre_save` de model auditado; para uma criação (`pk` ainda
+    vazio) não há estado anterior a buscar.
+
+    Args:
+        sender: A classe do model que está sendo salvo.
+        instance: A instância prestes a ser salva, ainda com os valores
+            que serão persistidos.
+        **kwargs: Demais argumentos do sinal `pre_save` (não usados).
+    """
     if not _deve_auditar(sender):
         return
     # Guardado na própria instância (não num dict global por sender+pk): é o
@@ -102,6 +140,18 @@ def _capturar_estado_anterior(sender, instance, **kwargs):
 
 @receiver(post_save)
 def _auditar_criacao_ou_alteracao(sender, instance, created, **kwargs):
+    """Grava `CRIACAO` ou `ALTERACAO` na trilha, após um `save()` bem-sucedido.
+
+    Para alteração, só grava se algum campo de fato mudou de valor (ver
+    `_campos_diferentes`) — um `.save()` sem mudança não é evento de
+    auditoria, mesmo que o ORM tenha rodado o UPDATE.
+
+    Args:
+        sender: A classe do model salvo.
+        instance: A instância já salva, com os novos valores.
+        created: `True` se foi um INSERT (criação), `False` se foi UPDATE.
+        **kwargs: Demais argumentos do sinal `post_save` (não usados).
+    """
     if not _deve_auditar(sender):
         return
 
@@ -132,6 +182,14 @@ def _auditar_criacao_ou_alteracao(sender, instance, created, **kwargs):
 
 @receiver(post_delete)
 def _auditar_exclusao(sender, instance, **kwargs):
+    """Grava `EXCLUSAO` na trilha, após um `delete()` de model de domínio.
+
+    Args:
+        sender: A classe do model excluído.
+        instance: A instância que acabou de ser excluída (ainda em memória,
+            já sem linha correspondente no banco).
+        **kwargs: Demais argumentos do sinal `post_delete` (não usados).
+    """
     if not _deve_auditar(sender):
         return
     registrar(

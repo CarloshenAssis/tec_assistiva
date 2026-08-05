@@ -28,6 +28,15 @@ from auditoria.models import AcaoAuditada, RegistroAuditoria
 
 
 def _config(nome: str, padrao: int) -> int:
+    """Lê uma configuração de limite em `settings`, com valor padrão.
+
+    Args:
+        nome: Nome do atributo em `django.conf.settings`.
+        padrao: Valor a usar se `settings` não definir `nome`.
+
+    Returns:
+        O valor configurado, ou `padrao`.
+    """
     return getattr(settings, nome, padrao)
 
 
@@ -39,9 +48,13 @@ def limite_atingido(
     janela_minutos: int,
     acao: str = AcaoAuditada.CRIACAO,
 ) -> bool:
-    """
-    `True` se `usuario` já produziu `limite` ou mais eventos `acao` sobre
-    `objeto_tipo` nos últimos `janela_minutos`.
+    """Verifica se `usuario` estourou o limite de `acao` sobre `objeto_tipo`.
+
+    Semântica da janela: é uma janela deslizante (sliding window), não uma
+    janela fixa por relógio — conta todos os eventos `acao`/`objeto_tipo` de
+    `usuario` com `criado_em >= agora - janela_minutos`, recalculado a cada
+    chamada. Não há reset em horário fixo; o contador "esfria" evento a
+    evento, à medida que cada um sai da janela.
 
     `objeto_tipo` é `f"{app_label}.{NomeDaClasse}"` — **preserva a
     capitalização do model** (ex.: `Movimentacao._meta.label`, que vale
@@ -59,6 +72,22 @@ def limite_atingido(
     Usuário anônimo nunca é limitado por aqui — toda view protegida por
     este limitador já exige login antes (`@tenant_required`); quem não
     autenticou é outro problema (bloqueio de login, `contas/bloqueio.py`).
+
+    Args:
+        usuario: Usuário autenticado a checar. Anônimo/`None` nunca atinge
+            o limite (devolve `False` direto).
+        objeto_tipo: Rótulo `"app_label.NomeDaClasse"` do model-alvo,
+            obtido via `Model._meta.label`.
+        limite: Quantidade de eventos que, atingida ou ultrapassada dentro
+            da janela, caracteriza o limite como atingido.
+        janela_minutos: Tamanho da janela deslizante, em minutos, contada
+            a partir do instante da chamada.
+        acao: Ação auditada a contar (`AcaoAuditada.CRIACAO` por padrão).
+
+    Returns:
+        `True` se `usuario` já produziu `limite` ou mais eventos `acao`
+        sobre `objeto_tipo` nos últimos `janela_minutos`; `False` caso
+        contrário (inclusive para usuário anônimo).
     """
     if usuario is None or not getattr(usuario, "is_authenticated", False):
         return False
@@ -73,16 +102,30 @@ def limite_atingido(
 def registrar_limite_atingido(
     *, request, objeto_tipo: str, limite: int, janela_minutos: int, descricao: str
 ) -> None:
-    """
-    Grava o bloqueio na trilha — **uma vez por janela**, não a cada
-    tentativa recusada. Mesmo motivo do `bloqueio_tentativas` de login: quem
-    está abusando controla o volume de tentativas bloqueadas, então logar
-    cada uma seria o próprio vetor de inundação da trilha que a auditoria
-    deveria detectar, não alimentar.
+    """Grava, no máximo uma vez por janela, que o limite foi atingido.
+
+    Semântica da janela: mesma janela deslizante de `limite_atingido` —
+    "recente" aqui significa `criado_em >= agora - janela_minutos`. Mesmo
+    motivo do `bloqueio_tentativas` de login: quem está abusando controla o
+    volume de tentativas bloqueadas, então logar cada uma seria o próprio
+    vetor de inundação da trilha que a auditoria deveria detectar, não
+    alimentar.
 
     A deduplicação usa a mesma `descricao` (ela já identifica objeto_tipo +
     limiar, ver chamadores) dentro da janela corrente — se já existe um
     registro de bloqueio igual e recente, não grava de novo.
+
+    Args:
+        request: A requisição corrente, de onde saem usuário/IP/user agent
+            gravados no registro.
+        objeto_tipo: Rótulo do model-alvo, só para compor `descricao` nos
+            chamadores (não usado diretamente aqui além da deduplicação).
+        limite: Limiar que foi atingido, só para compor `descricao` nos
+            chamadores.
+        janela_minutos: Tamanho da janela deslizante usada tanto para
+            checar o limite quanto para deduplicar este registro.
+        descricao: Texto que identifica objeto_tipo + limiar; é a chave de
+            deduplicação dentro da janela.
     """
     from auditoria.services import registrar  # import tardio: evita ciclo
 

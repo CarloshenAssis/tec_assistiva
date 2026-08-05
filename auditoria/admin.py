@@ -35,22 +35,61 @@ class RegistroAuditoriaAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
-        # Registros só nascem pela API de serviço (`auditoria.services`).
-        # Permitir criação manual abriria a porta para forjar evidência.
+        """Bloqueia a criação manual de registros pelo admin.
+
+        Registros só nascem pela API de serviço (`auditoria.services`).
+        Permitir criação manual abriria a porta para forjar evidência.
+
+        Args:
+            request: A requisição corrente (não usada — a resposta é
+                incondicional).
+
+        Returns:
+            `False`, sempre.
+        """
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Bloqueia qualquer edição de registro — inclusive por superusuário.
+
+        Args:
+            request: A requisição corrente (não usada).
+            obj: O registro em questão, se houver (não usado).
+
+        Returns:
+            `False`, sempre.
+        """
         return False
 
     def has_delete_permission(self, request, obj=None):
+        """Bloqueia exclusão individual pelo admin.
+
+        O expurgo por prazo de retenção é feito pelo comando de linha de
+        comando `expurgar_auditoria`, nunca por um botão de tela.
+
+        Args:
+            request: A requisição corrente (não usada).
+            obj: O registro em questão, se houver (não usado).
+
+        Returns:
+            `False`, sempre.
+        """
         return False
 
     def get_queryset(self, request):
-        """
-        Um administrador de tenant só enxerga a trilha do próprio tenant.
+        """Restringe a listagem à trilha do tenant do usuário logado.
 
+        Um administrador de tenant só enxerga a trilha do próprio tenant.
         Sem esse filtro, o admin de uma prefeitura veria os eventos de
         outra — inclusive quais titulares foram consultados lá.
+
+        Args:
+            request: A requisição corrente, com `request.user` resolvido.
+
+        Returns:
+            Queryset de `RegistroAuditoria` já filtrado: sem filtro para
+            staff da plataforma/superusuário, filtrado por `tenant` para os
+            demais, e vazio se o usuário não tiver tenant associado.
         """
         qs = super().get_queryset(request)
         user = request.user

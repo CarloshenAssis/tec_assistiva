@@ -26,10 +26,10 @@ def filtrar_registros(
     usuario: str = "",
     somente_sensivel: bool = False,
 ):
-    """
-    Queryset de `RegistroAuditoria` filtrado, mais recente primeiro — sem
-    paginar. Usado tanto por `listar_registros` (tela) quanto pela
-    exportação em CSV (`owner/views.py::auditoria_exportar`,
+    """Monta o queryset de `RegistroAuditoria` filtrado, mais recente primeiro.
+
+    Sem paginar de propósito. Usado tanto por `listar_registros` (tela)
+    quanto pela exportação em CSV (`owner/views.py::auditoria_exportar`,
     `contas/views.py::auditoria_exportar`), que precisa de **todos** os
     registros do filtro, não só a página em exibição.
 
@@ -38,6 +38,18 @@ def filtrar_registros(
     ao próprio contrato. `RegistroAuditoria` usa manager padrão do Django
     (não é `TenantModel`, de propósito — ver auditoria/models.py), então o
     filtro por tenant aqui é explícito, não automático.
+
+    Args:
+        tenant_id: Id do tenant a restringir, ou `None` para visão
+            cross-tenant (Owner).
+        acao: Valor de `AcaoAuditada` a filtrar, ou `""` para não filtrar.
+        usuario: Trecho de `usuario_identificacao` a buscar
+            (case-insensitive, `icontains`), ou `""` para não filtrar.
+        somente_sensivel: Se `True`, restringe a `envolve_dado_sensivel=True`.
+
+    Returns:
+        Queryset de `RegistroAuditoria`, mais recente primeiro, com
+        `tenant`/`usuario` já pré-carregados via `select_related`.
     """
     qs = RegistroAuditoria.objects.select_related("tenant", "usuario").all()
 
@@ -62,11 +74,23 @@ def listar_registros(
     pagina=None,
     por_pagina=None,
 ) -> Page:
-    """
-    Página de `RegistroAuditoria`, mais recente primeiro.
+    """Pagina o resultado de `filtrar_registros`, mais recente primeiro.
 
     `por_pagina` segue a mesma lista fechada de `core.paginacao` — valor
     ausente ou fora dela cai no padrão de 50, nunca vira "sem limite".
+
+    Args:
+        tenant_id: Repassado a `filtrar_registros`.
+        acao: Repassado a `filtrar_registros`.
+        usuario: Repassado a `filtrar_registros`.
+        somente_sensivel: Repassado a `filtrar_registros`.
+        pagina: Número da página desejada (aceita o que `Paginator.get_page`
+            aceitar — inclusive `None`, que cai na primeira página).
+        por_pagina: Tamanho de página desejado; validado contra
+            `TAMANHOS_DISPONIVEIS`.
+
+    Returns:
+        Um `django.core.paginator.Page` com os registros da página pedida.
     """
     qs = filtrar_registros(
         tenant_id=tenant_id, acao=acao, usuario=usuario, somente_sensivel=somente_sensivel
