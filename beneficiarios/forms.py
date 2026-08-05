@@ -1,3 +1,12 @@
+"""
+Formulários do cadastro de titulares (`Beneficiario`) e de seus documentos
+anexados.
+
+`BeneficiarioForm` adapta o formulário ao tenant logado (segmento, unidades
+visíveis, disponibilidade de CNPJ) e cuida das validações que dependem de
+mais de um campo do POST — algo que o `Model` sozinho não valida.
+"""
+
 from django import forms
 
 from beneficiarios.models import Beneficiario, DocumentoBeneficiario
@@ -21,6 +30,8 @@ _TIPO_RELACAO_PADRAO_POR_SEGMENTO = {
 
 
 class BeneficiarioForm(forms.ModelForm):
+    """Formulário de cadastro/edição de um titular, adaptado ao tenant do usuário logado."""
+
     class Meta:
         model = Beneficiario
         fields = [
@@ -48,6 +59,18 @@ class BeneficiarioForm(forms.ModelForm):
         }
 
     def __init__(self, *args, usuario=None, **kwargs):
+        """Monta o formulário, restringindo campos conforme o tenant do usuário.
+
+        Sem `usuario` (ex.: uso fora de uma requisição autenticada), o
+        formulário fica com o comportamento genérico do `ModelForm` — sem
+        segmento padrão, sem restrição de unidades visíveis, oferecendo
+        CPF/CNPJ por padrão.
+
+        Args:
+            usuario: O `contas.Usuario` logado, usado para descobrir o
+                tenant, o segmento (padrão de `tipo_relacao`) e as unidades
+                que ele pode ver. `None` desliga essas adaptações.
+        """
         super().__init__(*args, **kwargs)
         self._tenant = usuario.tenant if usuario is not None else getattr(self.instance, "tenant", None)
         self.fields["unidade"].required = False
@@ -79,6 +102,18 @@ class BeneficiarioForm(forms.ModelForm):
                     self.fields["tipo_relacao"].initial = padrao
 
     def clean(self):
+        """Valida o documento conforme o tipo escolhido e marca o consentimento, se aplicável.
+
+        Cobre duas validações que dependem de mais de um campo do mesmo
+        POST, e por isso não cabem num `clean_<campo>` isolado: o formato
+        do documento (que depende de `tipo_documento`) e a unicidade por
+        tenant (que o `UniqueConstraint` do model só acusaria tarde, como
+        `IntegrityError` na hora do `save()`).
+
+        Returns:
+            O dicionário de dados limpos, como o `clean()` padrão do
+            Django.
+        """
         dados = super().clean()
 
         # A validação do documento depende do tipo escolhido no mesmo POST —
@@ -117,6 +152,8 @@ class BeneficiarioForm(forms.ModelForm):
 
 
 class DocumentoBeneficiarioForm(forms.ModelForm):
+    """Formulário de upload de um documento (RG, comprovante, laudo, receita) do titular."""
+
     class Meta:
         model = DocumentoBeneficiario
         fields = ["tipo", "arquivo"]

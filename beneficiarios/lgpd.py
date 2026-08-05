@@ -42,13 +42,23 @@ MARCADOR_ANONIMO = "[anonimizado]"
 
 
 def exportar_dados(beneficiario) -> dict[str, Any]:
-    """
-    Monta o pacote de dados do titular para atender ao direito de acesso e
-    portabilidade.
+    """Monta o pacote de dados do titular para atender ao direito de acesso e portabilidade.
 
     Formato de dicionário (serializável para JSON) em vez de arquivo pronto:
     quem chama decide se vira download, anexo de e-mail ou resposta de API,
     e a função continua testável sem tocar em I/O.
+
+    Cobre os dados cadastrais do titular, os metadados de tratamento (base
+    legal, consentimento), a lista de documentos anexados (só tipo e data —
+    não o conteúdo do arquivo) e o histórico de empréstimos. Não inclui
+    dados de outros titulares nem de outros tenants.
+
+    Args:
+        beneficiario: O `Beneficiario` cujos dados serão exportados.
+
+    Returns:
+        Dicionário com as chaves `titular`, `tratamento`, `documentos` e
+        `emprestimos`, pronto para `json.dumps`.
     """
     emprestimos = (
         beneficiario.emprestimos.select_related("movimentacao", "movimentacao__ativo")
@@ -134,11 +144,32 @@ _CAMPOS_TEXTO_ANONIMIZAVEIS = (
 
 @transaction.atomic
 def anonimizar(beneficiario, *, request=None, usuario=None) -> None:
-    """
-    Remove os dados identificáveis do titular, preservando a trilha patrimonial.
+    """Remove os dados identificáveis do titular, preservando a trilha patrimonial.
 
     Idempotente: chamar de novo em um titular já anonimizado não faz nada e
-    não gera novo registro de auditoria.
+    não gera novo registro de auditoria — importante porque a view que
+    aciona isto (`beneficiarios.views.anonimizar_titular`) pode ser
+    reenviada por engano (duplo clique, retry de rede) sem produzir um
+    segundo evento na auditoria nem quebrar a idempotência do direito já
+    exercido.
+
+    Zera nome, documento e os campos de contato/localização
+    (`_CAMPOS_TEXTO_ANONIMIZAVEIS`), apaga fisicamente os documentos
+    anexados do storage e marca `anonimizado_em`. Não toca no histórico de
+    empréstimos (`ativos.Movimentacao`/`DetalheEmprestimo`), que permanece
+    ligado ao `Beneficiario` agora anônimo — ver docstring do módulo para o
+    porquê.
+
+    Tudo roda numa única transação: ou a anonimização e o registro de
+    auditoria se completam juntos, ou nenhuma alteração é gravada.
+
+    Args:
+        beneficiario: O `Beneficiario` a anonimizar.
+        request: A requisição HTTP de origem, se houver — repassada para
+            `auditoria.services.registrar` para compor o registro.
+        usuario: O `contas.Usuario` que executa a anonimização, se
+            diferente do usuário da `request` (ex.: chamada por rotina
+            automática).
     """
     if beneficiario.esta_anonimizado:
         return
@@ -179,13 +210,23 @@ def anonimizar(beneficiario, *, request=None, usuario=None) -> None:
 
 
 def revogar_consentimento(beneficiario, *, request=None, usuario=None) -> None:
-    """
-    Registra a revogação do consentimento (Art. 8º, §5º).
+    """Registra a revogação do consentimento (Art. 8º, §5º).
 
     Não anonimiza automaticamente: revogar consentimento interrompe o
     tratamento que dependia dele, mas o titular pode ter equipamento em posse,
     e a devolução é obrigação contratual com base legal própria. Anonimizar
     junto seria decidir pelo titular algo que ele não pediu.
+
+    Idempotente pelo mesmo motivo de `anonimizar`: uma segunda chamada sobre
+    um titular já revogado não sobrescreve `consentimento_revogado_em` nem
+    duplica o registro de auditoria.
+
+    Args:
+        beneficiario: O `Beneficiario` cujo consentimento é revogado.
+        request: A requisição HTTP de origem, se houver — repassada para
+            `auditoria.services.registrar`.
+        usuario: O `contas.Usuario` que executa a revogação, se diferente
+            do usuário da `request`.
     """
     if beneficiario.consentimento_revogado_em is not None:
         return

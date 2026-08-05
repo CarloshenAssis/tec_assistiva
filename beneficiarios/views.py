@@ -1,3 +1,13 @@
+"""
+Views operacionais do cadastro de titulares (`Beneficiario`).
+
+Cobre o CRUD de ficha, o upload/download de documentos anexados e as duas
+views que atendem aos direitos do titular sob a LGPD — exportação (Art. 18,
+II e V) e anonimização (Art. 18, VI), cuja lógica de domínio mora em
+`beneficiarios/lgpd.py`; aqui só entra o controle de acesso (Admin, taxa) e
+a resposta HTTP.
+"""
+
 import json
 
 from django.contrib import messages
@@ -34,17 +44,27 @@ _LIMITE_ANONIMIZACOES_JANELA_MINUTOS = 60
 
 
 def _no_escopo(request):
-    """
-    Beneficiários visíveis ao usuário — os da unidade dele e os que não têm
-    unidade definida (docs/business-rules/unidades.md; ver o comentário no
-    campo `Beneficiario.unidade` para por que o nulo é inclusivo aqui e
-    exclusivo em Ativo).
+    """Devolve o queryset de `Beneficiario` visível ao usuário da requisição.
+
+    São os titulares da unidade do usuário mais os que não têm unidade
+    definida (docs/business-rules/unidades.md; ver o comentário no campo
+    `Beneficiario.unidade` para por que o nulo é inclusivo aqui e exclusivo
+    em `Ativo`). Base de toda view que busca um titular por `pk`, para que
+    um usuário não consiga acessar (nem por 404 disfarçado) titular de
+    unidade que não opera.
+
+    Args:
+        request: A requisição corrente, com `request.user` resolvido.
+
+    Returns:
+        QuerySet de `Beneficiario` já filtrado por unidade.
     """
     return filtrar_por_unidade(Beneficiario.objects.all(), request.user, incluir_sem_unidade=True)
 
 
 @tenant_required
 def lista(request):
+    """Lista paginada de titulares do tenant, com busca por nome, documento ou telefone."""
     busca = request.GET.get("q", "").strip()
     qs = _no_escopo(request)
     if busca:
@@ -59,6 +79,7 @@ def lista(request):
 
 @tenant_required
 def criar(request):
+    """Cadastra um novo titular no tenant."""
     if request.method == "POST":
         form = BeneficiarioForm(request.POST, usuario=request.user)
         if form.is_valid():
@@ -85,6 +106,7 @@ def criar(request):
 
 @tenant_required
 def editar(request, pk):
+    """Edita o cadastro de um titular já existente, registrando a alteração na trilha de auditoria."""
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     if request.method == "POST":
         form = BeneficiarioForm(request.POST, instance=beneficiario, usuario=request.user)
@@ -113,6 +135,12 @@ def editar(request, pk):
 
 @tenant_required
 def ficha(request, pk):
+    """Exibe a ficha completa do titular: dados, empréstimos e documentos anexados.
+
+    Abrir a ficha é, em si, acesso a dado pessoal e por isso fica registrado
+    na trilha de auditoria (LGPD Art. 37) — é o registro que responde "quem
+    consultou quem" caso o titular questione o tratamento de seus dados.
+    """
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     emprestimos = beneficiario.emprestimos.select_related("movimentacao", "movimentacao__ativo").order_by(
         "-movimentacao__data_hora"
@@ -141,13 +169,25 @@ def ficha(request, pk):
 
 @tenant_required
 def documento_novo(request, pk):
-    """
-    Anexa um documento (RG, comprovante, laudo, receita) ao titular.
+    """Anexa um documento (RG, comprovante, laudo, receita) ao titular.
 
     Exige o módulo `documentos_beneficiario` habilitado para o tenant
     (docs/business-rules/modulos.md) — upload de documento é opcional, não
     presumido; um POST forjado com o módulo desligado é recusado aqui, não
     só escondido da tela.
+
+    Args:
+        request: A requisição, com o arquivo em `request.FILES`.
+        pk: Chave primária do `Beneficiario` a receber o documento.
+
+    Returns:
+        Redireciona para a ficha do titular, com mensagem de sucesso ou
+        os erros de validação do formulário.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se a requisição não for
+            POST, ou se o módulo `documentos_beneficiario` não estiver
+            habilitado para o tenant.
     """
     beneficiario = get_object_or_404(_no_escopo(request), pk=pk)
     if request.method != "POST":
@@ -182,14 +222,20 @@ def documento_novo(request, pk):
 
 @tenant_required
 def baixar_documento(request, pk):
-    """
-    Entrega de documento anexado (RG, comprovante, laudo, receita médica).
+    """Entrega o arquivo de um documento anexado (RG, comprovante, laudo, receita médica).
 
     O documento só existe para esta consulta se o beneficiário dele estiver
     no escopo de unidade do usuário — mesmo filtro de `ficha()`. Sem isso,
     quem só devia enxergar uma unidade conseguia baixar dado sensível (RG,
     laudo, receita) de beneficiário de outra unidade só sabendo o id do
     documento, mesmo recebendo 404 ao tentar abrir a ficha dele.
+
+    Args:
+        request: A requisição corrente.
+        pk: Chave primária do `DocumentoBeneficiario` a baixar.
+
+    Returns:
+        A resposta HTTP de download do arquivo.
     """
     documento = get_object_or_404(
         DocumentoBeneficiario.objects.select_related("beneficiario").filter(
@@ -221,7 +267,26 @@ def baixar_documento(request, pk):
 
 @tenant_required
 def exportar(request, pk):
-    """Direito de acesso e portabilidade (LGPD Art. 18, II e V)."""
+    """Exporta o dossiê completo do titular em JSON — direito de acesso e portabilidade (LGPD Art. 18, II e V).
+
+    Restrito a Admin e sujeito a limite de taxa (`_LIMITE_EXPORTACOES`):
+    diferente de consultar a ficha, exportar entrega o dado bruto e por
+    completo, então o controle de quem pode e com que frequência é mais
+    apertado.
+
+    Args:
+        request: A requisição corrente.
+        pk: Chave primária do `Beneficiario` a exportar.
+
+    Returns:
+        `HttpResponse` com o JSON como anexo para download (sempre
+        `Cache-Control: private, no-store`, por ser dado pessoal), ou um
+        redirecionamento à ficha se o limite de taxa foi atingido.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin (`nivel_hierarquico(request) < NIVEL_ADMIN`).
+    """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode exportar os dados de um titular.")
 
@@ -270,11 +335,24 @@ def exportar(request, pk):
 
 @tenant_required
 def anonimizar_titular(request, pk):
-    """
-    Direito de eliminação (LGPD Art. 18, VI).
+    """Anonimiza os dados identificáveis do titular — direito de eliminação (LGPD Art. 18, VI).
 
-    Exige POST: é uma operação irreversível, e um GET a tornaria acionável
-    por um link, uma pré-visualização de mensageiro ou um crawler.
+    Exige POST: é uma operação irreversível (ver `beneficiarios.lgpd.anonimizar`),
+    e um GET a tornaria acionável por um link, uma pré-visualização de
+    mensageiro ou um crawler. Restrita a Admin e sujeita a limite de taxa
+    (`_LIMITE_ANONIMIZACOES`), mais apertado que o de exportação.
+
+    Args:
+        request: A requisição corrente.
+        pk: Chave primária do `Beneficiario` a anonimizar.
+
+    Returns:
+        Redireciona para a ficha do titular, com mensagem de sucesso ou
+        de limite de taxa atingido.
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se o usuário não for
+            Admin, ou se a requisição não for POST.
     """
     if nivel_hierarquico(request) < NIVEL_ADMIN:
         raise PermissionDenied("Somente Admin pode anonimizar os dados de um titular.")
