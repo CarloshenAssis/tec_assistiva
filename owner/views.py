@@ -30,6 +30,7 @@ from owner.forms import CriarAdministradorForm, TenantForm
 
 @owner_required
 def dashboard(request):
+    """Lista todos os contratos (tenants) da plataforma, paginados."""
     tenants_qs = Tenant.objects.all().order_by("nome")
     pagina = paginar(request, tenants_qs)
     return render(
@@ -47,6 +48,7 @@ def dashboard(request):
 
 @owner_required
 def criar_tenant(request):
+    """Provisiona um novo contrato (tenant) na plataforma."""
     if request.method == "POST":
         form = TenantForm(request.POST)
         if form.is_valid():
@@ -64,6 +66,7 @@ def criar_tenant(request):
 
 @owner_required
 def editar_tenant(request, pk):
+    """Atualiza os dados cadastrais de um contrato (tenant) existente."""
     tenant = get_object_or_404(Tenant, pk=pk)
     if request.method == "POST":
         form = TenantForm(request.POST, instance=tenant)
@@ -82,6 +85,7 @@ def editar_tenant(request, pk):
 
 @owner_required
 def tenant_detalhe(request, pk):
+    """Mostra os dados do contrato, seus usuários e os módulos habilitados."""
     tenant = get_object_or_404(Tenant, pk=pk)
     # `Usuario.objects` já é cross-tenant por padrão — ver owner/forms.py.
     usuarios = Usuario.objects.filter(tenant=tenant).order_by("username")

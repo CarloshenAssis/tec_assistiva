@@ -22,6 +22,25 @@ from django.core.exceptions import PermissionDenied
 
 
 def owner_required(view_func):
+    """Decorador que restringe uma view à equipe da plataforma (Owner).
+
+    Combina `django.contrib.auth.decorators.login_required` (exige sessão
+    autenticada) com a checagem de `is_platform_staff` — ver docstring do
+    módulo para o porquê de não aceitar `is_superuser` como alternativa.
+
+    Args:
+        view_func: A view Django a ser decorada.
+
+    Returns:
+        A view decorada. Requisições de usuário anônimo são redirecionadas
+        ao login; requisições de usuário de tenant recebem `PermissionDenied`
+        (HTTP 403).
+
+    Raises:
+        django.core.exceptions.PermissionDenied: Se `request.user` não for
+            `is_platform_staff=True`.
+    """
+
     @login_required
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):

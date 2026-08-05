@@ -5,6 +5,8 @@ from core.models import Tenant
 
 
 class TenantForm(forms.ModelForm):
+    """Cadastro/edição de contrato (tenant), usado por `criar_tenant` e `editar_tenant`."""
+
     class Meta:
         model = Tenant
         fields = [
